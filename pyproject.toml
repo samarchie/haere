@@ -1,6 +1,6 @@
 [project]
-name = "ara"
-version = "0.1.0"
+name = "haere"
+version = "0.0.1"
 description = "A tool to show how proposed changes to the public transport network affect travel times."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -9,11 +9,11 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.build.targets.wheel]
-packages = ["analysis"]
+[tool.setuptools]
+package-dir = {"" = "analysis"}
 
 [tool.ruff]
 target-version = "py314" 
