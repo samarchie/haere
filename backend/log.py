@@ -9,7 +9,7 @@ Import `get_logger` in any module to get a pre-configured logger::
 
 import logging
 
-import constants
+import backend.constants as constants
 
 
 def setup_logging() -> None:
