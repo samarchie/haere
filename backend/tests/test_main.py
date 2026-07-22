@@ -76,3 +76,25 @@ def test_run_reports_no_scenarios_found(tmp_path, monkeypatch):
 
     assert result.exit_code != 0
     assert "No scenarios found" in result.output
+
+
+def test_run_with_missing_scenario_file_reports_clean_error(tmp_path):
+    scenario_path = tmp_path / "does-not-exist.yaml"
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+    assert str(scenario_path) in result.output
+
+
+def test_run_with_invalid_scenario_reports_clean_error(tmp_path):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+    # Overwrite with content missing required fields.
+    scenario_path.write_text(yaml.safe_dump({"id": "remove-route-135"}))
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+    assert str(scenario_path) in result.output
