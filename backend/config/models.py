@@ -1,8 +1,9 @@
 """Pydantic models for city and analysis configuration."""
 
 from datetime import date, time
+from zoneinfo import available_timezones
 
-from pydantic import BaseModel, Field, HttpUrl, model_validator
+from pydantic import BaseModel, Field, FilePath, HttpUrl, model_validator
 
 
 class DataSource(BaseModel):
@@ -55,4 +56,23 @@ class RoutingParameters(BaseModel):
         for percentile in self.percentiles:
             if not (1 <= percentile <= 100):
                 raise ValueError(f"percentile {percentile} must be between 1 and 100")
+        return self
+
+
+class CityConfig(BaseModel):
+    """City-level configuration shared across all analyses in that city."""
+
+    schema_version: int = 1
+    id: str
+    name: str
+    timezone: str
+    osm_filepath: FilePath
+    elevation_filepath: FilePath | None = None
+    boundary_filepath: FilePath
+    h3_resolution: int = 9
+
+    @model_validator(mode="after")
+    def _check_timezone(self) -> "CityConfig":
+        if self.timezone not in available_timezones():
+            raise ValueError(f"'{self.timezone}' is not a recognised IANA timezone")
         return self
