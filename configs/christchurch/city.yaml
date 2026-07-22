@@ -1,0 +1,7 @@
+schema_version: 1
+id: christchurch
+name: "Christchurch"
+timezone: "Pacific/Auckland"
+osm_filepath: "data/chch.osm.pbf"
+boundary_filepath: "configs/christchurch/boundary.geojson"
+h3_resolution: 9
