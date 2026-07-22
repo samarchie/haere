@@ -1,6 +1,11 @@
+from pathlib import Path
+
 import click
 
-import backend.validate as validate
+from backend import validate
+from backend.config.loader import find_scenarios, load_scenario
+
+CONFIGS_ROOT = Path("configs")
 
 
 @click.group
@@ -28,6 +33,26 @@ def validate_cmd(source: str, verbose: bool):
             click.secho(f"GTFS file ({source}) is not valid.", fg="red", err=True)
     except FileNotFoundError as e:
         raise click.FileError(source, hint=str(e))
+
+
+@cli.command("run")
+@click.argument("scenario", required=False, type=click.Path(path_type=Path))
+def run_cmd(scenario: Path | None):
+    """Load and validate a scenario, given a path or chosen interactively."""
+    if scenario is None:
+        scenarios = find_scenarios(CONFIGS_ROOT)
+        if not scenarios:
+            raise click.ClickException(f"No scenarios found under {CONFIGS_ROOT}")
+        for index, path in enumerate(scenarios, start=1):
+            click.echo(f"{index}. {path.stem}")
+        choice = click.prompt(
+            "Select a scenario", type=click.IntRange(1, len(scenarios))
+        )
+        scenario = scenarios[choice - 1]
+
+    city, analysis = load_scenario(scenario)
+    click.echo(f"{analysis.metadata.title} ({city.name})")
+    click.echo(analysis.metadata.description)
 
 
 if __name__ == "__main__":
