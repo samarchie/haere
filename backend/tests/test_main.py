@@ -88,6 +88,17 @@ def test_run_with_missing_scenario_file_reports_clean_error(tmp_path):
     assert str(scenario_path) in result.output
 
 
+def test_run_with_malformed_yaml_reports_clean_error(tmp_path):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+    scenario_path.write_text("key: [unclosed")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+    assert str(scenario_path) in result.output
+
+
 def test_run_with_invalid_scenario_reports_clean_error(tmp_path):
     scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
     # Overwrite with content missing required fields.

@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pydantic
 import pytest
 import yaml
 
@@ -12,15 +13,17 @@ from backend.config.loader import (
 )
 from backend.tests.config.conftest import VALID_POLYGON
 
+INVALID_POINT = {"type": "Point", "coordinates": [172.6, -43.6]}
+
 
 @pytest.fixture
 def make_city(tmp_path, touch):
     """Return a factory that writes a valid city directory under tmp_path."""
 
-    def _make(city_id: str) -> Path:
+    def _make(city_id: str, boundary: dict = VALID_POLYGON) -> Path:
         osm_path = touch(f"{city_id}/city.osm.pbf")
         boundary_path = touch(
-            f"{city_id}/boundary.geojson", json.dumps(VALID_POLYGON).encode()
+            f"{city_id}/boundary.geojson", json.dumps(boundary).encode()
         )
         city_yaml = tmp_path / city_id / "city.yaml"
         city_yaml.write_text(
@@ -76,6 +79,13 @@ def test_load_city_reads_yaml(make_city):
 
     assert city.id == "christchurch"
     assert city.name == "Christchurch"
+
+
+def test_load_city_rejects_invalid_boundary_geometry(make_city):
+    city_dir = make_city("christchurch", boundary=INVALID_POINT)
+
+    with pytest.raises(pydantic.ValidationError):
+        load_city(city_dir)
 
 
 def test_load_analysis_reads_yaml(make_city, add_analysis):

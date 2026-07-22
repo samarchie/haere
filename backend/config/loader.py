@@ -4,11 +4,15 @@ from pathlib import Path
 
 import yaml
 
+from backend.config.boundary import load_boundary
 from backend.config.models import AnalysisConfig, CityConfig
 
 
 def load_city(city_dir: Path) -> CityConfig:
     """Load a single city's `city.yaml`.
+
+    Also validates that `boundary_filepath` contains a valid `Polygon` or
+    `MultiPolygon` GeoJSON geometry (see `load_boundary`).
 
     Args:
         city_dir: Directory containing `city.yaml` (e.g. `configs/christchurch`).
@@ -18,12 +22,15 @@ def load_city(city_dir: Path) -> CityConfig:
 
     Raises:
         FileNotFoundError: If `city_dir/city.yaml` doesn't exist.
-        pydantic.ValidationError: If its contents don't match `CityConfig`.
+        pydantic.ValidationError: If its contents don't match `CityConfig`, or
+            if `boundary_filepath`'s contents aren't a valid boundary geometry.
     """
     with open(city_dir / "city.yaml") as file:
         data = yaml.safe_load(file)
 
-    return CityConfig(**data)
+    city = CityConfig(**data)
+    load_boundary(city.boundary_filepath)
+    return city
 
 
 def load_analysis(filepath: Path) -> AnalysisConfig:

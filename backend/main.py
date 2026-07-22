@@ -2,6 +2,7 @@ from pathlib import Path
 
 import click
 import pydantic
+import yaml
 
 from backend import validate
 from backend.config.loader import find_scenarios, load_scenario
@@ -53,7 +54,12 @@ def run_cmd(scenario: Path | None):
 
     try:
         city, analysis = load_scenario(scenario)
-    except (FileNotFoundError, pydantic.ValidationError) as e:
+    except (
+        FileNotFoundError,
+        pydantic.ValidationError,
+        yaml.YAMLError,
+        TypeError,
+    ) as e:
         raise click.ClickException(f"Failed to load scenario {scenario}: {e}")
     click.echo(f"{analysis.metadata.title} ({city.name})")
     click.echo(analysis.metadata.description)
