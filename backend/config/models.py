@@ -76,3 +76,30 @@ class CityConfig(BaseModel):
         if self.timezone not in available_timezones():
             raise ValueError(f"'{self.timezone}' is not a recognised IANA timezone")
         return self
+
+
+class AnalysisConfig(BaseModel):
+    """One baseline-vs-modified intervention scenario within a city."""
+
+    schema_version: int = 1
+    id: str
+    metadata: ScenarioMetadata
+    baseline_gtfs_filepath: FilePath
+    modified_gtfs_filepath: FilePath
+    calendar_types: list[CalendarType]
+    time_windows: list[TimeWindow]
+    routing_parameters: RoutingParameters = Field(default_factory=RoutingParameters)
+
+    @model_validator(mode="after")
+    def _check_unique_calendar_type_names(self) -> "AnalysisConfig":
+        names = [calendar_type.name for calendar_type in self.calendar_types]
+        if len(names) != len(set(names)):
+            raise ValueError("duplicate calendar_types name")
+        return self
+
+    @model_validator(mode="after")
+    def _check_unique_time_window_names(self) -> "AnalysisConfig":
+        names = [window.name for window in self.time_windows]
+        if len(names) != len(set(names)):
+            raise ValueError("duplicate time_windows name")
+        return self
