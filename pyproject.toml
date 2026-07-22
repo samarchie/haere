@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "click>=8.4.2",
+    "geojson-pydantic>=2.1.1",
+    "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
@@ -25,3 +28,8 @@ target-version = "py314"
 [tool.ruff.lint]
 # Enable the isort (I) rules alongside defaults
 extend-select = ["I"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
