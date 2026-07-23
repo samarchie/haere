@@ -22,8 +22,9 @@ def load_city(city_dir: Path) -> CityConfig:
 
     Raises:
         FileNotFoundError: If `city_dir/city.yaml` doesn't exist.
-        pydantic.ValidationError: If its contents don't match `CityConfig`, or
-            if `boundary_filepath`'s contents aren't a valid boundary geometry.
+        pydantic.ValidationError: If its contents don't match `CityConfig`.
+        ValueError: If `boundary_filepath`'s contents aren't a valid boundary
+            geometry (see `load_boundary`).
     """
     with open(city_dir / "city.yaml") as file:
         data = yaml.safe_load(file)

@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-import pydantic
 import pytest
 import yaml
 
@@ -32,7 +31,7 @@ def make_city(tmp_path, touch):
                     "id": city_id,
                     "name": city_id.title(),
                     "timezone": "Pacific/Auckland",
-                    "osm_filepath": str(osm_path),
+                    "osm_source": str(osm_path),
                     "boundary_filepath": str(boundary_path),
                 }
             )
@@ -84,7 +83,7 @@ def test_load_city_reads_yaml(make_city):
 def test_load_city_rejects_invalid_boundary_geometry(make_city):
     city_dir = make_city("christchurch", boundary=INVALID_POINT)
 
-    with pytest.raises(pydantic.ValidationError):
+    with pytest.raises(ValueError, match="no Polygon/MultiPolygon features"):
         load_city(city_dir)
 
 

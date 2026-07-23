@@ -15,7 +15,7 @@ def test_city_config_accepts_valid_paths_and_timezone(touch):
         id="christchurch",
         name="Christchurch",
         timezone="Pacific/Auckland",
-        osm_filepath=osm_path,
+        osm_source=osm_path,
         boundary_filepath=boundary_path,
     )
 
@@ -33,18 +33,18 @@ def test_city_config_rejects_invalid_timezone(touch):
             id="christchurch",
             name="Christchurch",
             timezone="Not/A_Timezone",
-            osm_filepath=osm_path,
+            osm_source=osm_path,
             boundary_filepath=boundary_path,
         )
 
 
-@pytest.mark.parametrize("missing_field", ["osm_filepath", "boundary_filepath"])
+@pytest.mark.parametrize("missing_field", ["osm_source", "boundary_filepath"])
 def test_city_config_rejects_missing_file(touch, tmp_path, missing_field):
     kwargs = dict(
         id="christchurch",
         name="Christchurch",
         timezone="Pacific/Auckland",
-        osm_filepath=touch("city.osm.pbf"),
+        osm_source=touch("city.osm.pbf"),
         boundary_filepath=touch("boundary.geojson", json.dumps(VALID_POLYGON).encode()),
     )
     kwargs[missing_field] = tmp_path / "does_not_exist"
@@ -62,7 +62,7 @@ def test_city_config_accepts_optional_elevation_file(touch):
         id="christchurch",
         name="Christchurch",
         timezone="Pacific/Auckland",
-        osm_filepath=osm_path,
+        osm_source=osm_path,
         boundary_filepath=boundary_path,
         elevation_filepath=elevation_path,
     )

@@ -66,7 +66,7 @@ class CityConfig(BaseModel):
     id: str
     name: str
     timezone: str
-    osm_filepath: FilePath
+    osm_source: HttpUrl | FilePath
     elevation_filepath: FilePath | None = None
     boundary_filepath: FilePath
     h3_resolution: int = 9

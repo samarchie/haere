@@ -15,7 +15,7 @@ def cli():
     pass
 
 
-@cli.command("validate")
+@cli.command("validate-gtfs")
 @click.argument("source", type=click.STRING)
 @click.option(
     "--verbose",
@@ -59,6 +59,7 @@ def run_cmd(scenario: Path | None):
         pydantic.ValidationError,
         yaml.YAMLError,
         TypeError,
+        ValueError,
     ) as e:
         raise click.ClickException(f"Failed to load scenario {scenario}: {e}")
     click.echo(f"{analysis.metadata.title} ({city.name})")
