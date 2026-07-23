@@ -17,7 +17,7 @@ def test_load_scenario_loads_the_example_canterbury_scenario():
     city, analysis = load_scenario(scenario_path)
 
     assert city.id == "canterbury"
-    assert city.h3_resolution == 9
+    assert city.hexagon_resolution == 9
     assert analysis.id == "remove-route-135"
     assert len(analysis.calendar_types) == 3
     assert len(analysis.time_windows) == 4

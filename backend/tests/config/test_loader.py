@@ -32,7 +32,7 @@ def make_city(tmp_path, touch):
                     "name": city_id.title(),
                     "timezone": "Pacific/Auckland",
                     "osm_source": str(osm_path),
-                    "boundary_filepath": str(boundary_path),
+                    "boundary_source": str(boundary_path),
                 }
             )
         )

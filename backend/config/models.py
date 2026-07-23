@@ -68,8 +68,8 @@ class CityConfig(BaseModel):
     timezone: str
     osm_source: HttpUrl | FilePath
     elevation_filepath: FilePath | None = None
-    boundary_filepath: FilePath
-    h3_resolution: int = 9
+    boundary_source: HttpUrl | FilePath
+    hexagon_resolution: int = 9
 
     @model_validator(mode="after")
     def _check_timezone(self) -> "CityConfig":

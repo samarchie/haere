@@ -26,7 +26,7 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
                 "name": city_id.title(),
                 "timezone": "Pacific/Auckland",
                 "osm_source": str(osm_path),
-                "boundary_filepath": str(boundary_path),
+                "boundary_source": str(boundary_path),
             }
         )
     )
