@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -10,7 +9,6 @@ from backend.config.loader import (
     load_city,
     load_scenario,
 )
-from backend.tests.config.conftest import VALID_POLYGON
 
 INVALID_POINT = {"type": "Point", "coordinates": [172.6, -43.6]}
 
@@ -19,11 +17,8 @@ INVALID_POINT = {"type": "Point", "coordinates": [172.6, -43.6]}
 def make_city(tmp_path, touch):
     """Return a factory that writes a valid city directory under tmp_path."""
 
-    def _make(city_id: str, boundary: dict = VALID_POLYGON) -> Path:
+    def _make(city_id: str) -> Path:
         osm_path = touch(f"{city_id}/city.osm.pbf")
-        boundary_path = touch(
-            f"{city_id}/boundary.geojson", json.dumps(boundary).encode()
-        )
         city_yaml = tmp_path / city_id / "city.yaml"
         city_yaml.write_text(
             yaml.safe_dump(
@@ -32,7 +27,6 @@ def make_city(tmp_path, touch):
                     "name": city_id.title(),
                     "timezone": "Pacific/Auckland",
                     "osm_source": str(osm_path),
-                    "boundary_source": str(boundary_path),
                 }
             )
         )
@@ -55,6 +49,11 @@ def add_analysis(touch):
                 {
                     "id": analysis_id,
                     "metadata": {"title": analysis_id, "description": "..."},
+                    "isochrone_boundary": {
+                        "mode": "walking",
+                        "metric": "duration_mins",
+                        "value": 20,
+                    },
                     "baseline_gtfs_filepath": str(baseline_path),
                     "modified_gtfs_filepath": str(modified_path),
                     "calendar_types": [
@@ -78,13 +77,6 @@ def test_load_city_reads_yaml(make_city):
 
     assert city.id == "christchurch"
     assert city.name == "Christchurch"
-
-
-def test_load_city_rejects_invalid_boundary_geometry(make_city):
-    city_dir = make_city("christchurch", boundary=INVALID_POINT)
-
-    with pytest.raises(ValueError, match="no Polygon/MultiPolygon features"):
-        load_city(city_dir)
 
 
 def test_load_analysis_reads_yaml(make_city, add_analysis):

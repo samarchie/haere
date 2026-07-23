@@ -1,6 +1,7 @@
 """Pydantic models for city and analysis configuration."""
 
 from datetime import date, time
+from typing import Literal
 from zoneinfo import available_timezones
 
 from pydantic import BaseModel, Field, FilePath, HttpUrl, model_validator
@@ -68,7 +69,6 @@ class CityConfig(BaseModel):
     timezone: str
     osm_source: HttpUrl | FilePath
     elevation_filepath: FilePath | None = None
-    boundary_source: HttpUrl | FilePath
     hexagon_resolution: int = 9
 
     @model_validator(mode="after")
@@ -78,12 +78,21 @@ class CityConfig(BaseModel):
         return self
 
 
+class IsochroneBoundary(BaseModel):
+    """The isochrone (by mode and duration/distance) that bounds an analysis's hexagons."""
+
+    mode: Literal["driving", "cycling", "walking"]
+    metric: Literal["duration_mins", "distance_meters"]
+    value: int | float
+
+
 class AnalysisConfig(BaseModel):
     """One baseline-vs-modified intervention scenario within a city."""
 
     schema_version: int = 1
     id: str
     metadata: ScenarioMetadata
+    isochrone_boundary: IsochroneBoundary
     baseline_gtfs_filepath: FilePath
     modified_gtfs_filepath: FilePath
     calendar_types: list[CalendarType]
@@ -99,6 +108,13 @@ class AnalysisConfig(BaseModel):
 
     @model_validator(mode="after")
     def _check_unique_time_window_names(self) -> "AnalysisConfig":
+        names = [window.name for window in self.time_windows]
+        if len(names) != len(set(names)):
+            raise ValueError("duplicate time_windows name")
+        return self
+
+    @model_validator(mode="after")
+    def _check_valid_boundary_type(self) -> "AnalysisConfig":
         names = [window.name for window in self.time_windows]
         if len(names) != len(set(names)):
             raise ValueError("duplicate time_windows name")

@@ -3,5 +3,4 @@ id: canterbury
 name: Canterbury
 timezone: Pacific/Auckland
 osm_source: https://download.geofabrik.de/australia-oceania/new-zealand-latest.osm.pbf
-boundary_source: configs/canterbury/boundary.geojson
 hexagon_resolution: 9

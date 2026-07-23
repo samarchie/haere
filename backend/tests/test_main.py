@@ -1,23 +1,19 @@
-import json
 from pathlib import Path
 
 import yaml
 from click.testing import CliRunner
 
 from backend.main import cli
-from backend.tests.config.conftest import VALID_POLYGON
 
 
 def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
     city_dir = tmp_path / city_id
     osm_path = city_dir / "city.osm.pbf"
-    boundary_path = city_dir / "boundary.geojson"
     baseline_path = city_dir / "baseline.zip"
     modified_path = city_dir / "modified.zip"
     for path in (osm_path, baseline_path, modified_path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"placeholder")
-    boundary_path.write_text(json.dumps(VALID_POLYGON))
 
     (city_dir / "city.yaml").write_text(
         yaml.safe_dump(
@@ -26,7 +22,6 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
                 "name": city_id.title(),
                 "timezone": "Pacific/Auckland",
                 "osm_source": str(osm_path),
-                "boundary_source": str(boundary_path),
             }
         )
     )
@@ -38,6 +33,11 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
             {
                 "id": analysis_id,
                 "metadata": {"title": "Remove Route 135", "description": "..."},
+                "isochrone_boundary": {
+                    "mode": "walking",
+                    "metric": "duration_mins",
+                    "value": 20,
+                },
                 "baseline_gtfs_filepath": str(baseline_path),
                 "modified_gtfs_filepath": str(modified_path),
                 "calendar_types": [{"name": "weekday", "departure_date": "2026-08-03"}],

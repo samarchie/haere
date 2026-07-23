@@ -10,6 +10,12 @@ metadata:
     - name: "Environment Canterbury GTFS"
       published: "2026-06-01"
 
+# Assess any area that is less than 20 minutes walking from a bus stop
+isochrone_boundary: 
+  mode: walking
+  metric: duration_mins
+  value: 20
+
 baseline_gtfs_filepath: "data/gtfs.zip"
 modified_gtfs_filepath: "data/gtfs.zip"
 

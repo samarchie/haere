@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from backend.config.models import (
     AnalysisConfig,
     CalendarType,
+    IsochroneBoundary,
     RoutingParameters,
     ScenarioMetadata,
     TimeWindow,
@@ -17,6 +18,9 @@ def analysis_kwargs(touch):
     return dict(
         id="remove-route-135",
         metadata=ScenarioMetadata(title="Remove Route 135", description="..."),
+        isochrone_boundary=IsochroneBoundary(
+            mode="walking", metric="duration_mins", value=20
+        ),
         baseline_gtfs_filepath=touch("baseline.zip"),
         modified_gtfs_filepath=touch("modified.zip"),
         calendar_types=[CalendarType(name="weekday", departure_date=date(2026, 8, 3))],
