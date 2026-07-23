@@ -81,9 +81,9 @@ class CityConfig(BaseModel):
 class IsochroneBoundary(BaseModel):
     """The isochrone (by mode and duration/distance) that bounds an analysis's hexagons."""
 
-    mode: Literal["driving", "cycling", "walking"]
-    metric: Literal["duration_mins", "distance_meters"]
-    value: int | float
+    mode: Literal["driving", "cycling", "walking"] = "walking"
+    metric: Literal["duration_mins", "distance_meters"] = "duration_mins"
+    value: int | float = 20
 
 
 class AnalysisConfig(BaseModel):

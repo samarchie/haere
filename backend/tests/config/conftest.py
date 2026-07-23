@@ -4,13 +4,6 @@ from pathlib import Path
 
 import pytest
 
-VALID_POLYGON = {
-    "type": "Polygon",
-    "coordinates": [
-        [[172.6, -43.6], [172.7, -43.6], [172.7, -43.5], [172.6, -43.5], [172.6, -43.6]]
-    ],
-}
-
 
 @pytest.fixture
 def touch(tmp_path):
