@@ -1,0 +1,7 @@
+schema_version: 1
+id: canterbury
+name: Canterbury
+timezone: Pacific/Auckland
+osm_source: https://download.geofabrik.de/australia-oceania/new-zealand-latest.osm.pbf
+boundary_filepath: configs/canterbury/boundary.geojson
+h3_resolution: 9
