@@ -83,7 +83,7 @@ class IsochroneBoundary(BaseModel):
 
     mode: Literal["driving", "cycling", "walking"] = "walking"
     metric: Literal["duration_mins", "distance_meters"] = "duration_mins"
-    value: int | float = 20
+    value: int | float = Field(default=20, gt=0)
 
 
 class AnalysisConfig(BaseModel):
@@ -100,22 +100,12 @@ class AnalysisConfig(BaseModel):
     routing_parameters: RoutingParameters = Field(default_factory=RoutingParameters)
 
     @model_validator(mode="after")
-    def _check_unique_calendar_type_names(self) -> "AnalysisConfig":
-        names = [calendar_type.name for calendar_type in self.calendar_types]
-        if len(names) != len(set(names)):
-            raise ValueError("duplicate calendar_types name")
-        return self
-
-    @model_validator(mode="after")
-    def _check_unique_time_window_names(self) -> "AnalysisConfig":
-        names = [window.name for window in self.time_windows]
-        if len(names) != len(set(names)):
-            raise ValueError("duplicate time_windows name")
-        return self
-
-    @model_validator(mode="after")
-    def _check_valid_boundary_type(self) -> "AnalysisConfig":
-        names = [window.name for window in self.time_windows]
-        if len(names) != len(set(names)):
-            raise ValueError("duplicate time_windows name")
+    def _check_unique_names(self) -> "AnalysisConfig":
+        for field_name, items in (
+            ("calendar_types", self.calendar_types),
+            ("time_windows", self.time_windows),
+        ):
+            names = [item.name for item in items]
+            if len(names) != len(set(names)):
+                raise ValueError(f"duplicate {field_name} name")
         return self

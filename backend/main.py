@@ -55,7 +55,7 @@ def run_cmd(scenario: Path | None):
     try:
         city, analysis = load_scenario(scenario)
     except (
-        FileNotFoundError,
+        OSError,
         pydantic.ValidationError,
         yaml.YAMLError,
         TypeError,

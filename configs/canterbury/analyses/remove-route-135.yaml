@@ -17,6 +17,9 @@ isochrone_boundary:
   value: 20
 
 baseline_gtfs_filepath: "data/gtfs.zip"
+
+# TODO: replace with the actual Route 135-removed feed; currently identical
+# to the baseline, so this scenario models zero impact until fixed.
 modified_gtfs_filepath: "data/gtfs.zip"
 
 calendar_types:
