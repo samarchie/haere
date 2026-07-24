@@ -39,3 +39,6 @@ extend-select = ["I"]
 
 [tool.pytest.ini_options]
 addopts = "-n auto -v --cov=backend --cov-report=term-missing --tb=short"
+
+[tool.coverage.run]
+omit = ["backend/tests/*", "test_*.py"]
