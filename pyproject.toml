@@ -11,6 +11,14 @@ dependencies = [
     "pyyaml>=6.0.3",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-github-actions-annotate-failures>=0.4.2",
+    "pytest-xdist>=3.8.0",
+]
+
 [project.scripts]
 haere = "backend.main:cli"
 
@@ -29,7 +37,5 @@ target-version = "py314"
 # Enable the isort (I) rules alongside defaults
 extend-select = ["I"]
 
-[dependency-groups]
-dev = [
-    "pytest>=9.1.1",
-]
+[tool.pytest.ini_options]
+addopts = "-n auto -v --cov=backend --cov-report=term-missing --tb=short"
