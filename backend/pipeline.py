@@ -90,7 +90,18 @@ def run(
     # existed (e.g. study_area.parquet went missing), so this is driven by
     # whether the grid was rebuilt, not by whether a manifest was found.
     if rebuilt:
+        if manifest is not None:
+            # Discard matrices computed against the previous grid. A rebuild
+            # can land on a grid with the same hex count but different
+            # hexagon ids (e.g. GTFS/OSM content changed behind unchanged
+            # file paths), and expected_size depends only on the count, so
+            # nothing else would catch stale .bin files being re-recorded as
+            # valid against the new grid.
+            for calendar_type in analysis.calendar_types:
+                shutil.rmtree(output / calendar_type.name, ignore_errors=True)
         manifest = results.new_manifest(city, analysis, hex_ids, dtype)
+        results.write_hexes(hex_ids, output / "hexes.json")
+    elif not (output / "hexes.json").exists():
         results.write_hexes(hex_ids, output / "hexes.json")
 
     scenarios = _selected(analysis, only)
