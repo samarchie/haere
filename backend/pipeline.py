@@ -69,14 +69,27 @@ def run(
                 "produce. Rerun with --force to discard it."
             )
 
-    study_area = _study_area(city, analysis, output, reusable=manifest is not None)
+    study_area, rebuilt = _study_area(
+        city, analysis, output, reusable=manifest is not None
+    )
     hex_ids = study_area["id"].to_numpy()
+
+    if len(hex_ids) == 0:
+        raise ValueError(
+            f"{city.id}/{analysis.id} has an empty study area (0 hexagons). "
+            "travel_time_boundary is likely too restrictive for the actual "
+            "GTFS/OSM inputs, filtering out every hexagon."
+        )
 
     parameters = analysis.routing_parameters
     dtype = results.element_dtype(parameters.max_time)
     expected_size = results.matrix_size(len(hex_ids), dtype)
 
-    if manifest is None:
+    # The manifest header and hexes.json must always describe whatever grid
+    # is actually on disk. A rebuild can happen even when a manifest already
+    # existed (e.g. study_area.parquet went missing), so this is driven by
+    # whether the grid was rebuilt, not by whether a manifest was found.
+    if rebuilt:
         manifest = results.new_manifest(city, analysis, hex_ids, dtype)
         results.write_hexes(hex_ids, output / "hexes.json")
 
@@ -168,23 +181,28 @@ def _selected(analysis: AnalysisConfig, only: tuple[str, ...]) -> list:
 
 def _study_area(
     city: CityConfig, analysis: AnalysisConfig, output: Path, reusable: bool
-) -> gpd.GeoDataFrame:
+) -> tuple[gpd.GeoDataFrame, bool]:
     """Read back the published study area, or build and publish it.
 
     The grid is an output rather than a cache because every matrix is addressed
     by position within it. Reusing it also means a resumed run never starts a
     JVM merely to rediscover a grid it already has.
+
+    Returns:
+        The grid, and whether it was freshly built (as opposed to read back
+        from disk unchanged). A stale manifest header or hexes.json is only
+        safe to trust when this is False.
     """
     path = output / "study_area.parquet"
     if reusable and path.exists():
         logger.info(f"Reusing the study area at {path}")
-        return gpd.read_parquet(path)
+        return gpd.read_parquet(path), False
 
     grid = build_study_area(city, analysis)
     grid = grid.sort_values("id").reset_index(drop=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     grid.to_parquet(path)
-    return grid
+    return grid, True
 
 
 def _travel_times(

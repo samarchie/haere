@@ -269,7 +269,7 @@ def stale_fields(
         if recorded_study_area.get(field) != value
     ]
 
-    recorded_routing = manifest["routing_parameters"]["inputs"]
+    recorded_routing = manifest.get("routing_parameters", {}).get("inputs")
     current_routing = routing_parameter_inputs(analysis)
     if current_routing != recorded_routing:
         changed.append("routing_parameters")

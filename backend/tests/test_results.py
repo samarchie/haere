@@ -447,3 +447,12 @@ def test_unchanged_routing_parameters_are_not_stale(city, analysis):
     manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
 
     assert results.stale_fields(manifest, city, analysis) == []
+
+
+def test_a_manifest_missing_routing_parameters_is_stale_not_a_crash(city, analysis):
+    """Manifests written before routing_parameters existed have no such key.
+    That must be reported as stale, not raise a KeyError."""
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    del manifest["routing_parameters"]
+
+    assert results.stale_fields(manifest, city, analysis) == ["routing_parameters"]

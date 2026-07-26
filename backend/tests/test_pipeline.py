@@ -227,6 +227,51 @@ def test_output_paths_use_config_ids_not_object_reprs(city, analysis, stub_routi
     assert output == pipeline.OUTPUT_ROOT / "canterbury" / "remove-route-135"
 
 
+def test_an_empty_study_area_is_an_error(city, analysis, stub_routing, monkeypatch):
+    """A travel_time_boundary too restrictive for the GTFS/OSM inputs can
+    legitimately filter the grid down to zero hexagons. Proceeding would write
+    zero-byte matrices that every future run treats as complete."""
+    empty_grid = gpd.GeoDataFrame(
+        {"id": np.array([], dtype=np.uint64)}, geometry=[], crs=4326
+    )
+    monkeypatch.setattr(pipeline, "build_study_area", lambda city, analysis: empty_grid)
+
+    with pytest.raises(ValueError, match="travel_time_boundary"):
+        pipeline.run(city, analysis)
+
+
+def test_a_rebuilt_study_area_refreshes_the_manifest_and_hexes(
+    city, analysis, stub_routing, monkeypatch
+):
+    """If study_area.parquet goes missing (partial copy, manual deletion) but
+    manifest.json survives, the grid gets rebuilt. hexes.json and the
+    manifest header must describe the new grid, not the stale one from the
+    manifest that was already on disk."""
+    output = pipeline.run(city, analysis)
+    (output / "study_area.parquet").unlink()
+
+    other_hex_ids = np.array(
+        sorted(
+            h3.str_to_int(cell)
+            for cell in h3.grid_disk(h3.latlng_to_cell(-43.53, 172.63, 9), 2)
+        )[:5],
+        dtype=np.uint64,
+    )
+    new_grid = gpd.GeoDataFrame(
+        {"id": other_hex_ids},
+        geometry=[Point(172.6 + 0.001 * i, -43.5) for i in range(5)],
+        crs=4326,
+    )
+    monkeypatch.setattr(pipeline, "build_study_area", lambda city, analysis: new_grid)
+
+    pipeline.run(city, analysis)
+
+    manifest = results.read_manifest(output / "manifest.json")
+    assert manifest["hex_count"] == 5
+    written = json.loads((output / "hexes.json").read_text())
+    assert [h3.str_to_int(cell) for cell in written] == sorted(other_hex_ids.tolist())
+
+
 def test_a_wider_max_time_widens_the_element_type(city, analysis, stub_routing):
     analysis.routing_parameters = RoutingParameters(max_time=360)
 
