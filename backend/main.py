@@ -71,8 +71,6 @@ def run_cmd(scenario: Path | None):
     build_study_area(city, analysis)
 
 
-# ponytail: orchestration lives here until the travel-time loop lands, at which
-# point it moves to backend/pipeline.py.
 def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataFrame:
     """Build the hex grid covering everywhere within reach of a transit stop.
 
@@ -100,7 +98,7 @@ def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataF
 
     # One representative calendar type and time window is enough to bound the
     # study area; the full sweep belongs to the travel-time analysis.
-    boundary = analysis.study_area_boundary
+    boundary = analysis.travel_time_boundary
     calendar_type = analysis.calendar_types[0]
     time_window = analysis.time_windows[0]
 

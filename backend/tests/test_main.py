@@ -34,7 +34,7 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
             {
                 "id": analysis_id,
                 "metadata": {"title": "Remove Route 135", "description": "..."},
-                "study_area_boundary": {
+                "travel_time_boundary": {
                     "modes": ["transit"],
                     "value": 30,
                     "unit": "minutes",

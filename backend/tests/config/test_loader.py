@@ -49,10 +49,10 @@ def add_analysis(touch):
                 {
                     "id": analysis_id,
                     "metadata": {"title": analysis_id, "description": "..."},
-                    "isochrone_boundary": {
-                        "mode": "walking",
-                        "metric": "duration_mins",
+                    "travel_time_boundary": {
+                        "modes": ["walking"],
                         "value": 20,
+                        "unit": "minutes",
                     },
                     "baseline_gtfs_filepath": str(baseline_path),
                     "modified_gtfs_filepath": str(modified_path),

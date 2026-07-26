@@ -94,7 +94,7 @@ class CityConfig(BaseModel):
         return self
 
 
-class StudyAreaBoundary(BaseModel):
+class TravelTimeBoundary(BaseModel):
     """The isochrone (by mode and duration/distance) that bounds an analysis's hexagons to a given study area."""
 
     modes: list[Literal["transit", "driving", "cycling", "walking"]] = ["walking"]
@@ -140,7 +140,7 @@ class AnalysisConfig(BaseModel):
     schema_version: int = 1
     id: str
     metadata: ScenarioMetadata
-    study_area_boundary: StudyAreaBoundary
+    travel_time_boundary: TravelTimeBoundary
     baseline_gtfs_filepath: FilePath
     modified_gtfs_filepath: FilePath
     calendar_types: list[CalendarType] = Field(min_length=1)
