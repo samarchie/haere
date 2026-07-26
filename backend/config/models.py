@@ -143,8 +143,8 @@ class AnalysisConfig(BaseModel):
     study_area_boundary: StudyAreaBoundary
     baseline_gtfs_filepath: FilePath
     modified_gtfs_filepath: FilePath
-    calendar_types: list[CalendarType]
-    time_windows: list[TimeWindow]
+    calendar_types: list[CalendarType] = Field(min_length=1)
+    time_windows: list[TimeWindow] = Field(min_length=1)
     routing_parameters: RoutingParameters = Field(default_factory=RoutingParameters)
 
     @model_validator(mode="after")

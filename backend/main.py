@@ -2,6 +2,7 @@ from pathlib import Path
 
 import click
 import geopandas as gpd
+import pandas as pd
 import pydantic
 import yaml
 
@@ -87,8 +88,6 @@ def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataF
 
     # Imported here rather than at module scope so that `--help`,
     # `validate-gtfs` and the CLI tests never pay for r5py starting a JVM.
-    import pandas as pd
-
     from backend import hexgrid, routing
 
     stops = gtfs.unique_stops(
