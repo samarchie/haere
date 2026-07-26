@@ -1,6 +1,6 @@
 """Pydantic models for city and analysis configuration."""
 
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import available_timezones
 
@@ -29,6 +29,10 @@ class CalendarType(BaseModel):
     name: str
     departure_date: date
 
+    def departure_at(self, time_window: "TimeWindow") -> datetime:
+        """Return the moment this calendar type's date enters `time_window`."""
+        return datetime.combine(self.departure_date, time_window.start)
+
 
 class TimeWindow(BaseModel):
     """A representative time-of-day window (e.g. AM peak) to route within."""
@@ -42,6 +46,17 @@ class TimeWindow(BaseModel):
         if self.end <= self.start:
             raise ValueError("end must be after start")
         return self
+
+    @property
+    def duration(self) -> timedelta:
+        """How long the window lasts.
+
+        The validator guarantees `end` is after `start`, so this never wraps
+        past midnight and never goes negative.
+        """
+        return datetime.combine(date.min, self.end) - datetime.combine(
+            date.min, self.start
+        )
 
 
 class RoutingParameters(BaseModel):
@@ -67,7 +82,7 @@ class CityConfig(BaseModel):
     id: str
     name: str
     timezone: str
-    osm_source: HttpUrl | FilePath
+    osm_source: FilePath
     elevation_filepath: FilePath | None = None
     hexagon_resolution: int = 9
 
@@ -78,12 +93,44 @@ class CityConfig(BaseModel):
         return self
 
 
-class IsochroneBoundary(BaseModel):
-    """The isochrone (by mode and duration/distance) that bounds an analysis's hexagons."""
+class TravelTimeBoundary(BaseModel):
+    """The isochrone (by mode and duration/distance) that bounds an analysis's hexagons to a given study area."""
 
-    mode: Literal["driving", "cycling", "walking"] = "walking"
-    metric: Literal["duration_mins", "distance_meters"] = "duration_mins"
+    modes: list[Literal["transit", "driving", "cycling", "walking"]] = ["walking"]
     value: int | float = Field(default=20, gt=0)
+    unit: Literal[
+        "D",
+        "day",
+        "days",
+        "h",
+        "hour",
+        "hours",
+        "hr",
+        "m",
+        "micro",
+        "micros",
+        "microsecond",
+        "microseconds",
+        "milli",
+        "millis",
+        "millisecond",
+        "milliseconds",
+        "min",
+        "minute",
+        "minutes",
+        "ms",
+        "nano",
+        "nanos",
+        "nanosecond",
+        "nanoseconds",
+        "ns",
+        "s",
+        "sec",
+        "second",
+        "seconds",
+        "us",
+        "W",
+    ] = "minutes"
 
 
 class AnalysisConfig(BaseModel):
@@ -92,11 +139,11 @@ class AnalysisConfig(BaseModel):
     schema_version: int = 1
     id: str
     metadata: ScenarioMetadata
-    isochrone_boundary: IsochroneBoundary
+    travel_time_boundary: TravelTimeBoundary
     baseline_gtfs_filepath: FilePath
     modified_gtfs_filepath: FilePath
-    calendar_types: list[CalendarType]
-    time_windows: list[TimeWindow]
+    calendar_types: list[CalendarType] = Field(min_length=1)
+    time_windows: list[TimeWindow] = Field(min_length=1)
     routing_parameters: RoutingParameters = Field(default_factory=RoutingParameters)
 
     @model_validator(mode="after")

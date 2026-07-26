@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from pydantic import ValidationError
@@ -79,3 +79,16 @@ def test_routing_parameters_rejects_out_of_range_scalar(field, value):
 def test_routing_parameters_rejects_out_of_range_percentile(percentiles):
     with pytest.raises(ValidationError):
         RoutingParameters(percentiles=percentiles)
+
+
+def test_time_window_duration_is_the_span_between_start_and_end():
+    window = TimeWindow(name="am_peak", start=time(7, 0), end=time(9, 30))
+
+    assert window.duration == timedelta(hours=2, minutes=30)
+
+
+def test_calendar_type_departure_at_combines_its_date_with_the_window_start():
+    calendar_type = CalendarType(name="weekday", departure_date=date(2026, 8, 3))
+    window = TimeWindow(name="am_peak", start=time(7, 0), end=time(9, 0))
+
+    assert calendar_type.departure_at(window) == datetime(2026, 8, 3, 7, 0)

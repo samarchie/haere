@@ -9,7 +9,7 @@ Import `get_logger` in any module to get a pre-configured logger::
 
 import logging
 
-import backend.constants as constants
+DEFAULT_LOG_LEVEL = logging.DEBUG
 
 
 def setup_logging() -> None:
@@ -26,7 +26,7 @@ def setup_logging() -> None:
         return
 
     logging.basicConfig(
-        level=constants.LOGGING_LEVEL,
+        level=DEFAULT_LOG_LEVEL,
         handlers=[logging.StreamHandler()],
         format="%(asctime)s - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S %Z",

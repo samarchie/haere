@@ -6,16 +6,18 @@ via its official Docker image, and reports whether the feed passed (i.e. has
 no ERROR-severity notices).
 
 Requires Docker to be installed and running, and network access to pull
-`constants.GTFS_VALIDATOR_DOCKER_IMAGE` on first use.
+`GTFS_VALIDATOR_DOCKER_IMAGE` on first use.
 """
 
 import json
 import subprocess
 from pathlib import Path
 
-from backend import constants, log
+from backend import log
 
 logger = log.get_logger(__name__)
+
+GTFS_VALIDATOR_DOCKER_IMAGE = "ghcr.io/mobilitydata/gtfs-validator:latest"
 
 
 def _report_passed(output_dir: Path) -> bool:
@@ -92,7 +94,7 @@ def _run_validator(output_dir: Path, source: str, verbose: bool = True) -> bool:
         "--rm",
         "--volume",
         f"{output_dir}:{mount_dir}",
-        constants.GTFS_VALIDATOR_DOCKER_IMAGE,
+        GTFS_VALIDATOR_DOCKER_IMAGE,
         "-i",
         input_path,
         "-o",

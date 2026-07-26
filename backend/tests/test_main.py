@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -33,10 +34,10 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
             {
                 "id": analysis_id,
                 "metadata": {"title": "Remove Route 135", "description": "..."},
-                "isochrone_boundary": {
-                    "mode": "walking",
-                    "metric": "duration_mins",
-                    "value": 20,
+                "travel_time_boundary": {
+                    "modes": ["transit"],
+                    "value": 30,
+                    "unit": "minutes",
                 },
                 "baseline_gtfs_filepath": str(baseline_path),
                 "modified_gtfs_filepath": str(modified_path),
@@ -48,6 +49,23 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
     return analysis_path
 
 
+@pytest.fixture(autouse=True)
+def stub_pipeline(monkeypatch):
+    """Keep CLI tests off the routing engine.
+
+    `build_study_area` needs a real OSM extract, a real GTFS feed and a JVM.
+    These tests are about the command line, so record the call and return.
+    """
+    calls = []
+
+    def _fake(city, analysis):
+        calls.append((city, analysis))
+        return None
+
+    monkeypatch.setattr("backend.main.build_study_area", _fake)
+    return calls
+
+
 def test_run_with_explicit_scenario_path(tmp_path):
     scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
 
@@ -56,6 +74,18 @@ def test_run_with_explicit_scenario_path(tmp_path):
     assert result.exit_code == 0
     assert "Remove Route 135" in result.output
     assert "Christchurch" in result.output
+
+
+def test_run_invokes_the_pipeline_with_the_loaded_scenario(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert result.exit_code == 0
+    assert len(stub_pipeline) == 1
+    city, analysis = stub_pipeline[0]
+    assert city.id == "christchurch"
+    assert analysis.id == "remove-route-135"
 
 
 def test_run_with_no_argument_lists_scenarios_and_prompts(tmp_path, monkeypatch):

@@ -8,16 +8,19 @@ _CONFIGS_ROOT = Path(__file__).resolve().parents[3] / "configs"
 
 
 @pytest.fixture
-def canterbury_gtfs():
-    """Placeholder for the (gitignored) GTFS feed the example scenario references."""
-    gtfs_path = Path("data/gtfs.zip")
-    if gtfs_path.exists():
-        yield
-        return
-    gtfs_path.parent.mkdir(parents=True, exist_ok=True)
-    gtfs_path.write_bytes(b"placeholder")
+def canterbury_data():
+    """Placeholders for the (gitignored) data files the example scenario references."""
+    paths = [Path("data/gtfs.zip"), Path("data/chch.osm.pbf")]
+    created = []
+    for path in paths:
+        if path.exists():
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"placeholder")
+        created.append(path)
     yield
-    gtfs_path.unlink()
+    for path in created:
+        path.unlink()
 
 
 def test_find_scenarios_lists_the_example_scenario():
@@ -26,7 +29,7 @@ def test_find_scenarios_lists_the_example_scenario():
     assert [path.stem for path in scenarios] == ["remove-route-135"]
 
 
-def test_load_scenario_loads_the_example_canterbury_scenario(canterbury_gtfs):
+def test_load_scenario_loads_the_example_canterbury_scenario(canterbury_data):
     scenario_path = _CONFIGS_ROOT / "canterbury" / "analyses" / "remove-route-135.yaml"
 
     city, analysis = load_scenario(scenario_path)
