@@ -82,7 +82,6 @@ class CityConfig(BaseModel):
     id: str
     name: str
     timezone: str
-    # Local files only for now. Remote sources and a shared cache come later.
     osm_source: FilePath
     elevation_filepath: FilePath | None = None
     hexagon_resolution: int = 9

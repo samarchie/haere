@@ -2,8 +2,8 @@
 
 import math
 
-import geopandas as gpd
 import h3
+from geopandas import GeoDataFrame
 from shapely.geometry import Polygon
 
 from backend import log
@@ -40,7 +40,7 @@ def _to_latlng_poly(geometry: Polygon) -> h3.LatLngPoly | None:
     return h3.LatLngPoly(exterior)
 
 
-def _buffered_outwards(boundary: gpd.GeoDataFrame, resolution: int) -> gpd.GeoDataFrame:
+def _buffered_outwards(boundary: GeoDataFrame, resolution: int) -> GeoDataFrame:
     """Grow a boundary by one hexagon's inradius, returned in EPSG:4326."""
 
     buffered = boundary.to_crs(3857)
@@ -56,7 +56,7 @@ def _buffered_outwards(boundary: gpd.GeoDataFrame, resolution: int) -> gpd.GeoDa
     return buffered.to_crs(4326)
 
 
-def generate(boundary: gpd.GeoDataFrame, resolution: int) -> gpd.GeoDataFrame:
+def generate(boundary: GeoDataFrame, resolution: int) -> GeoDataFrame:
     """Cover a boundary with disjoint H3 cells at the given resolution.
 
     Args:
@@ -66,7 +66,7 @@ def generate(boundary: gpd.GeoDataFrame, resolution: int) -> gpd.GeoDataFrame:
 
     Returns:
         A GeoDataFrame of individual hexagon polygons in EPSG:4326, restricted
-        to those that touch `boundary`.
+            to those that touch `boundary`.
 
     Raises:
         RuntimeError: If `boundary` yields no polygon H3 can work with.
@@ -92,7 +92,7 @@ def generate(boundary: gpd.GeoDataFrame, resolution: int) -> gpd.GeoDataFrame:
 
     # One call per cell id: passing them all at once returns a single unioned
     # polygon, and we need the cells to stay disjoint.
-    grid = gpd.GeoDataFrame(
+    grid = GeoDataFrame(
         geometry=[h3.cells_to_h3shape([cell_id]) for cell_id in cell_ids],
         crs=4326,
     )

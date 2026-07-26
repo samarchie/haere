@@ -97,7 +97,7 @@ def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataF
     )
 
     # One representative calendar type and time window is enough to bound the
-    # study area; the full sweep belongs to the travel-time analysis.
+    # study area.
     boundary = analysis.travel_time_boundary
     calendar_type = analysis.calendar_types[0]
     time_window = analysis.time_windows[0]
@@ -105,7 +105,7 @@ def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataF
     reachable = routing.isochrone(
         network,
         stops,
-        max_travel_time=pd.Timedelta(boundary.value, boundary.unit),
+        travel_times=[pd.Timedelta(boundary.value, boundary.unit)],
         transport_modes=routing.modes(boundary.modes),
         departure=calendar_type.departure_at(time_window),
         departure_time_window=time_window.duration,

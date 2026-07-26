@@ -1,9 +1,4 @@
-"""Routing against an r5py transport network.
-
-The only module in the backend that imports r5py. Everything here takes plain
-paths, datetimes and timedeltas so that configuration models and the routing
-engine never have to know about each other.
-"""
+"""Routing against an r5py transport network."""
 
 from collections.abc import Iterable
 from datetime import datetime, timedelta
@@ -67,7 +62,7 @@ def _close_rings(geometry) -> MultiPolygon:
 def isochrone(
     network: r5py.TransportNetwork,
     destinations: gpd.GeoDataFrame,
-    max_travel_time: timedelta,
+    travel_times: list[timedelta],
     transport_modes: list[r5py.TransportMode],
     departure: datetime,
     departure_time_window: timedelta,
@@ -78,7 +73,8 @@ def isochrone(
         network: The network to route over.
         destinations: Points to route to. Not modified; an `id` column is
             added to a copy if one is absent.
-        max_travel_time: How far out to search.
+        travel_times: How far out to search. Each travel time is a row in the
+            returned GeoDataFrame.
         transport_modes: Modes to route with, from `modes()`.
         departure: When to depart.
         departure_time_window: How wide a spread of departure times to sample.
@@ -95,7 +91,7 @@ def isochrone(
     isochrones: gpd.GeoDataFrame = r5py.Isochrones(
         network,
         destinations,
-        isochrones=pd.TimedeltaIndex([max_travel_time]),
+        isochrones=pd.TimedeltaIndex(travel_times),
         transport_modes=transport_modes,
         departure=departure,
         departure_time_window=departure_time_window,
