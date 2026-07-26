@@ -1,44 +1,214 @@
 """Orchestration: build a study area, then route over it scenario by scenario."""
 
 import itertools
+import shutil
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
 
-from backend import gtfs, log
-from backend.config.models import AnalysisConfig, CityConfig
+from backend import gtfs, log, results
+from backend.config.models import (
+    AnalysisConfig,
+    CityConfig,
+    RoutingParameters,
+    TimeWindow,
+)
 
 logger = log.get_logger(__name__)
 
+OUTPUT_ROOT = Path("output")
 
-def run(city: CityConfig, analysis: AnalysisConfig) -> None:
-    """Compute travel times for every calendar type and time window."""
+VARIANTS = ("baseline", "modified")
 
-    # Imported here rather than at module scope so that `--help`,
-    # `validate-gtfs` and the CLI tests never start a JVM.
+
+class StaleOutputError(Exception):
+    """The stored output was built from a different study area."""
+
+
+def run(
+    city: CityConfig,
+    analysis: AnalysisConfig,
+    only: tuple[str, ...] = (),
+    force: bool = False,
+) -> Path:
+    """Compute and publish travel times for every selected scenario.
+
+    Args:
+        city: The city being analysed.
+        analysis: The baseline-versus-modified scenario.
+        only: Optional `<calendar_type>/<time_window>` selectors. Empty means
+            every combination.
+        force: Discard any existing output first.
+
+    Returns:
+        The output directory.
+
+    Raises:
+        StaleOutputError: If existing output was built from different inputs.
+        ValueError: If `only` selects no scenarios.
+    """
+
+    output = OUTPUT_ROOT / city.id / analysis.id
+    manifest_path = output / "manifest.json"
+
+    if force and output.exists():
+        logger.info(f"Clearing {output} before a forced rerun")
+        shutil.rmtree(output)
+
+    manifest = None
+    if manifest_path.exists():
+        manifest = results.read_manifest(manifest_path)
+        changed = results.stale_fields(manifest, city, analysis)
+        if changed:
+            raise StaleOutputError(
+                f"{output} was built from a different study area "
+                f"({', '.join(changed)} changed). Every matrix there is "
+                "addressed against hexagons this run is not using. Rerun with "
+                "--force to discard it."
+            )
+
+    study_area = _study_area(city, analysis, output, reusable=manifest is not None)
+    hex_ids = study_area["id"].to_numpy()
+
+    parameters = analysis.routing_parameters
+    dtype = results.element_dtype(parameters.max_time)
+    expected_size = results.matrix_size(len(hex_ids), dtype)
+
+    if manifest is None:
+        manifest = results.new_manifest(city, analysis, hex_ids, dtype)
+        results.write_hexes(hex_ids, output / "hexes.json")
+
+    scenarios = _selected(analysis, only)
+
+    for calendar_type, time_window in scenarios:
+        for variant in VARIANTS:
+            paths = {
+                percentile: output
+                / calendar_type.name
+                / time_window.name
+                / f"{variant}.p{percentile}.bin"
+                for percentile in parameters.percentiles
+            }
+
+            missing = [
+                percentile
+                for percentile, path in paths.items()
+                if not (path.exists() and path.stat().st_size == expected_size)
+            ]
+
+            if missing:
+                logger.info(
+                    f"Routing {variant} for {calendar_type.name}/{time_window.name}"
+                )
+                feed = getattr(analysis, f"{variant}_gtfs_filepath")
+                travel_times = _travel_times(
+                    city,
+                    feed,
+                    study_area,
+                    calendar_type.departure_at(time_window),
+                    time_window.duration,
+                    parameters,
+                )
+                for percentile in missing:
+                    results.write_matrix(
+                        travel_times,
+                        hex_ids,
+                        _column(percentile, parameters),
+                        dtype,
+                        paths[percentile],
+                    )
+
+            for percentile, path in paths.items():
+                results.record_matrix(
+                    manifest,
+                    calendar_type,
+                    time_window,
+                    variant,
+                    percentile,
+                    str(path.relative_to(output)),
+                )
+
+            results.write_manifest(manifest, manifest_path)
+
+    return output
+
+
+def _column(percentile: int, parameters: RoutingParameters) -> str:
+    """Which r5py column holds this percentile.
+
+    r5py renames the single default percentile to a bare `travel_time`.
+    """
+    if parameters.percentiles == [50]:
+        return "travel_time"
+    return f"travel_time_p{percentile}"
+
+
+def _selected(analysis: AnalysisConfig, only: tuple[str, ...]) -> list:
+    """Every calendar type and time window pair, filtered by `only`."""
+    scenarios = list(itertools.product(analysis.calendar_types, analysis.time_windows))
+    if not only:
+        return scenarios
+
+    wanted = set(only)
+    chosen = [
+        (calendar_type, time_window)
+        for calendar_type, time_window in scenarios
+        if f"{calendar_type.name}/{time_window.name}" in wanted
+    ]
+    if not chosen:
+        available = ", ".join(
+            f"{calendar_type.name}/{time_window.name}"
+            for calendar_type, time_window in scenarios
+        )
+        raise ValueError(f"--only matched no scenarios. Available: {available}")
+    return chosen
+
+
+def _study_area(
+    city: CityConfig, analysis: AnalysisConfig, output: Path, reusable: bool
+) -> gpd.GeoDataFrame:
+    """Read back the published study area, or build and publish it.
+
+    The grid is an output rather than a cache because every matrix is addressed
+    by position within it. Reusing it also means a resumed run never starts a
+    JVM merely to rediscover a grid it already has.
+    """
+    path = output / "study_area.parquet"
+    if reusable and path.exists():
+        logger.info(f"Reusing the study area at {path}")
+        return gpd.read_parquet(path)
+
+    grid = build_study_area(city, analysis)
+    grid = grid.sort_values("id").reset_index(drop=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    grid.to_parquet(path)
+    return grid
+
+
+def _travel_times(
+    city: CityConfig,
+    gtfs_filepath: Path,
+    study_area: gpd.GeoDataFrame,
+    departure: datetime,
+    departure_time_window: timedelta,
+    parameters: RoutingParameters,
+) -> pd.DataFrame:
+    """Route one variant over the study area. The seam tests stub."""
     from backend import routing
 
-    study_area = build_study_area(city, analysis)
-
-    baseline_network = routing.transport_network(
-        city.osm_source, analysis.baseline_gtfs_filepath, city.elevation_filepath
+    network = routing.transport_network(
+        city.osm_source, gtfs_filepath, city.elevation_filepath
     )
-    modified_network = routing.transport_network(
-        city.osm_source, analysis.modified_gtfs_filepath, city.elevation_filepath
+    return routing.travel_time_matrix(
+        network,
+        study_area,
+        study_area,
+        departure,
+        departure_time_window,
+        parameters,
     )
-
-    scenarios = itertools.product(analysis.calendar_types, analysis.time_windows)
-    for calendar_type, time_window in scenarios:
-        departure = calendar_type.departure_at(time_window)
-        logger.info(f"Routing {calendar_type.name}/{time_window.name}")
-        for network in (baseline_network, modified_network):
-            routing.travel_time_matrix(
-                network,
-                study_area,
-                study_area,
-                departure,
-                time_window.duration,
-            )
 
 
 def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataFrame:
@@ -51,15 +221,17 @@ def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataF
             boundary.
 
     Returns:
-        The hexagon grid for the study area, in EPSG:4326.
+        The hexagon grid for the study area, in EPSG:4326, with an `id` column
+        of H3 cell ids.
     """
 
+    # Imported here rather than at module scope so that `--help`,
+    # `validate-gtfs` and the CLI tests never start a JVM.
     from backend import hexgrid, routing
 
     stops = gtfs.unique_stops(
         analysis.baseline_gtfs_filepath, analysis.modified_gtfs_filepath
     )
-
     # The isochrone only needs distinct destinations; ids label output we
     # discard, so a positional id is honest here in a way it is not for hexagons.
     stops = stops.reset_index(drop=True)
@@ -73,7 +245,7 @@ def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataF
     # study area.
     boundary = analysis.travel_time_boundary
     calendar_type = analysis.calendar_types[0]
-    time_window = analysis.time_windows[0]
+    time_window: TimeWindow = analysis.time_windows[0]
 
     reachable = routing.isochrone(
         network,

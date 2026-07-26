@@ -43,6 +43,7 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+output/
 nosetests.xml
 coverage.xml
 *.cover
