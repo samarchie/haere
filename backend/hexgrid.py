@@ -3,6 +3,7 @@
 import math
 
 import h3
+import numpy
 from geopandas import GeoDataFrame
 from shapely.geometry import Polygon
 
@@ -93,6 +94,11 @@ def generate(boundary: GeoDataFrame, resolution: int) -> GeoDataFrame:
     # One call per cell id: passing them all at once returns a single unioned
     # polygon, and we need the cells to stay disjoint.
     grid = GeoDataFrame(
+        {
+            "id": numpy.array(
+                [h3.str_to_int(cell_id) for cell_id in cell_ids], dtype=numpy.uint64
+            )
+        },
         geometry=[h3.cells_to_h3shape([cell_id]) for cell_id in cell_ids],
         crs=4326,
     )
