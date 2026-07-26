@@ -1,7 +1,7 @@
 """Shared fixtures for the backend tests."""
 
 import os
-import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -14,7 +14,16 @@ import pytest
 # before pytest even begins collecting, is the only point guaranteed to
 # run first, and keeps the whole session off the developer's real
 # ~/.cache/r5py.
-os.environ["XDG_CACHE_HOME"] = tempfile.mkdtemp(prefix="r5py-test-cache-")
+#
+# Fixed and persistent rather than a fresh tempfile.mkdtemp() per run: the
+# JVM tier downloads a ~170MB R5 jar plus Helsinki's bundled elevation,
+# GTFS, OSM and population-grid samples, all static for a given r5py
+# version. A fresh directory every run means paying that download again
+# every run; reusing this one means only the first run ever does. CI reuses
+# it the same way via actions/cache keyed on the same path.
+R5PY_TEST_CACHE_DIR = Path(".cache") / "r5py-jvm-tests"
+R5PY_TEST_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["XDG_CACHE_HOME"] = str(R5PY_TEST_CACHE_DIR.resolve())
 
 
 def pytest_collection_modifyitems(config, items):

@@ -44,5 +44,14 @@ jobs:
       - name: Run tests with coverage
         run: uv run pytest
 
+      - name: Cache r5py JVM test data
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .cache/r5py-jvm-tests
+          # r5py's jar and Helsinki's bundled sample data are static for a
+          # given r5py version, so the key only needs to change when uv.lock
+          # (and therefore the pinned r5py version) changes.
+          key: r5py-jvm-tests-${{ hashFiles('uv.lock') }}
+
       - name: Run JVM integration tests
         run: RUN_JVM_TESTS=1 uv run pytest backend/tests/test_jvm.py --no-cov
