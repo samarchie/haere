@@ -39,7 +39,19 @@ def validate_cmd(source: str, verbose: bool):
 
 @cli.command("run")
 @click.argument("scenario", required=False, type=click.Path(path_type=Path))
-def run_cmd(scenario: Path | None):
+@click.option(
+    "--only",
+    multiple=True,
+    metavar="CALENDAR_TYPE/TIME_WINDOW",
+    help="Compute only these scenarios. Repeatable. Default: all of them.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Discard existing output and start over.",
+)
+def run_cmd(scenario: Path | None, only: tuple[str, ...], force: bool):
     """Load and validate a scenario, given a path or chosen interactively."""
     if scenario is None:
         scenarios = find_scenarios(CONFIGS_ROOT)
@@ -65,7 +77,12 @@ def run_cmd(scenario: Path | None):
     click.echo(f"{analysis.metadata.title} ({city.name})")
     click.echo(analysis.metadata.description)
 
-    pipeline.run(city, analysis)
+    try:
+        output = pipeline.run(city, analysis, only=only, force=force)
+    except (pipeline.StaleOutputError, ValueError) as e:
+        raise click.ClickException(str(e))
+
+    click.secho(f"Wrote results to {output}", fg="green")
 
 
 if __name__ == "__main__":
