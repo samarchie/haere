@@ -60,6 +60,11 @@ def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataF
         analysis.baseline_gtfs_filepath, analysis.modified_gtfs_filepath
     )
 
+    # The isochrone only needs distinct destinations; ids label output we
+    # discard, so a positional id is honest here in a way it is not for hexagons.
+    stops = stops.reset_index(drop=True)
+    stops["id"] = range(len(stops))
+
     network = routing.transport_network(
         city.osm_source, analysis.baseline_gtfs_filepath, city.elevation_filepath
     )

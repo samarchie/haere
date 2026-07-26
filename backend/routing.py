@@ -8,10 +8,11 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 import r5py
-from shapely.geometry import MultiPolygon
+from shapely.geometry import MultiLineString, MultiPolygon
 from shapely.ops import polygonize
 
 from backend import log
+from backend.config.models import RoutingParameters
 
 logger = log.get_logger(__name__)
 
@@ -21,6 +22,8 @@ TRANSPORT_MODES = {
     "cycling": r5py.TransportMode.BICYCLE,
     "driving": r5py.TransportMode.CAR,
 }
+
+SNAP_TO_NETWORK = True
 
 
 def modes(names: Iterable[str]) -> list[r5py.TransportMode]:
@@ -49,7 +52,7 @@ def transport_network(
     return network
 
 
-def _close_rings(geometry) -> MultiPolygon:
+def _close_rings(geometry: MultiLineString) -> MultiPolygon:
     """Close a collection of isochrone edge LineStrings into areas.
 
     The whole collection is polygonised in one call. Polygonising each
@@ -57,6 +60,17 @@ def _close_rings(geometry) -> MultiPolygon:
     split across several LineStrings, and would silently return no area.
     """
     return MultiPolygon(polygonize(geometry))
+
+
+def _require_ids(frame: gpd.GeoDataFrame, name: str) -> None:
+    """Fail loudly when a caller forgets ids.
+
+    Defaulting to positional ids would silently misaddress every result, since
+    row offsets in the output matrices are positions within the hexagon id
+    list, not within whatever frame happened to be passed.
+    """
+    if "id" not in frame.columns:
+        raise ValueError(f"{name} must have an 'id' column")
 
 
 def isochrone(
@@ -71,8 +85,7 @@ def isochrone(
 
     Args:
         network: The network to route over.
-        destinations: Points to route to. Not modified; an `id` column is
-            added to a copy if one is absent.
+        destinations: Points to route to. Must carry an `id` column.
         travel_times: How far out to search. Each travel time is a row in the
             returned GeoDataFrame.
         transport_modes: Modes to route with, from `modes()`.
@@ -83,9 +96,7 @@ def isochrone(
         The reachable area as polygons.
     """
 
-    destinations = destinations.copy()
-    if "id" not in destinations.columns:
-        destinations["id"] = range(len(destinations))
+    _require_ids(destinations, "destinations")
 
     logger.info("Starting isochrone generation")
     isochrones: gpd.GeoDataFrame = r5py.Isochrones(
@@ -107,17 +118,51 @@ def travel_time_matrix(
     network: r5py.TransportNetwork,
     origins: gpd.GeoDataFrame,
     destinations: gpd.GeoDataFrame,
-    transport_modes: list[r5py.TransportMode],
     departure: datetime,
     departure_time_window: timedelta,
+    parameters: RoutingParameters,
+    transport_modes: list[r5py.TransportMode] | None = None,
 ) -> pd.DataFrame:
-    """Return travel times between every origin and every destination."""
+    """Return travel times between every origin and every destination.
+
+    Args:
+        network: The network to route over.
+        origins: Places to route from. Must carry an `id` column.
+        destinations: Places to route to. Must carry an `id` column.
+        departure: When to depart.
+        departure_time_window: How wide a spread of departure times to sample.
+        parameters: Walk time, journey time and percentile settings.
+        transport_modes: Modes to route with. Defaults to transit and walking.
+
+    Returns:
+        One row per origin-destination pair, with `from_id`, `to_id` and either
+        `travel_time` (a single median percentile) or one
+        `travel_time_p{n}` column per requested percentile.
+    """
+
+    _require_ids(origins, "origins")
+    _require_ids(destinations, "destinations")
+
+    if transport_modes is None:
+        transport_modes = modes(["transit", "walking"])
+
+    # Route from a point guaranteed to lie inside each polygon. A centroid can
+    # fall outside a concave shape.
+    origins = origins.copy()
+    origins["geometry"] = origins["geometry"].representative_point()
+
+    destinations = destinations.copy()
+    destinations["geometry"] = destinations["geometry"].representative_point()
 
     return r5py.TravelTimeMatrix(
-        transport_network=network,
-        origins=origins,
-        destinations=destinations,
+        network,
+        origins,
+        destinations,
+        snap_to_network=SNAP_TO_NETWORK,
         departure=departure,
         departure_time_window=departure_time_window,
         transport_modes=transport_modes,
+        max_time=timedelta(minutes=parameters.max_time),
+        max_time_walking=timedelta(minutes=parameters.max_walk_time),
+        percentiles=parameters.percentiles,
     )  # type: ignore
