@@ -60,15 +60,21 @@ class TimeWindow(BaseModel):
 
 
 class RoutingParameters(BaseModel):
-    """Tunable r5py routing parameters, all defaulted to sensible values."""
+    """Tunable r5py routing parameters, all defaulted to sensible values.
+
+    Only settings r5py can actually honour appear here. Its `RegionalTask`
+    hard-codes monte carlo draws to 60 and exposes no transfer wait time, so
+    neither is configurable.
+    """
 
     max_walk_time: int = Field(default=15, gt=0)
-    transfer_wait_time: int = Field(default=5, ge=0)
+    max_time: int = Field(default=120, gt=0)
     percentiles: list[int] = Field(default_factory=lambda: [50])
-    monte_carlo_draws: int = Field(default=1, gt=0)
 
     @model_validator(mode="after")
-    def _check_percentiles_in_range(self) -> "RoutingParameters":
+    def _check_percentiles(self) -> "RoutingParameters":
+        if len(self.percentiles) > 5:
+            raise ValueError("R5 allows at most 5 percentiles")
         for percentile in self.percentiles:
             if not (1 <= percentile <= 100):
                 raise ValueError(f"percentile {percentile} must be between 1 and 100")
