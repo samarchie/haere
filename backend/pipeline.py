@@ -30,6 +30,7 @@ def run(city: CityConfig, analysis: AnalysisConfig) -> None:
     scenarios = itertools.product(analysis.calendar_types, analysis.time_windows)
     for calendar_type, time_window in scenarios:
         departure = calendar_type.departure_at(time_window)
+        logger.info(f"Routing {calendar_type.name}/{time_window.name}")
         for network in (baseline_network, modified_network):
             routing.travel_time_matrix(
                 network,
