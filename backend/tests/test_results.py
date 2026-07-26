@@ -424,3 +424,26 @@ def test_a_changed_feed_makes_the_output_stale(tmp_path, city, analysis):
     analysis.modified_gtfs_filepath = other
 
     assert results.stale_fields(manifest, city, analysis) == ["modified_gtfs_filepath"]
+
+
+def test_a_changed_max_time_makes_the_output_stale(city, analysis):
+    """max_time determines the matrix dtype; an undetected change would let a
+    resumed run silently overwrite uint8 files as uint16 while the manifest
+    still claims uint8."""
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    analysis.routing_parameters = RoutingParameters(max_time=300)
+
+    assert results.stale_fields(manifest, city, analysis) == ["routing_parameters"]
+
+
+def test_changed_percentiles_makes_the_output_stale(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    analysis.routing_parameters = RoutingParameters(percentiles=[50, 90])
+
+    assert results.stale_fields(manifest, city, analysis) == ["routing_parameters"]
+
+
+def test_unchanged_routing_parameters_are_not_stale(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+
+    assert results.stale_fields(manifest, city, analysis) == []

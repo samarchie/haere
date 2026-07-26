@@ -152,6 +152,19 @@ def study_area_inputs(city: CityConfig, analysis: AnalysisConfig) -> dict:
     }
 
 
+def routing_parameter_inputs(analysis: AnalysisConfig) -> dict:
+    """The routing parameters that determine how results are encoded.
+
+    Recorded so a later run can tell whether reusing the stored encoding is
+    safe. `max_time` decides the matrix element dtype (`element_dtype`);
+    `percentiles` decides which variants exist at all.
+    """
+    return {
+        "max_time": analysis.routing_parameters.max_time,
+        "percentiles": list(analysis.routing_parameters.percentiles),
+    }
+
+
 def new_manifest(
     city: CityConfig,
     analysis: AnalysisConfig,
@@ -187,6 +200,9 @@ def new_manifest(
         "study_area": {
             "file": "study_area.parquet",
             "inputs": study_area_inputs(city, analysis),
+        },
+        "routing_parameters": {
+            "inputs": routing_parameter_inputs(analysis),
         },
         "scenarios": [],
     }
@@ -237,11 +253,25 @@ def read_manifest(path: Path) -> dict:
 def stale_fields(
     manifest: dict, city: CityConfig, analysis: AnalysisConfig
 ) -> list[str]:
-    """Which study area inputs changed since the output was written.
+    """Which study area or routing parameter inputs changed since the output
+    was written.
 
-    Anything non-empty means every existing matrix is addressed against a
-    hexagon list this run is no longer using.
+    A changed study area input means every existing matrix is addressed
+    against a hexagon list this run is no longer using. A changed routing
+    parameter input means the existing matrices were encoded (dtype,
+    percentile set) for settings this run no longer has.
     """
-    recorded = manifest["study_area"]["inputs"]
-    current = study_area_inputs(city, analysis)
-    return [field for field, value in current.items() if recorded.get(field) != value]
+    recorded_study_area = manifest["study_area"]["inputs"]
+    current_study_area = study_area_inputs(city, analysis)
+    changed = [
+        field
+        for field, value in current_study_area.items()
+        if recorded_study_area.get(field) != value
+    ]
+
+    recorded_routing = manifest["routing_parameters"]["inputs"]
+    current_routing = routing_parameter_inputs(analysis)
+    if current_routing != recorded_routing:
+        changed.append("routing_parameters")
+
+    return changed
