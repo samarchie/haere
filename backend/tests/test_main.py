@@ -35,9 +35,9 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
                 "id": analysis_id,
                 "metadata": {"title": "Remove Route 135", "description": "..."},
                 "study_area_boundary": {
-                    "mode": "walking",
-                    "metric": "duration_mins",
+                    "modes": ["walking"],
                     "value": 20,
+                    "unit": "minutes",
                 },
                 "baseline_gtfs_filepath": str(baseline_path),
                 "modified_gtfs_filepath": str(modified_path),
