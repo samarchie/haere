@@ -53,16 +53,15 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
 def stub_pipeline(monkeypatch):
     """Keep CLI tests off the routing engine.
 
-    `build_study_area` needs a real OSM extract, a real GTFS feed and a JVM.
-    These tests are about the command line, so record the call and return.
+    The pipeline needs a real OSM extract, a real GTFS feed and a JVM. These
+    tests are about the command line, so record the call and return.
     """
     calls = []
 
     def _fake(city, analysis):
         calls.append((city, analysis))
-        return None
 
-    monkeypatch.setattr("backend.main.build_study_area", _fake)
+    monkeypatch.setattr("backend.pipeline.run", _fake)
     return calls
 
 
