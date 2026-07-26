@@ -1,11 +1,22 @@
 """The storage layer. No r5py, no JVM, no fixtures on disk beyond tmp_path."""
 
+import json
+
 import h3
 import numpy as np
 import pandas as pd
 import pytest
 
 from backend import results
+from backend.config.models import (
+    AnalysisConfig,
+    CalendarType,
+    CityConfig,
+    RoutingParameters,
+    ScenarioMetadata,
+    TimeWindow,
+    TravelTimeBoundary,
+)
 
 # Three real, ascending resolution-9 cell ids. Derived from h3 rather than
 # written as literals: an invented integer is not a valid cell id and will not
@@ -219,3 +230,197 @@ def test_parent_directories_are_created(tmp_path):
     )
 
     assert path.exists()
+
+
+@pytest.fixture
+def city(tmp_path):
+    osm = tmp_path / "city.osm.pbf"
+    osm.write_bytes(b"placeholder")
+    return CityConfig(
+        id="canterbury",
+        name="Canterbury",
+        timezone="Pacific/Auckland",
+        osm_source=osm,
+        hexagon_resolution=9,
+    )
+
+
+@pytest.fixture
+def analysis(tmp_path):
+    feed = tmp_path / "gtfs.zip"
+    feed.write_bytes(b"placeholder")
+    return AnalysisConfig(
+        id="remove-route-135",
+        metadata=ScenarioMetadata(title="Remove Route 135", description="..."),
+        travel_time_boundary=TravelTimeBoundary(
+            modes=["walking"], value=20, unit="minutes"
+        ),
+        baseline_gtfs_filepath=feed,
+        modified_gtfs_filepath=feed,
+        calendar_types=[CalendarType(name="weekday", departure_date="2026-08-03")],
+        time_windows=[TimeWindow(name="am_peak", start="07:00", end="09:00")],
+        routing_parameters=RoutingParameters(),
+    )
+
+
+def test_hexes_are_written_as_sorted_h3_strings(tmp_path):
+    path = tmp_path / "hexes.json"
+
+    results.write_hexes(HEX_IDS, path)
+
+    written = json.loads(path.read_text())
+    assert written == sorted(written)
+    assert written == [h3.int_to_str(int(i)) for i in HEX_IDS]
+    assert all(len(cell) == 15 for cell in written)
+
+
+def test_hex_strings_resolve_back_to_the_ids_that_addressed_the_rows(tmp_path):
+    """The browser searches strings; Python laid rows out by uint64 order."""
+    path = tmp_path / "hexes.json"
+
+    results.write_hexes(HEX_IDS, path)
+
+    written = json.loads(path.read_text())
+    for offset, cell in enumerate(written):
+        assert h3.str_to_int(cell) == HEX_IDS[offset]
+
+
+def test_manifest_describes_the_encoding(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+
+    assert manifest["hex_count"] == 3
+    assert manifest["hexagon_resolution"] == 9
+    assert manifest["encoding"] == {
+        "dtype": "uint8",
+        "bytes_per_value": 1,
+        "byte_order": "little",
+        "unit": "minutes",
+        "unreachable": 255,
+    }
+    assert manifest["scenarios"] == []
+
+
+def test_manifest_encoding_follows_the_dtype(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint16))
+
+    assert manifest["encoding"]["dtype"] == "uint16"
+    assert manifest["encoding"]["bytes_per_value"] == 2
+    assert manifest["encoding"]["unreachable"] == 65535
+
+
+def test_manifest_carries_the_frontend_facing_metadata(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+
+    assert manifest["city"]["name"] == "Canterbury"
+    assert manifest["analysis"]["title"] == "Remove Route 135"
+    assert manifest["percentiles"] == [50]
+
+
+def test_recording_a_matrix_adds_one_scenario(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+
+    results.record_matrix(
+        manifest,
+        analysis.calendar_types[0],
+        analysis.time_windows[0],
+        "baseline",
+        50,
+        "weekday/am_peak/baseline.p50.bin",
+    )
+
+    assert len(manifest["scenarios"]) == 1
+    scenario = manifest["scenarios"][0]
+    assert scenario["calendar_type"] == "weekday"
+    assert scenario["time_window"] == "am_peak"
+    assert scenario["departure_date"] == "2026-08-03"
+    assert scenario["start"] == "07:00"
+    assert scenario["variants"] == {
+        "baseline": {"50": "weekday/am_peak/baseline.p50.bin"}
+    }
+
+
+def test_the_second_variant_joins_the_same_scenario(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    calendar_type, time_window = analysis.calendar_types[0], analysis.time_windows[0]
+
+    results.record_matrix(manifest, calendar_type, time_window, "baseline", 50, "a.bin")
+    results.record_matrix(manifest, calendar_type, time_window, "modified", 50, "b.bin")
+
+    assert len(manifest["scenarios"]) == 1
+    assert manifest["scenarios"][0]["variants"] == {
+        "baseline": {"50": "a.bin"},
+        "modified": {"50": "b.bin"},
+    }
+
+
+def test_each_percentile_gets_its_own_entry(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    calendar_type, time_window = analysis.calendar_types[0], analysis.time_windows[0]
+
+    results.record_matrix(
+        manifest, calendar_type, time_window, "baseline", 50, "p50.bin"
+    )
+    results.record_matrix(
+        manifest, calendar_type, time_window, "baseline", 90, "p90.bin"
+    )
+
+    assert manifest["scenarios"][0]["variants"]["baseline"] == {
+        "50": "p50.bin",
+        "90": "p90.bin",
+    }
+
+
+def test_recording_the_same_matrix_twice_does_not_duplicate_it(city, analysis):
+    """A resumed run re-records what it skipped."""
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    calendar_type, time_window = analysis.calendar_types[0], analysis.time_windows[0]
+
+    for _ in range(2):
+        results.record_matrix(
+            manifest, calendar_type, time_window, "baseline", 50, "a.bin"
+        )
+
+    assert len(manifest["scenarios"]) == 1
+    assert manifest["scenarios"][0]["variants"]["baseline"] == {"50": "a.bin"}
+
+
+def test_manifest_round_trips_through_disk(tmp_path, city, analysis):
+    path = tmp_path / "manifest.json"
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+
+    results.write_manifest(manifest, path)
+
+    assert results.read_manifest(path) == manifest
+
+
+def test_unchanged_inputs_are_not_stale(tmp_path, city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+
+    assert results.stale_fields(manifest, city, analysis) == []
+
+
+def test_a_changed_boundary_makes_the_output_stale(city, analysis):
+    """A different boundary means a different grid, so every row offset in
+    every existing .bin would point at the wrong hexagon."""
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    analysis.travel_time_boundary = TravelTimeBoundary(
+        modes=["walking"], value=45, unit="minutes"
+    )
+
+    assert results.stale_fields(manifest, city, analysis) == ["travel_time_boundary"]
+
+
+def test_a_changed_resolution_makes_the_output_stale(city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    city.hexagon_resolution = 8
+
+    assert results.stale_fields(manifest, city, analysis) == ["hexagon_resolution"]
+
+
+def test_a_changed_feed_makes_the_output_stale(tmp_path, city, analysis):
+    manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
+    other = tmp_path / "other-gtfs.zip"
+    other.write_bytes(b"placeholder")
+    analysis.modified_gtfs_filepath = other
+
+    assert results.stale_fields(manifest, city, analysis) == ["modified_gtfs_filepath"]

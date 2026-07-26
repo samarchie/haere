@@ -8,12 +8,15 @@ This module must never import r5py: keeping it JVM-free is what makes the whole
 storage layer testable in milliseconds.
 """
 
+import json
 from pathlib import Path
 
+import h3
 import numpy as np
 import pandas as pd
 
 from backend import log
+from backend.config.models import AnalysisConfig, CalendarType, CityConfig, TimeWindow
 
 logger = log.get_logger(__name__)
 
@@ -122,3 +125,123 @@ def read_row(path: Path, row: int, hex_count: int, dtype: np.dtype) -> np.ndarra
         file.seek(row * hex_count * width)
         buffer = file.read(hex_count * width)
     return np.frombuffer(buffer, dtype=dtype.newbyteorder(BYTE_ORDER))
+
+
+def write_hexes(hex_ids: np.ndarray, path: Path) -> None:
+    """Publish the hexagon list the browser binary-searches for a row offset.
+
+    Written as 15-character strings because JavaScript cannot hold a uint64 in
+    a Number. H3 ids are fixed-width lowercase hex, so lexical order matches
+    the numeric order the rows were laid out in.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps([h3.int_to_str(int(cell)) for cell in hex_ids]))
+
+
+def study_area_inputs(city: CityConfig, analysis: AnalysisConfig) -> dict:
+    """The configuration that determines the study area grid.
+
+    Recorded so a later run can tell whether reusing the stored grid is safe.
+    """
+    return {
+        "osm_source": str(city.osm_source),
+        "baseline_gtfs_filepath": str(analysis.baseline_gtfs_filepath),
+        "modified_gtfs_filepath": str(analysis.modified_gtfs_filepath),
+        "hexagon_resolution": city.hexagon_resolution,
+        "travel_time_boundary": analysis.travel_time_boundary.model_dump(mode="json"),
+    }
+
+
+def new_manifest(
+    city: CityConfig,
+    analysis: AnalysisConfig,
+    hex_ids: np.ndarray,
+    dtype: np.dtype,
+) -> dict:
+    """Build an empty manifest describing how to decode this analysis."""
+    return {
+        "schema_version": 1,
+        "city": {
+            "id": city.id,
+            "name": city.name,
+            "timezone": city.timezone,
+        },
+        "analysis": {
+            "id": analysis.id,
+            "title": analysis.metadata.title,
+            "description": analysis.metadata.description,
+            "sources": [
+                source.model_dump(mode="json") for source in analysis.metadata.sources
+            ],
+        },
+        "hexagon_resolution": city.hexagon_resolution,
+        "hex_count": len(hex_ids),
+        "percentiles": list(analysis.routing_parameters.percentiles),
+        "encoding": {
+            "dtype": dtype.name,
+            "bytes_per_value": dtype.itemsize,
+            "byte_order": "little",
+            "unit": "minutes",
+            "unreachable": unreachable(dtype),
+        },
+        "study_area": {
+            "file": "study_area.parquet",
+            "inputs": study_area_inputs(city, analysis),
+        },
+        "scenarios": [],
+    }
+
+
+def record_matrix(
+    manifest: dict,
+    calendar_type: CalendarType,
+    time_window: TimeWindow,
+    variant: str,
+    percentile: int,
+    relative_path: str,
+) -> None:
+    """Note that one matrix is now on disk, creating its scenario if needed."""
+    for scenario in manifest["scenarios"]:
+        if (
+            scenario["calendar_type"] == calendar_type.name
+            and scenario["time_window"] == time_window.name
+        ):
+            break
+    else:
+        scenario = {
+            "calendar_type": calendar_type.name,
+            "departure_date": calendar_type.departure_date.isoformat(),
+            "time_window": time_window.name,
+            "start": time_window.start.isoformat(timespec="minutes"),
+            "end": time_window.end.isoformat(timespec="minutes"),
+            "variants": {},
+        }
+        manifest["scenarios"].append(scenario)
+
+    scenario["variants"].setdefault(variant, {})[str(percentile)] = relative_path
+
+
+def write_manifest(manifest: dict, path: Path) -> None:
+    """Publish the manifest. Rewritten after every matrix, so it never
+    describes a file that is not there."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(manifest, indent=2))
+    temporary.replace(path)
+
+
+def read_manifest(path: Path) -> dict:
+    return json.loads(path.read_text())
+
+
+def stale_fields(
+    manifest: dict, city: CityConfig, analysis: AnalysisConfig
+) -> list[str]:
+    """Which study area inputs changed since the output was written.
+
+    Anything non-empty means every existing matrix is addressed against a
+    hexagon list this run is no longer using.
+    """
+    recorded = manifest["study_area"]["inputs"]
+    current = study_area_inputs(city, analysis)
+    return [field for field, value in current.items() if recorded.get(field) != value]
