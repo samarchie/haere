@@ -43,3 +43,6 @@ jobs:
 
       - name: Run tests with coverage
         run: uv run pytest
+
+      - name: Run JVM integration tests
+        run: RUN_JVM_TESTS=1 uv run pytest backend/tests/test_jvm.py --no-cov

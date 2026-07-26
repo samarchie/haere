@@ -52,11 +52,26 @@ must likewise already be on disk.
 
 ```bash
 haere run configs/canterbury/analyses/remove-route-135.yaml
-haere run                    # pick a scenario interactively
+haere run --only weekday/am_peak     # just one scenario
+haere run --force                    # discard existing output and start over
+haere run                            # pick a scenario interactively
 haere validate-gtfs data/gtfs.zip
-uv run pytest                # tests, parallel with coverage
+uv run pytest                        # fast tests, with coverage
+RUN_JVM_TESTS=1 uv run pytest backend/tests/test_jvm.py --no-cov
+                                      # slow tests against a real routing engine
 ```
 
+Results are written to `output/<city>/<analysis>/` as dense binary travel time
+matrices plus a `manifest.json` describing how to decode them. See
+`docs/superpowers/specs/2026-07-26-travel-time-results-design.md` for the
+format. Runs resume: a matrix already on disk at the right size is skipped.
+
+The JVM tier starts a real R5 routing engine against r5py's bundled Helsinki
+sample data. It is skipped by default (`RUN_JVM_TESTS` unset); filtering it
+with pytest's `-m` flag on a real command line is unsafe in this repo, since
+r5py's own argument parser also claims `-m` (for `--max-memory`) and reads the
+process's actual command line at import time — so the tier is gated by an
+environment variable and selected by path instead.
 
 ## License
 

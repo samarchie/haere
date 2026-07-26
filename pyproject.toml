@@ -19,7 +19,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "pytest-github-actions-annotate-failures>=0.4.2",
-    "pytest-xdist>=3.8.0",
+    "r5py-sampledata-helsinki>=1.1.1",
 ]
 
 [project.scripts]
@@ -41,7 +41,10 @@ target-version = "py314"
 extend-select = ["I"]
 
 [tool.pytest.ini_options]
-addopts = "-n auto -v --cov=backend --cov-report=term-missing --tb=short"
+addopts = "-v --cov=backend --cov-report=term-missing --tb=short"
+markers = [
+    "jvm: starts a real JVM through r5py. Slow and skipped by default; run with `RUN_JVM_TESTS=1 uv run pytest backend/tests/test_jvm.py`.",
+]
 
 [tool.coverage.run]
 omit = ["backend/tests/*", "test_*.py"]
