@@ -63,10 +63,10 @@ def run(
         changed = results.stale_fields(manifest, city, analysis)
         if changed:
             raise StaleOutputError(
-                f"{output} was built from a different study area "
-                f"({', '.join(changed)} changed). Every matrix there is "
-                "addressed against hexagons this run is not using. Rerun with "
-                "--force to discard it."
+                f"{output} was built with different inputs "
+                f"({', '.join(changed)} changed). Existing matrices there may "
+                "be addressed or encoded differently to what this run would "
+                "produce. Rerun with --force to discard it."
             )
 
     study_area = _study_area(city, analysis, output, reusable=manifest is not None)
