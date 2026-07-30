@@ -58,8 +58,16 @@ def stub_pipeline(monkeypatch):
     """
     calls = []
 
-    def _fake(city, analysis, only=(), force=False):
-        calls.append({"city": city, "analysis": analysis, "only": only, "force": force})
+    def _fake(city, analysis, only=(), force=False, max_workers=None):
+        calls.append(
+            {
+                "city": city,
+                "analysis": analysis,
+                "only": only,
+                "force": force,
+                "max_workers": max_workers,
+            }
+        )
         return Path("output") / city.id / analysis.id
 
     monkeypatch.setattr("backend.pipeline.run", _fake)
@@ -176,13 +184,31 @@ def test_run_reports_the_output_directory(tmp_path, stub_pipeline):
     assert "output/christchurch/remove-route-135" in result.output
 
 
+def test_workers_is_passed_through(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path), "--workers", "4"])
+
+    assert result.exit_code == 0
+    assert stub_pipeline[0]["max_workers"] == 4
+
+
+def test_workers_defaults_to_none(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert result.exit_code == 0
+    assert stub_pipeline[0]["max_workers"] is None
+
+
 def test_stale_output_reports_a_clean_error(tmp_path, monkeypatch):
     """A three-hour job must not end in a traceback."""
     from backend import pipeline
 
     scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
 
-    def _stale(city, analysis, only=(), force=False):
+    def _stale(city, analysis, only=(), force=False, max_workers=None):
         raise pipeline.StaleOutputError("travel_time_boundary changed")
 
     monkeypatch.setattr("backend.pipeline.run", _stale)
@@ -197,7 +223,7 @@ def test_stale_output_reports_a_clean_error(tmp_path, monkeypatch):
 def test_an_unmatched_only_reports_a_clean_error(tmp_path, monkeypatch):
     scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
 
-    def _unmatched(city, analysis, only=(), force=False):
+    def _unmatched(city, analysis, only=(), force=False, max_workers=None):
         raise ValueError("--only matched no scenarios. Available: weekday/am_peak")
 
     monkeypatch.setattr("backend.pipeline.run", _unmatched)

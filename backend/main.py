@@ -51,7 +51,15 @@ def validate_cmd(source: str, verbose: bool):
     default=False,
     help="Discard existing output and start over.",
 )
-def run_cmd(scenario: Path | None, only: tuple[str, ...], force: bool):
+@click.option(
+    "--workers",
+    type=int,
+    default=None,
+    help="Concurrent routing workers. Default: half the machine's CPU count.",
+)
+def run_cmd(
+    scenario: Path | None, only: tuple[str, ...], force: bool, workers: int | None
+):
     """Load and validate a scenario, given a path or chosen interactively."""
     if scenario is None:
         scenarios = find_scenarios(CONFIGS_ROOT)
@@ -78,7 +86,9 @@ def run_cmd(scenario: Path | None, only: tuple[str, ...], force: bool):
     click.echo(analysis.metadata.description)
 
     try:
-        output = pipeline.run(city, analysis, only=only, force=force)
+        output = pipeline.run(
+            city, analysis, only=only, force=force, max_workers=workers
+        )
     except (pipeline.StaleOutputError, ValueError) as e:
         raise click.ClickException(str(e))
 
