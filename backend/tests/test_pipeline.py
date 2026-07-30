@@ -409,3 +409,15 @@ def test_two_variants_route_concurrently_when_workers_allow_it(
     monkeypatch.setattr(pipeline, "_travel_times", _fake_matrix)
 
     pipeline.run(city, analysis, only=("weekday/am_peak",), max_workers=2)
+
+
+def test_an_exception_from_one_task_propagates(
+    city, analysis, stub_routing, monkeypatch
+):
+    def _explode(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(pipeline, "_travel_times", _explode)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        pipeline.run(city, analysis, only=("weekday/am_peak",))
