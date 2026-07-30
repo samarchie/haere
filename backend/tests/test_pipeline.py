@@ -383,3 +383,29 @@ def test_a_wider_max_time_widens_the_element_type(city, analysis, stub_routing):
     assert (
         output / "weekday" / "am_peak" / "baseline.p50.bin"
     ).stat().st_size == results.matrix_size(2, np.dtype(np.uint16))
+
+
+def test_two_variants_route_concurrently_when_workers_allow_it(
+    city, analysis, tmp_path, grid, monkeypatch
+):
+    """If the pool only ran one task at a time, the second `barrier.wait()`
+    would never arrive and the first would time out."""
+    monkeypatch.setattr(pipeline, "OUTPUT_ROOT", tmp_path / "output")
+    monkeypatch.setattr(pipeline, "build_study_area", lambda city, analysis: grid)
+    monkeypatch.setattr(pipeline, "_ensure_networks_built", lambda city, analysis: None)
+
+    barrier = threading.Barrier(2, timeout=5)
+
+    def _fake_matrix(*args, **kwargs):
+        barrier.wait()
+        return pd.DataFrame(
+            {
+                "from_id": np.repeat(HEX_IDS, 2),
+                "to_id": np.tile(HEX_IDS, 2),
+                "travel_time": [0.0, 12.0, 12.0, 0.0],
+            }
+        )
+
+    monkeypatch.setattr(pipeline, "_travel_times", _fake_matrix)
+
+    pipeline.run(city, analysis, only=("weekday/am_peak",), max_workers=2)
