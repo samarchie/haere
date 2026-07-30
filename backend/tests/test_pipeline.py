@@ -65,13 +65,17 @@ def analysis(tmp_path):
 
 
 @pytest.fixture
-def stub_routing(monkeypatch, tmp_path):
-    """Replace the JVM-backed calls with a deterministic fake grid and matrix."""
-    grid = gpd.GeoDataFrame(
+def grid():
+    return gpd.GeoDataFrame(
         {"id": HEX_IDS},
         geometry=[Point(172.6, -43.5), Point(172.61, -43.5)],
         crs=4326,
     )
+
+
+@pytest.fixture
+def stub_routing(monkeypatch, tmp_path, grid):
+    """Replace the JVM-backed calls with a deterministic fake grid and matrix."""
     calls = {"matrices": 0}
 
     def _fake_study_area(city, analysis):
@@ -89,6 +93,7 @@ def stub_routing(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pipeline, "build_study_area", _fake_study_area)
     monkeypatch.setattr(pipeline, "_travel_times", _fake_matrix)
+    monkeypatch.setattr(pipeline, "_ensure_networks_built", lambda city, analysis: None)
     monkeypatch.setattr(pipeline, "OUTPUT_ROOT", tmp_path / "output")
     return calls
 

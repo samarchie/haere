@@ -3,10 +3,13 @@
 import itertools
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 
 from backend import gtfs, log, results
@@ -36,6 +39,17 @@ def _default_workers() -> int:
     return max(1, (os.cpu_count() or 1) // 2)
 
 
+@dataclass
+class _RoutingTask:
+    """One scenario/variant's routing work: what to compute, what to write."""
+
+    calendar_type: CalendarType
+    time_window: TimeWindow
+    variant: str
+    paths: dict[int, Path]
+    missing: list[int]
+
+
 class StaleOutputError(Exception):
     """The stored output was built from a different study area."""
 
@@ -45,6 +59,7 @@ def run(
     analysis: AnalysisConfig,
     only: tuple[str, ...] = (),
     force: bool = False,
+    max_workers: int | None = None,
 ) -> Path:
     """Compute and publish travel times for every selected scenario.
 
@@ -54,6 +69,8 @@ def run(
         only: Optional `<calendar_type>/<time_window>` selectors. Empty means
             every combination.
         force: Discard any existing output first.
+        max_workers: How many scenario/variant routing tasks to run
+            concurrently. Defaults to half the machine's CPU count.
 
     Returns:
         The output directory.
@@ -119,6 +136,7 @@ def run(
 
     scenarios = _selected(analysis, only)
 
+    tasks = []
     for calendar_type, time_window in scenarios:
         for variant in VARIANTS:
             paths = {
@@ -128,46 +146,48 @@ def run(
                 / f"{variant}.p{percentile}.bin"
                 for percentile in parameters.percentiles
             }
-
             missing = [
                 percentile
                 for percentile, path in paths.items()
                 if not (path.exists() and path.stat().st_size == expected_size)
             ]
+            tasks.append(
+                _RoutingTask(calendar_type, time_window, variant, paths, missing)
+            )
 
-            if missing:
-                logger.info(
-                    f"Routing {variant} for {calendar_type.name}/{time_window.name}"
-                )
-                feed = getattr(analysis, f"{variant}_gtfs_filepath")
-                travel_times = _travel_times(
+    pending = [task for task in tasks if task.missing]
+
+    if pending:
+        # Warm the cache on this thread first: transport_network() is
+        # @lru_cache'd but not safe against two worker threads racing on the
+        # same cache miss.
+        _ensure_networks_built(city, analysis)
+
+        workers = max_workers if max_workers is not None else _default_workers()
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(
+                    _route_and_write,
                     city,
-                    feed,
+                    analysis,
                     study_area,
-                    calendar_type.departure_at(time_window),
-                    time_window.duration,
+                    hex_ids,
+                    dtype,
                     parameters,
-                )
-                for percentile in missing:
-                    results.write_matrix(
-                        travel_times,
-                        hex_ids,
-                        _column(percentile, parameters),
-                        dtype,
-                        paths[percentile],
-                    )
+                    task,
+                ): task
+                for task in pending
+            }
+            for future in as_completed(futures):
+                future.result()  # re-raise, if the task failed
+                _record(manifest, manifest_path, output, futures[future])
 
-            for percentile, path in paths.items():
-                results.record_matrix(
-                    manifest,
-                    calendar_type,
-                    time_window,
-                    variant,
-                    percentile,
-                    str(path.relative_to(output)),
-                )
-
-            results.write_manifest(manifest, manifest_path)
+    # Tasks with nothing missing were never dispatched, but still need
+    # recording (matches the pre-existing behaviour of recording every
+    # scenario/variant, not just the ones that were freshly routed).
+    for task in tasks:
+        if not task.missing:
+            _record(manifest, manifest_path, output, task)
 
     return output
 
@@ -229,6 +249,77 @@ def _study_area(
     path.parent.mkdir(parents=True, exist_ok=True)
     study_area.to_parquet(path)
     return study_area, True
+
+
+def _ensure_networks_built(city: CityConfig, analysis: AnalysisConfig) -> None:
+    """Warm the network cache for both variants before routing concurrently.
+
+    The seam tests stub, the same way `_travel_times` is stubbed, so no test
+    ever starts a real JVM.
+    """
+    from backend import routing
+
+    routing.transport_network(
+        city.osm_source, analysis.baseline_gtfs_filepath, city.elevation_filepath
+    )
+    routing.transport_network(
+        city.osm_source, analysis.modified_gtfs_filepath, city.elevation_filepath
+    )
+
+
+def _route_and_write(
+    city: CityConfig,
+    analysis: AnalysisConfig,
+    study_area: gpd.GeoDataFrame,
+    hex_ids: np.ndarray,
+    dtype: np.dtype,
+    parameters: RoutingParameters,
+    task: _RoutingTask,
+) -> None:
+    """Route one scenario/variant and write its missing matrix files.
+
+    Runs on a worker thread. Must not touch the manifest — recording happens
+    back on the main thread via `_record`, so the manifest never needs a lock.
+    """
+    logger.info(
+        f"Routing {task.variant} for {task.calendar_type.name}/{task.time_window.name}"
+    )
+    feed = getattr(analysis, f"{task.variant}_gtfs_filepath")
+    travel_times = _travel_times(
+        city,
+        feed,
+        study_area,
+        task.calendar_type.departure_at(task.time_window),
+        task.time_window.duration,
+        parameters,
+    )
+    for percentile in task.missing:
+        results.write_matrix(
+            travel_times,
+            hex_ids,
+            _column(percentile, parameters),
+            dtype,
+            task.paths[percentile],
+        )
+
+
+def _record(
+    manifest: dict, manifest_path: Path, output: Path, task: _RoutingTask
+) -> None:
+    """Note every path in `task` in the manifest and publish it.
+
+    Only ever called from the main thread.
+    """
+    for percentile, path in task.paths.items():
+        results.record_matrix(
+            manifest,
+            task.calendar_type,
+            task.time_window,
+            task.variant,
+            percentile,
+            str(path.relative_to(output)),
+        )
+    results.write_manifest(manifest, manifest_path)
 
 
 def _travel_times(
