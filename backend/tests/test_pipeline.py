@@ -93,6 +93,22 @@ def stub_routing(monkeypatch, tmp_path):
     return calls
 
 
+def test_default_workers_is_half_the_cpu_count(monkeypatch):
+    monkeypatch.setattr(pipeline.os, "cpu_count", lambda: 8)
+    assert pipeline._default_workers() == 4
+
+
+def test_default_workers_is_never_less_than_one(monkeypatch):
+    monkeypatch.setattr(pipeline.os, "cpu_count", lambda: 1)
+    assert pipeline._default_workers() == 1
+
+
+def test_default_workers_handles_an_unknown_cpu_count(monkeypatch):
+    """os.cpu_count() returns None when the count can't be determined."""
+    monkeypatch.setattr(pipeline.os, "cpu_count", lambda: None)
+    assert pipeline._default_workers() == 1
+
+
 def test_run_writes_a_matrix_per_variant_per_scenario(city, analysis, stub_routing):
     output = pipeline.run(city, analysis)
 
