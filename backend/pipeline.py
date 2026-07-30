@@ -11,6 +11,7 @@ import pandas as pd
 from backend import gtfs, log, results
 from backend.config.models import (
     AnalysisConfig,
+    CalendarType,
     CityConfig,
     RoutingParameters,
     TimeWindow,
@@ -169,7 +170,9 @@ def _column(percentile: int, parameters: RoutingParameters) -> str:
     return f"travel_time_p{percentile}"
 
 
-def _selected(analysis: AnalysisConfig, only: tuple[str, ...]) -> list:
+def _selected(
+    analysis: AnalysisConfig, only: tuple[str, ...]
+) -> list[tuple[CalendarType, TimeWindow]]:
     """Every calendar type and time window pair, filtered by `only`."""
     scenarios = list(itertools.product(analysis.calendar_types, analysis.time_windows))
     if not only:
@@ -195,13 +198,13 @@ def _study_area(
 ) -> tuple[gpd.GeoDataFrame, bool]:
     """Read back the published study area, or build and publish it.
 
-    The grid is an output rather than a cache because every matrix is addressed
-    by position within it. Reusing it also means a resumed run never starts a
-    JVM merely to rediscover a grid it already has.
+    The study area is an output rather than a cache because every matrix is
+    addressed by position within it. Reusing it also means a resumed run never
+    starts a JVM merely to rediscover a study area it already has.
 
     Returns:
-        The grid, and whether it was freshly built (as opposed to read back
-        from disk unchanged). A stale manifest header or hexes.json is only
+        The study_area, and whether it was freshly built (as opposed to read
+        back from disk unchanged). A stale manifest header or hexes.json is only
         safe to trust when this is False.
     """
     path = output / "study_area.parquet"
@@ -209,11 +212,11 @@ def _study_area(
         logger.info(f"Reusing the study area at {path}")
         return gpd.read_parquet(path), False
 
-    grid = build_study_area(city, analysis)
-    grid = grid.sort_values("id").reset_index(drop=True)
+    study_area = build_study_area(city, analysis)
+    study_area = study_area.sort_values("id").reset_index(drop=True)
     path.parent.mkdir(parents=True, exist_ok=True)
-    grid.to_parquet(path)
-    return grid, True
+    study_area.to_parquet(path)
+    return study_area, True
 
 
 def _travel_times(
