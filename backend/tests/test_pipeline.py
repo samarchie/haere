@@ -1,6 +1,7 @@
 """Orchestration, with routing stubbed out. No JVM."""
 
 import json
+import threading
 
 import geopandas as gpd
 import h3
@@ -77,12 +78,14 @@ def grid():
 def stub_routing(monkeypatch, tmp_path, grid):
     """Replace the JVM-backed calls with a deterministic fake grid and matrix."""
     calls = {"matrices": 0}
+    calls_lock = threading.Lock()
 
     def _fake_study_area(city, analysis):
         return grid
 
     def _fake_matrix(*args, **kwargs):
-        calls["matrices"] += 1
+        with calls_lock:
+            calls["matrices"] += 1
         return pd.DataFrame(
             {
                 "from_id": np.repeat(HEX_IDS, 2),
@@ -321,8 +324,11 @@ def test_a_rebuilt_study_area_discards_matrices_from_the_previous_grid(
     )
     monkeypatch.setattr(pipeline, "build_study_area", lambda city, analysis: new_grid)
 
+    new_grid_calls_lock = threading.Lock()
+
     def _fake_matrix_for_new_grid(*args, **kwargs):
-        stub_routing["matrices"] += 1
+        with new_grid_calls_lock:
+            stub_routing["matrices"] += 1
         return pd.DataFrame(
             {
                 "from_id": np.repeat(other_hex_ids, 2),
