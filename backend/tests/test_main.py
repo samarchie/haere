@@ -53,16 +53,24 @@ def _make_scenario(tmp_path: Path, city_id: str, analysis_id: str) -> Path:
 def stub_pipeline(monkeypatch):
     """Keep CLI tests off the routing engine.
 
-    `build_study_area` needs a real OSM extract, a real GTFS feed and a JVM.
-    These tests are about the command line, so record the call and return.
+    The pipeline needs a real OSM extract, a real GTFS feed and a JVM. These
+    tests are about the command line, so record the call and return.
     """
     calls = []
 
-    def _fake(city, analysis):
-        calls.append((city, analysis))
-        return None
+    def _fake(city, analysis, only=(), force=False, max_workers=None):
+        calls.append(
+            {
+                "city": city,
+                "analysis": analysis,
+                "only": only,
+                "force": force,
+                "max_workers": max_workers,
+            }
+        )
+        return Path("output") / city.id / analysis.id
 
-    monkeypatch.setattr("backend.main.build_study_area", _fake)
+    monkeypatch.setattr("backend.pipeline.run", _fake)
     return calls
 
 
@@ -83,9 +91,8 @@ def test_run_invokes_the_pipeline_with_the_loaded_scenario(tmp_path, stub_pipeli
 
     assert result.exit_code == 0
     assert len(stub_pipeline) == 1
-    city, analysis = stub_pipeline[0]
-    assert city.id == "christchurch"
-    assert analysis.id == "remove-route-135"
+    assert stub_pipeline[0]["city"].id == "christchurch"
+    assert stub_pipeline[0]["analysis"].id == "remove-route-135"
 
 
 def test_run_with_no_argument_lists_scenarios_and_prompts(tmp_path, monkeypatch):
@@ -139,3 +146,90 @@ def test_run_with_invalid_scenario_reports_clean_error(tmp_path):
     assert result.exit_code != 0
     assert "Traceback" not in result.output
     assert str(scenario_path) in result.output
+
+
+def test_only_is_passed_through_and_repeatable(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "run",
+            str(scenario_path),
+            "--only",
+            "weekday/am_peak",
+            "--only",
+            "weekday/midday",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert stub_pipeline[0]["only"] == ("weekday/am_peak", "weekday/midday")
+
+
+def test_force_is_passed_through(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path), "--force"])
+
+    assert result.exit_code == 0
+    assert stub_pipeline[0]["force"] is True
+
+
+def test_run_reports_the_output_directory(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert "output/christchurch/remove-route-135" in result.output
+
+
+def test_workers_is_passed_through(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path), "--workers", "4"])
+
+    assert result.exit_code == 0
+    assert stub_pipeline[0]["max_workers"] == 4
+
+
+def test_workers_defaults_to_none(tmp_path, stub_pipeline):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert result.exit_code == 0
+    assert stub_pipeline[0]["max_workers"] is None
+
+
+def test_stale_output_reports_a_clean_error(tmp_path, monkeypatch):
+    """A three-hour job must not end in a traceback."""
+    from backend import pipeline
+
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    def _stale(city, analysis, only=(), force=False, max_workers=None):
+        raise pipeline.StaleOutputError("travel_time_boundary changed")
+
+    monkeypatch.setattr("backend.pipeline.run", _stale)
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path)])
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+    assert "travel_time_boundary changed" in result.output
+
+
+def test_an_unmatched_only_reports_a_clean_error(tmp_path, monkeypatch):
+    scenario_path = _make_scenario(tmp_path, "christchurch", "remove-route-135")
+
+    def _unmatched(city, analysis, only=(), force=False, max_workers=None):
+        raise ValueError("--only matched no scenarios. Available: weekday/am_peak")
+
+    monkeypatch.setattr("backend.pipeline.run", _unmatched)
+
+    result = CliRunner().invoke(cli, ["run", str(scenario_path), "--only", "nope/nope"])
+
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+    assert "weekday/am_peak" in result.output

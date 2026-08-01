@@ -14,14 +14,11 @@ metadata:
 travel_time_boundary: 
   modes: 
     - walking
-  value: 20
+  value: 15
   unit: minutes
 
 baseline_gtfs_filepath: "data/gtfs.zip"
-
-# TODO: replace with the actual Route 135-removed feed; currently identical
-# to the baseline, so this scenario models zero impact until fixed.
-modified_gtfs_filepath: "data/gtfs.zip"
+modified_gtfs_filepath: "data/metro_christchurch_without_route_135.zip"
 
 calendar_types:
   - name: weekday
@@ -44,3 +41,8 @@ time_windows:
   - name: evening
     start: "18:00"
     end: "22:00"
+
+routing_parameters:
+  max_walk_time: 15
+  max_time: 240
+  percentiles: [25, 50, 75]

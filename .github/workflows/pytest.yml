@@ -43,3 +43,20 @@ jobs:
 
       - name: Run tests with coverage
         run: uv run pytest
+
+      - name: Resolve r5py cache key
+        id: r5py-versions
+        run: echo "key=$(uv pip freeze | grep -E '^(r5py|r5py-sampledata-helsinki)==' | tr '\n' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache r5py JVM test data
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .cache/r5py-jvm-tests
+          # r5py's jar and Helsinki's bundled sample data are static for a
+          # given r5py/r5py-sampledata-helsinki version, so the key is keyed
+          # off just those two versions rather than all of uv.lock, which
+          # would miss the cache on every unrelated dependency bump.
+          key: r5py-jvm-tests-${{ steps.r5py-versions.outputs.key }}
+
+      - name: Run JVM integration tests
+        run: RUN_JVM_TESTS=1 uv run pytest backend/tests/test_jvm.py --no-cov

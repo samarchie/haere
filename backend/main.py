@@ -1,14 +1,11 @@
 from pathlib import Path
 
 import click
-import geopandas as gpd
-import pandas as pd
 import pydantic
 import yaml
 
-from backend import gtfs, validate
+from backend import pipeline, validate
 from backend.config.loader import find_scenarios, load_scenario
-from backend.config.models import AnalysisConfig, CityConfig
 
 CONFIGS_ROOT = Path("configs")
 
@@ -42,7 +39,27 @@ def validate_cmd(source: str, verbose: bool):
 
 @cli.command("run")
 @click.argument("scenario", required=False, type=click.Path(path_type=Path))
-def run_cmd(scenario: Path | None):
+@click.option(
+    "--only",
+    multiple=True,
+    metavar="CALENDAR_TYPE/TIME_WINDOW",
+    help="Compute only these scenarios. Repeatable. Default: all of them.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Discard existing output and start over.",
+)
+@click.option(
+    "--workers",
+    type=int,
+    default=None,
+    help="Concurrent routing workers. Default: half the machine's CPU count.",
+)
+def run_cmd(
+    scenario: Path | None, only: tuple[str, ...], force: bool, workers: int | None
+):
     """Load and validate a scenario, given a path or chosen interactively."""
     if scenario is None:
         scenarios = find_scenarios(CONFIGS_ROOT)
@@ -68,50 +85,14 @@ def run_cmd(scenario: Path | None):
     click.echo(f"{analysis.metadata.title} ({city.name})")
     click.echo(analysis.metadata.description)
 
-    build_study_area(city, analysis)
+    try:
+        output = pipeline.run(
+            city, analysis, only=only, force=force, max_workers=workers
+        )
+    except (pipeline.StaleOutputError, ValueError) as e:
+        raise click.ClickException(str(e))
 
-
-def build_study_area(city: CityConfig, analysis: AnalysisConfig) -> gpd.GeoDataFrame:
-    """Build the hex grid covering everywhere within reach of a transit stop.
-
-    Args:
-        city: The city being analysed, supplying the OSM extract and the
-            hexagon resolution.
-        analysis: The scenario, supplying both GTFS feeds and the study area
-            boundary.
-
-    Returns:
-        The hexagon grid for the study area, in EPSG:4326.
-    """
-
-    # Imported here rather than at module scope so that `--help`,
-    # `validate-gtfs` and the CLI tests never pay for r5py starting a JVM.
-    from backend import hexgrid, routing
-
-    stops = gtfs.unique_stops(
-        analysis.baseline_gtfs_filepath, analysis.modified_gtfs_filepath
-    )
-
-    network = routing.transport_network(
-        city.osm_source, analysis.baseline_gtfs_filepath, city.elevation_filepath
-    )
-
-    # One representative calendar type and time window is enough to bound the
-    # study area.
-    boundary = analysis.travel_time_boundary
-    calendar_type = analysis.calendar_types[0]
-    time_window = analysis.time_windows[0]
-
-    reachable = routing.isochrone(
-        network,
-        stops,
-        travel_times=[pd.Timedelta(boundary.value, boundary.unit)],
-        transport_modes=routing.modes(boundary.modes),
-        departure=calendar_type.departure_at(time_window),
-        departure_time_window=time_window.duration,
-    )
-
-    return hexgrid.generate(reachable, city.hexagon_resolution)
+    click.secho(f"Wrote results to {output}", fg="green")
 
 
 if __name__ == "__main__":

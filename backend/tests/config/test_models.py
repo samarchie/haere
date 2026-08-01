@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta
 
+import pydantic
 import pytest
 from pydantic import ValidationError
 
@@ -48,25 +49,44 @@ def test_calendar_type_requires_name_and_date():
     assert calendar_type.departure_date == date(2026, 8, 3)
 
 
-def test_routing_parameters_defaults():
-    params = RoutingParameters()
-    assert params.max_walk_time == 15
-    assert params.transfer_wait_time == 5
-    assert params.percentiles == [50]
-    assert params.monte_carlo_draws == 1
+def test_routing_parameters_default_to_two_hours_and_the_median():
+    parameters = RoutingParameters()
+
+    assert parameters.max_time == 120
+    assert parameters.max_walk_time == 15
+    assert parameters.percentiles == [50]
 
 
-@pytest.mark.parametrize(
-    "field, value",
-    [
-        pytest.param("max_walk_time", 0, id="max_walk_time_zero"),
-        pytest.param("transfer_wait_time", -1, id="transfer_wait_time_negative"),
-        pytest.param("monte_carlo_draws", 0, id="monte_carlo_draws_zero"),
-    ],
-)
-def test_routing_parameters_rejects_out_of_range_scalar(field, value):
+def test_routing_parameters_reject_more_than_five_percentiles():
+    """R5 refuses more than five percentiles, so the config must too."""
+    with pytest.raises(pydantic.ValidationError, match="at most 5 percentiles"):
+        RoutingParameters(percentiles=[10, 25, 50, 75, 90, 95])
+
+
+def test_routing_parameters_accept_exactly_five_percentiles():
+    parameters = RoutingParameters(percentiles=[10, 25, 50, 75, 90])
+
+    assert len(parameters.percentiles) == 5
+
+
+def test_routing_parameters_reject_a_non_positive_max_time():
+    with pytest.raises(pydantic.ValidationError):
+        RoutingParameters(max_time=0)
+
+
+def test_routing_parameters_no_longer_accept_unimplementable_fields():
+    """r5py hard-codes monte carlo draws and has no transfer wait setting.
+
+    Config that cannot take effect is worse than absent config, so the fields
+    are gone rather than silently ignored.
+    """
+    assert "monte_carlo_draws" not in RoutingParameters.model_fields
+    assert "transfer_wait_time" not in RoutingParameters.model_fields
+
+
+def test_routing_parameters_rejects_non_positive_max_walk_time():
     with pytest.raises(ValidationError):
-        RoutingParameters(**{field: value})
+        RoutingParameters(max_walk_time=0)
 
 
 @pytest.mark.parametrize(
