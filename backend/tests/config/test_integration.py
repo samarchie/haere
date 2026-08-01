@@ -10,7 +10,11 @@ _CONFIGS_ROOT = Path(__file__).resolve().parents[3] / "configs"
 @pytest.fixture
 def canterbury_data():
     """Placeholders for the (gitignored) data files the example scenario references."""
-    paths = [Path("data/gtfs.zip"), Path("data/chch.osm.pbf")]
+    paths = [
+        Path("data/gtfs.zip"),
+        Path("data/chch.osm.pbf"),
+        Path("data/metro_christchurch_without_route_135.zip"),
+    ]
     created = []
     for path in paths:
         if path.exists():
