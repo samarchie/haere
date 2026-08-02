@@ -183,14 +183,14 @@ export function renderResults(root: HTMLElement): void {
   loadResults(root, decoded);
 }
 
-export interface VerdictRow {
+interface VerdictRow {
   destination: Destination;
   baseline: PercentileMinutes;
   modified: PercentileMinutes;
   delta: number | null;
 }
 
-export interface FetchedRows {
+interface FetchedRows {
   baseline: Record<number, Uint8Array>;
   modified: Record<number, Uint8Array>;
 }

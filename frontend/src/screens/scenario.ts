@@ -28,6 +28,21 @@ export function availableCombos(manifest: Manifest): ScenarioCombo[] {
   }));
 }
 
+function isCompleteSelection(
+  sel: { calendarType: string; timeWindow: string } | null,
+  combos: ScenarioCombo[],
+): boolean {
+  return (
+    sel !== null &&
+    combos.some(
+      (c) =>
+        c.calendarType === sel.calendarType &&
+        c.timeWindow === sel.timeWindow &&
+        c.complete,
+    )
+  );
+}
+
 export function defaultScenario(
   combos: ScenarioCombo[],
 ): { calendarType: string; timeWindow: string } | null {
@@ -75,13 +90,8 @@ export function renderScenario(root: HTMLElement): void {
           : [];
 
         function persistIfComplete(): void {
-          const isComplete = combos.some(
-            (c) =>
-              c.calendarType === selected?.calendarType &&
-              c.timeWindow === selected?.timeWindow &&
-              c.complete,
-          );
-          if (isComplete) {
+          // only a complete combo is safe to persist immediately — an incomplete pick stays local until corrected or abandoned
+          if (isCompleteSelection(selected, combos)) {
             saveWizardState({ ...wizard, scenario: selected });
           }
         }
@@ -128,14 +138,7 @@ export function renderScenario(root: HTMLElement): void {
           ),
         );
 
-        const canProceed =
-          selected !== null &&
-          combos.some(
-            (c) =>
-              c.calendarType === selected?.calendarType &&
-              c.timeWindow === selected?.timeWindow &&
-              c.complete,
-          );
+        const canProceed = isCompleteSelection(selected, combos);
 
         mount(
           root,
