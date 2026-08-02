@@ -8,27 +8,67 @@ export interface ResultsPayload {
   scenario: { calendarType: string; timeWindow: string };
 }
 
+function isValidOrigin(value: unknown): value is ResultsPayload["origin"] {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.address === "string" &&
+    typeof v.lat === "number" &&
+    Number.isFinite(v.lat) &&
+    typeof v.lng === "number" &&
+    Number.isFinite(v.lng)
+  );
+}
+
+function isValidScenario(value: unknown): value is ResultsPayload["scenario"] {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.calendarType === "string" && typeof v.timeWindow === "string";
+}
+
+function isValidDestination(value: unknown): value is Destination {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.label === "string" &&
+    typeof v.address === "string" &&
+    typeof v.lat === "number" &&
+    Number.isFinite(v.lat) &&
+    typeof v.lng === "number" &&
+    Number.isFinite(v.lng)
+  );
+}
+
 function isResultsPayload(value: unknown): value is ResultsPayload {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v.cityId === "string" &&
     typeof v.analysisId === "string" &&
-    typeof v.origin === "object" &&
-    v.origin !== null &&
+    isValidOrigin(v.origin) &&
     Array.isArray(v.destinations) &&
-    typeof v.scenario === "object" &&
-    v.scenario !== null
+    v.destinations.every(isValidDestination) &&
+    isValidScenario(v.scenario)
   );
 }
 
+function toBase64(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function fromBase64(input: string): string {
+  const bytes = Uint8Array.from(atob(input), (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 export function encodeResultsParam(payload: ResultsPayload): string {
-  return encodeURIComponent(btoa(JSON.stringify(payload)));
+  return encodeURIComponent(toBase64(JSON.stringify(payload)));
 }
 
 export function decodeResultsParam(param: string): ResultsPayload | null {
   try {
-    const decoded = JSON.parse(atob(decodeURIComponent(param)));
+    const decoded = JSON.parse(fromBase64(decodeURIComponent(param)));
     return isResultsPayload(decoded) ? decoded : null;
   } catch {
     return null;
