@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { currentScreen, navigate, onNavigate } from "./router";
+import { currentScreen, currentSearch, navigate, onNavigate } from "./router";
 
 describe("router", () => {
   beforeEach(() => {
@@ -47,5 +47,11 @@ describe("router", () => {
     window.history.pushState(null, "", "/scenario");
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("currentSearch reflects the current query string", () => {
+    window.history.replaceState(null, "", "/picker?city=canterbury");
+    const params = currentSearch();
+    expect(params.get("city")).toBe("canterbury");
   });
 });

@@ -30,3 +30,7 @@ export function onNavigate(handler: (screen: Screen) => void): () => void {
   window.addEventListener("popstate", listener);
   return () => window.removeEventListener("popstate", listener);
 }
+
+export function currentSearch(): URLSearchParams {
+  return new URLSearchParams(window.location.search);
+}
