@@ -26,6 +26,7 @@ export function renderStepper(
         {
           class: "stepper__link",
           "data-step": step.screen,
+          type: "button",
           onclick: () => onNavigate(step.screen),
         },
         step.label,
