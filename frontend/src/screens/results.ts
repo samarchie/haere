@@ -2,15 +2,20 @@ import { renderStepper } from "../components/stepper";
 import { DATA_BASE_URL } from "../config";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
-import { type Scenario, fetchManifest, findScenario } from "../data/manifest";
+import {
+  type Manifest,
+  type Scenario,
+  fetchManifest,
+  findScenario,
+} from "../data/manifest";
 import {
   computeDeltaMinutes,
   fetchRow,
   readValueAt,
   toVerdictValue,
 } from "../data/travelTimes";
-import { el, mount } from "../dom";
-import { type Screen, currentSearch, navigate } from "../router";
+import { el, mount, renderErrorBanner } from "../dom";
+import { type Screen, currentSearch, navigate, replaceScreen } from "../router";
 import {
   type ResultsPayload,
   decodeResultsParam,
@@ -101,29 +106,34 @@ async function fetchAllRows(
   baseline: Record<number, Uint8Array>;
   modified: Record<number, Uint8Array>;
 }> {
-  const baseline: Record<number, Uint8Array> = {};
-  const modified: Record<number, Uint8Array> = {};
-
+  const jobs: Array<{
+    p: number;
+    variant: "baseline" | "modified";
+    path: string;
+  }> = [];
   for (const p of percentiles) {
     const baselinePath = scenario.variants.baseline?.[String(p)];
     const modifiedPath = scenario.variants.modified?.[String(p)];
-    if (baselinePath) {
-      baseline[p] = await fetchRow(
-        `${DATA_BASE_URL}/${cityId}/${analysisId}/${baselinePath}`,
-        rowIndex,
-        hexCount,
-        bytesPerValue,
-      );
-    }
-    if (modifiedPath) {
-      modified[p] = await fetchRow(
-        `${DATA_BASE_URL}/${cityId}/${analysisId}/${modifiedPath}`,
-        rowIndex,
-        hexCount,
-        bytesPerValue,
-      );
-    }
+    if (baselinePath) jobs.push({ p, variant: "baseline", path: baselinePath });
+    if (modifiedPath) jobs.push({ p, variant: "modified", path: modifiedPath });
   }
+
+  const fetched = await Promise.all(
+    jobs.map((job) =>
+      fetchRow(
+        `${DATA_BASE_URL}/${cityId}/${analysisId}/${job.path}`,
+        rowIndex,
+        hexCount,
+        bytesPerValue,
+      ),
+    ),
+  );
+
+  const baseline: Record<number, Uint8Array> = {};
+  const modified: Record<number, Uint8Array> = {};
+  jobs.forEach((job, i) => {
+    (job.variant === "baseline" ? baseline : modified)[job.p] = fetched[i];
+  });
 
   return { baseline, modified };
 }
@@ -164,17 +174,66 @@ export function renderResults(root: HTMLElement): void {
       destinations: wizard.destinations,
       scenario: wizard.scenario,
     };
-    window.history.replaceState(
-      null,
-      "",
-      `/results?r=${encodeResultsParam(payload)}`,
-    );
+    replaceScreen("results", `?r=${encodeResultsParam(payload)}`);
     renderResults(root);
     return;
   }
 
   mount(root, el("p", {}, "Loading your results…"));
   loadResults(root, decoded);
+}
+
+function buildVerdictRows(
+  destinations: Destination[],
+  manifest: Manifest,
+  hexIds: string[],
+  rows: {
+    baseline: Record<number, Uint8Array>;
+    modified: Record<number, Uint8Array>;
+  },
+): Array<{
+  destination: Destination;
+  baseline: PercentileMinutes;
+  modified: PercentileMinutes;
+  delta: number | null;
+}> {
+  return destinations.map((destination) => {
+    const colIndex = resolveHexRowIndex(
+      destination.lat,
+      destination.lng,
+      manifest.hexagonResolution,
+      hexIds,
+    );
+    const unreachable: PercentileMinutes = {
+      p25: null,
+      p50: null,
+      p75: null,
+    };
+    const colInRange =
+      colIndex !== null && colIndex >= 0 && colIndex < manifest.hexCount;
+    const baseline = !colInRange
+      ? unreachable
+      : readPercentileMinutes(
+          rows.baseline,
+          colIndex,
+          manifest.encoding.bytesPerValue,
+          manifest.encoding.unreachable,
+        );
+    const modified = !colInRange
+      ? unreachable
+      : readPercentileMinutes(
+          rows.modified,
+          colIndex,
+          manifest.encoding.bytesPerValue,
+          manifest.encoding.unreachable,
+        );
+    return {
+      destination,
+      baseline,
+      modified,
+      delta: deltaFor(baseline, modified),
+    };
+  });
 }
 
 async function loadResults(
@@ -234,58 +293,25 @@ async function loadResults(
       manifest.encoding.bytesPerValue,
     );
 
-    const verdictRows = payload.destinations.map((destination) => {
-      const colIndex = resolveHexRowIndex(
-        destination.lat,
-        destination.lng,
-        manifest.hexagonResolution,
-        hexIds,
-      );
-      const unreachable: PercentileMinutes = {
-        p25: null,
-        p50: null,
-        p75: null,
-      };
-      const colInRange =
-        colIndex !== null && colIndex >= 0 && colIndex < manifest.hexCount;
-      const baseline = !colInRange
-        ? unreachable
-        : readPercentileMinutes(
-            rows.baseline,
-            colIndex,
-            manifest.encoding.bytesPerValue,
-            manifest.encoding.unreachable,
-          );
-      const modified = !colInRange
-        ? unreachable
-        : readPercentileMinutes(
-            rows.modified,
-            colIndex,
-            manifest.encoding.bytesPerValue,
-            manifest.encoding.unreachable,
-          );
-      return {
-        destination,
-        baseline,
-        modified,
-        delta: deltaFor(baseline, modified),
-      };
-    });
+    const verdictRows = buildVerdictRows(
+      payload.destinations,
+      manifest,
+      hexIds,
+      rows,
+    );
 
-    renderVerdictScreen(root, analysis, payload, verdictRows);
-  } catch {
-    mount(
+    renderVerdictScreen(
       root,
-      el(
-        "div",
-        { class: "banner banner--warning" },
-        "Couldn't load your results.",
-      ),
-      el(
-        "button",
-        { class: "btn", onclick: () => loadResults(root, payload) },
-        "Retry",
-      ),
+      analysis,
+      payload,
+      verdictRows,
+      manifest,
+      hexIds,
+      rows,
+    );
+  } catch {
+    renderErrorBanner(root, "Couldn't load your results.", () =>
+      loadResults(root, payload),
     );
   }
 }
@@ -300,6 +326,12 @@ function renderVerdictScreen(
     modified: PercentileMinutes;
     delta: number | null;
   }>,
+  manifest: Manifest,
+  hexIds: string[],
+  fetchedRows: {
+    baseline: Record<number, Uint8Array>;
+    modified: Record<number, Uint8Array>;
+  },
 ): void {
   const rowEls = rows.map(({ destination, baseline, modified, delta }, i) => {
     const { text: deltaText, tone } = formatDelta(delta, baseline, modified);
@@ -323,12 +355,25 @@ function renderVerdictScreen(
                     ...payload,
                     destinations: remainingDestinations,
                   };
-                  window.history.replaceState(
-                    null,
-                    "",
-                    `/results?r=${encodeResultsParam(nextPayload)}`,
+                  replaceScreen(
+                    "results",
+                    `?r=${encodeResultsParam(nextPayload)}`,
                   );
-                  renderResults(root);
+                  const nextVerdictRows = buildVerdictRows(
+                    remainingDestinations,
+                    manifest,
+                    hexIds,
+                    fetchedRows,
+                  );
+                  renderVerdictScreen(
+                    root,
+                    analysis,
+                    nextPayload,
+                    nextVerdictRows,
+                    manifest,
+                    hexIds,
+                    fetchedRows,
+                  );
                 },
               },
               "✕",
@@ -390,7 +435,7 @@ function renderVerdictScreen(
         class: "btn btn-ghost",
         onclick: () => {
           seedWizardStateFromPayload(payload);
-          navigate("location");
+          navigate("location", "?addDestination=1");
         },
       },
       "+ Add another destination",

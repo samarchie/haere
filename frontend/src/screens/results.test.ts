@@ -379,67 +379,64 @@ describe("renderResults", () => {
       "modified_75.bin": { [dest1Index]: 30, [dest2Index]: 31 },
     };
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation((url: string) => {
-        if (url.endsWith("/manifest.json")) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                hexagon_resolution: RESOLUTION,
-                hex_count: 3,
-                percentiles: [25, 50, 75],
-                encoding: {
-                  dtype: "uint8",
-                  bytes_per_value: 1,
-                  byte_order: "little",
-                  unreachable: 255,
-                },
-                scenarios: [
-                  {
-                    calendar_type: "weekday",
-                    time_window: "am_peak",
-                    start: "07:00",
-                    end: "09:00",
-                    variants: {
-                      baseline: {
-                        "25": "baseline_25.bin",
-                        "50": "baseline_50.bin",
-                        "75": "baseline_75.bin",
-                      },
-                      modified: {
-                        "25": "modified_25.bin",
-                        "50": "modified_50.bin",
-                        "75": "modified_75.bin",
-                      },
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/manifest.json")) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              hexagon_resolution: RESOLUTION,
+              hex_count: 3,
+              percentiles: [25, 50, 75],
+              encoding: {
+                dtype: "uint8",
+                bytes_per_value: 1,
+                byte_order: "little",
+                unreachable: 255,
+              },
+              scenarios: [
+                {
+                  calendar_type: "weekday",
+                  time_window: "am_peak",
+                  start: "07:00",
+                  end: "09:00",
+                  variants: {
+                    baseline: {
+                      "25": "baseline_25.bin",
+                      "50": "baseline_50.bin",
+                      "75": "baseline_75.bin",
+                    },
+                    modified: {
+                      "25": "modified_25.bin",
+                      "50": "modified_50.bin",
+                      "75": "modified_75.bin",
                     },
                   },
-                ],
-              }),
-          });
-        }
-        if (url.endsWith("/hexes.json")) {
+                },
+              ],
+            }),
+        });
+      }
+      if (url.endsWith("/hexes.json")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(hexIds),
+        });
+      }
+      if (url.endsWith("/analyses.json")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      }
+      for (const [file, values] of Object.entries(rowValues)) {
+        if (url.includes(file)) {
           return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(hexIds),
+            status: 206,
+            arrayBuffer: () => Promise.resolve(twoDestRowBytes(values).buffer),
           });
         }
-        if (url.endsWith("/analyses.json")) {
-          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
-        }
-        for (const [file, values] of Object.entries(rowValues)) {
-          if (url.includes(file)) {
-            return Promise.resolve({
-              status: 206,
-              arrayBuffer: () =>
-                Promise.resolve(twoDestRowBytes(values).buffer),
-            });
-          }
-        }
-        throw new Error(`unexpected fetch: ${url}`);
-      }),
-    );
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     const payload = {
       cityId: "canterbury",
@@ -485,9 +482,11 @@ describe("renderResults", () => {
       (b) => b.textContent === "✕",
     );
     expect(removeButtons.length).toBe(2);
+    const callsBeforeRemove = fetchMock.mock.calls.length;
     removeButtons[0].click();
     await flushMicrotasks();
 
+    expect(fetchMock.mock.calls.length).toBe(callsBeforeRemove);
     expect(root.textContent).not.toContain("Work");
     expect(root.textContent).toContain("Home");
     expect(root.textContent).toContain("Today: 6–13 min (typically 9)");
@@ -629,6 +628,8 @@ describe("renderResults", () => {
       destinations: payload.destinations,
       scenario: payload.scenario,
     });
+    expect(window.location.pathname).toBe("/location");
+    expect(window.location.search).toBe("?addDestination=1");
   });
 
   it("seeds wizardState from the payload before navigating via a stepper back-link", async () => {
