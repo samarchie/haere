@@ -58,5 +58,10 @@ export async function fetchRow(
   const response = await fetch(url, {
     headers: { Range: `bytes=${start}-${end - 1}` },
   });
+  if (response.status !== 206) {
+    throw new Error(
+      `Expected a 206 Partial Content response for a Range request to ${url}, got ${response.status}`,
+    );
+  }
   return new Uint8Array(await response.arrayBuffer());
 }

@@ -23,6 +23,23 @@ function serveOutputData(): Plugin {
         next();
         return;
       }
+
+      const rangeHeader = req.headers.range;
+      const rangeMatch =
+        typeof rangeHeader === "string"
+          ? rangeHeader.match(/^bytes=(\d+)-(\d+)$/)
+          : null;
+
+      if (rangeMatch) {
+        const start = Number(rangeMatch[1]);
+        const end = Number(rangeMatch[2]);
+        res.statusCode = 206;
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${stat.size}`);
+        res.setHeader("Accept-Ranges", "bytes");
+        fs.createReadStream(filePath, { start, end }).pipe(res);
+        return;
+      }
+
       fs.createReadStream(filePath).pipe(res);
     });
   };

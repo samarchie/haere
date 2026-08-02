@@ -77,6 +77,7 @@ describe("fetchRow", () => {
     const bytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
+      status: 206,
       arrayBuffer: () => Promise.resolve(bytes.buffer),
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -93,5 +94,26 @@ describe("fetchRow", () => {
       { headers: { Range: "bytes=30-39" } },
     );
     expect(result).toEqual(bytes);
+  });
+
+  it("throws when the server ignores the Range request and returns a full 200 response (e.g. a dev proxy without Range support silently returning row 0)", async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        arrayBuffer: () => Promise.resolve(bytes.buffer),
+      }),
+    );
+
+    await expect(
+      fetchRow(
+        "/data/canterbury/remove-route-135/weekday/am_peak/baseline.p50.bin",
+        3,
+        10,
+        1,
+      ),
+    ).rejects.toThrow();
   });
 });
