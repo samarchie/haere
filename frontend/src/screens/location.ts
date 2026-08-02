@@ -4,7 +4,12 @@ import { type GeocodeResult, forwardGeocode } from "../data/geocode";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
 import { type Manifest, fetchManifest } from "../data/manifest";
 import { el, mount } from "../dom";
-import { currentScreen, currentSearch, navigate } from "../router";
+import {
+  currentScreen,
+  currentSearch,
+  navigate,
+  replaceScreen,
+} from "../router";
 import {
   emptyWizardState,
   loadWizardState,
@@ -141,11 +146,11 @@ export function renderLocation(root: HTMLElement): void {
         }))
       : [emptyFieldRow()];
 
-  if (
-    currentSearch().get("addDestination") === "1" &&
-    canAddDestination(destinations)
-  ) {
-    destinations.push(emptyFieldRow());
+  if (currentSearch().get("addDestination") === "1") {
+    if (canAddDestination(destinations)) {
+      destinations.push(emptyFieldRow());
+    }
+    replaceScreen("location");
   }
 
   let areaDataPromise: Promise<{

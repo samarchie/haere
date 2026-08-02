@@ -287,6 +287,25 @@ describe("renderLocation", () => {
     expect(destinationInputs.length).toBe(2);
   });
 
+  it("clears the addDestination flag from the URL after consuming it", () => {
+    seedWizard({
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "Old Address",
+          lat: -43.5,
+          lng: 172.6,
+        },
+      ],
+    });
+    window.history.replaceState(null, "", "/location?addDestination=1");
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    expect(window.location.search).not.toContain("addDestination");
+  });
+
   it("shows a no-match status and keeps the typed address after a failed geocode", async () => {
     vi.useFakeTimers();
     seedWizard();
