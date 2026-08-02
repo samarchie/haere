@@ -125,6 +125,21 @@ body {
   margin-bottom: 24px;
 }
 
+.stepper__link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.stepper__future {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
 .banner {
   border: 1px solid var(--line);
   border-radius: 8px;
