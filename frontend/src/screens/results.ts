@@ -1,3 +1,4 @@
+import { renderStepper } from "../components/stepper";
 import { DATA_BASE_URL } from "../config";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
@@ -9,7 +10,7 @@ import {
   toVerdictValue,
 } from "../data/travelTimes";
 import { el, mount } from "../dom";
-import { currentSearch, navigate } from "../router";
+import { type Screen, currentSearch, navigate } from "../router";
 import {
   type ResultsPayload,
   decodeResultsParam,
@@ -376,9 +377,20 @@ function renderVerdictScreen(
       )
     : null;
 
+  const navigateFromStepper = (screen: Screen): void => {
+    saveWizardState({
+      cityId: payload.cityId,
+      analysisId: payload.analysisId,
+      origin: payload.origin,
+      destinations: payload.destinations,
+      scenario: payload.scenario,
+    });
+    navigate(screen);
+  };
+
   mount(
     root,
-    el("div", { class: "stepper" }, "① ② ③ ④ Results"),
+    renderStepper("results", navigateFromStepper),
     el("h2", {}, "Here's what changes"),
     ...rowEls,
     el(
