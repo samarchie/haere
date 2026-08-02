@@ -1,3 +1,4 @@
+import { renderStepper } from "../components/stepper";
 import {
   type Manifest,
   fetchManifest,
@@ -134,11 +135,7 @@ export function renderScenario(root: HTMLElement): void {
 
         mount(
           root,
-          el(
-            "div",
-            { class: "stepper" },
-            "① City/Analysis  ② Location  ③ Scenario  ④ Results",
-          ),
+          renderStepper("scenario"),
           el("h2", {}, "When are you travelling?"),
           el("div", {}, ...calendarChips),
           el("div", {}, ...timeWindowChips),

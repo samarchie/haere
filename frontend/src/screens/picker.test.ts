@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyWizardState } from "../state/wizardState";
-import { bannerTextFor, pickerSummaryText, selectAnalysis } from "./picker";
+import {
+  bannerTextFor,
+  pickerSummaryText,
+  renderPicker,
+  selectAnalysis,
+} from "./picker";
 
 describe("pickerSummaryText", () => {
   it("has no filter clause when no city is selected", () => {
@@ -57,5 +62,26 @@ describe("selectAnalysis", () => {
     };
 
     expect(selectAnalysis(state, "canterbury", "remove-route-135")).toBe(state);
+  });
+});
+
+describe("renderPicker stepper", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders a stepper with picker as the current step", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) }),
+    );
+    const root = document.createElement("div");
+
+    renderPicker(root);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const current = root.querySelector("[data-step='picker']");
+    expect(current).not.toBeNull();
+    expect(current?.tagName).toBe("SPAN");
   });
 });

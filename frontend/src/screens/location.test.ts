@@ -810,3 +810,30 @@ describe("renderLocation", () => {
     expect(root.textContent).toContain("matched to the model grid");
   });
 });
+
+describe("renderLocation stepper", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/location");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    localStorage.clear();
+    document.body.innerHTML = "";
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("renders a stepper with location as the current step and picker as a clickable prior step", () => {
+    seedWizard();
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    const current = root.querySelector("[data-step='location']");
+    expect(current?.tagName).toBe("SPAN");
+    const priorStep = root.querySelector("[data-step='picker']");
+    expect(priorStep?.tagName).toBe("BUTTON");
+    expect(priorStep?.classList.contains("stepper__link")).toBe(true);
+  });
+});

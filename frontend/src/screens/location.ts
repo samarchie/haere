@@ -1,3 +1,4 @@
+import { renderStepper } from "../components/stepper";
 import { fetchAnalyses, filterByCity } from "../data/analysisCatalogue";
 import { type GeocodeResult, forwardGeocode } from "../data/geocode";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
@@ -424,11 +425,7 @@ export function renderLocation(root: HTMLElement): void {
 
     mount(
       root,
-      el(
-        "div",
-        { class: "stepper" },
-        "① City/Analysis  ② Location  ③ Scenario  ④ Results",
-      ),
+      renderStepper("location"),
       el("h2", {}, "Where are you starting from?"),
       fieldEl(origin, "Home address", "origin", true),
       el("h3", {}, "Where do you need to get to?"),

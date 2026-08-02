@@ -235,3 +235,31 @@ describe("renderScenario", () => {
     expect(retry).toBeTruthy();
   });
 });
+
+describe("renderScenario stepper", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  it("renders a stepper with scenario as the current step and location as a clickable prior step", async () => {
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(rawManifest()),
+      }),
+    );
+    const root = makeRoot();
+
+    renderScenario(root);
+    await flushMicrotasks();
+
+    const current = root.querySelector("[data-step='scenario']");
+    expect(current?.tagName).toBe("SPAN");
+    const priorStep = root.querySelector("[data-step='location']");
+    expect(priorStep?.tagName).toBe("BUTTON");
+  });
+});

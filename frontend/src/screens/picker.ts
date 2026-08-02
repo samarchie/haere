@@ -1,3 +1,4 @@
+import { renderStepper } from "../components/stepper";
 import {
   type AnalysisSummary,
   cityOptions,
@@ -129,6 +130,7 @@ export function renderPicker(root: HTMLElement): void {
 
       mount(
         root,
+        renderStepper("picker"),
         bannerText
           ? el("div", { class: "banner banner--warning" }, bannerText)
           : null,
