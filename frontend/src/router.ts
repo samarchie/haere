@@ -23,10 +23,15 @@ export function currentScreen(): Screen {
 export function navigate(screen: Screen, search = ""): void {
   const path = SCREEN_TO_PATH[screen] + search;
   window.history.pushState(null, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 export function onNavigate(handler: (screen: Screen) => void): () => void {
   const listener = () => handler(currentScreen());
   window.addEventListener("popstate", listener);
   return () => window.removeEventListener("popstate", listener);
+}
+
+export function currentSearch(): URLSearchParams {
+  return new URLSearchParams(window.location.search);
 }
