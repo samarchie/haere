@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Manifest, Scenario } from "../data/manifest";
-import { emptyWizardState, saveWizardState } from "../state/wizardState";
+import {
+  emptyWizardState,
+  loadWizardState,
+  saveWizardState,
+} from "../state/wizardState";
 import { availableCombos, defaultScenario, renderScenario } from "./scenario";
 
 function scenario(
@@ -214,6 +218,28 @@ describe("renderScenario", () => {
 
     findChip(root, "weekday").click();
     expect(seeResults().disabled).toBe(false);
+  });
+
+  it("persists a chip selection immediately, without clicking See results", async () => {
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(rawManifest()),
+      }),
+    );
+
+    const root = makeRoot();
+    renderScenario(root);
+    await flushMicrotasks();
+
+    findChip(root, "saturday").click();
+
+    expect(loadWizardState()?.scenario).toEqual({
+      calendarType: "saturday",
+      timeWindow: "midday",
+    });
   });
 
   it("shows a retry banner when the manifest fetch fails", async () => {

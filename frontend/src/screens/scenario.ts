@@ -1,14 +1,16 @@
+import { renderChip } from "../components/chip";
 import { renderStepper } from "../components/stepper";
 import {
   type Manifest,
   fetchManifest,
   isScenarioComplete,
 } from "../data/manifest";
-import { el, mount } from "../dom";
+import { el, mount, renderErrorBanner } from "../dom";
 import { navigate } from "../router";
 import {
   emptyWizardState,
   loadWizardState,
+  requireCityAndAnalysis,
   saveWizardState,
 } from "../state/wizardState";
 
@@ -50,12 +52,12 @@ export function defaultScenario(
 
 export function renderScenario(root: HTMLElement): void {
   const wizard = loadWizardState() ?? emptyWizardState();
-  if (wizard.cityId === null || wizard.analysisId === null) {
+  const ids = requireCityAndAnalysis(wizard);
+  if (!ids) {
     navigate("picker");
     return;
   }
-  const cityId = wizard.cityId;
-  const analysisId = wizard.analysisId;
+  const { cityId, analysisId } = ids;
 
   mount(root, el("p", {}, "Loading scenario options…"));
 
@@ -73,54 +75,44 @@ export function renderScenario(root: HTMLElement): void {
           : [];
 
         const calendarChips = calendarTypes.map((ct) =>
-          el(
-            "button",
-            {
-              class: selected?.calendarType === ct ? "chip selected" : "chip",
-              onclick: () => {
-                const firstForType = combos.find(
-                  (c) => c.calendarType === ct && c.complete,
-                );
-                selected = firstForType
-                  ? {
-                      calendarType: firstForType.calendarType,
-                      timeWindow: firstForType.timeWindow,
-                    }
-                  : {
-                      calendarType: ct,
-                      timeWindow:
-                        combos.find((c) => c.calendarType === ct)?.timeWindow ??
-                        "",
-                    };
-                renderChips();
-              },
-            },
-            ct,
-          ),
+          renderChip(ct, selected?.calendarType === ct, () => {
+            const firstForType = combos.find(
+              (c) => c.calendarType === ct && c.complete,
+            );
+            selected = firstForType
+              ? {
+                  calendarType: firstForType.calendarType,
+                  timeWindow: firstForType.timeWindow,
+                }
+              : {
+                  calendarType: ct,
+                  timeWindow:
+                    combos.find((c) => c.calendarType === ct)?.timeWindow ?? "",
+                };
+            saveWizardState({ ...wizard, scenario: selected });
+            renderChips();
+          }),
         );
 
         const timeWindowChips = timeWindows.map((c) =>
-          el(
-            "button",
+          renderChip(
+            c.timeWindow,
+            selected?.timeWindow === c.timeWindow,
+            () => {
+              if (!c.complete) return;
+              selected = {
+                calendarType: c.calendarType,
+                timeWindow: c.timeWindow,
+              };
+              saveWizardState({ ...wizard, scenario: selected });
+              renderChips();
+            },
             {
-              class:
-                selected?.timeWindow === c.timeWindow
-                  ? "chip selected"
-                  : "chip",
               disabled: !c.complete,
               title: c.complete
                 ? ""
                 : "This combination isn't fully modelled yet",
-              onclick: () => {
-                if (!c.complete) return;
-                selected = {
-                  calendarType: c.calendarType,
-                  timeWindow: c.timeWindow,
-                };
-                renderChips();
-              },
             },
-            c.timeWindow,
           ),
         );
 
@@ -158,18 +150,8 @@ export function renderScenario(root: HTMLElement): void {
       renderChips();
     })
     .catch(() => {
-      mount(
-        root,
-        el(
-          "div",
-          { class: "banner banner--warning" },
-          "Couldn't load scenario options.",
-        ),
-        el(
-          "button",
-          { class: "btn", onclick: () => renderScenario(root) },
-          "Retry",
-        ),
+      renderErrorBanner(root, "Couldn't load scenario options.", () =>
+        renderScenario(root),
       );
     });
 }

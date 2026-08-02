@@ -1,3 +1,4 @@
+import { renderChip } from "../components/chip";
 import { renderStepper } from "../components/stepper";
 import {
   type AnalysisSummary,
@@ -5,7 +6,7 @@ import {
   fetchAnalyses,
   filterByCity,
 } from "../data/analysisCatalogue";
-import { el, mount } from "../dom";
+import { el, mount, renderErrorBanner } from "../dom";
 import { currentSearch, navigate } from "../router";
 import {
   type WizardState,
@@ -60,7 +61,8 @@ export function renderPicker(root: HTMLElement): void {
 
   fetchAnalyses()
     .then((analyses) => {
-      const cityId = currentSearch().get("city");
+      const cityId =
+        currentSearch().get("city") ?? loadWizardState()?.cityId ?? null;
       const reason = currentSearch().get("reason");
       const shown = filterByCity(analyses, cityId);
       const cities = cityOptions(analyses);
@@ -68,23 +70,10 @@ export function renderPicker(root: HTMLElement): void {
       const bannerText = bannerTextFor(reason);
 
       const chips = [
-        el(
-          "button",
-          {
-            class: cityId === null ? "chip selected" : "chip",
-            onclick: () => navigate("picker"),
-          },
-          "All cities",
-        ),
+        renderChip("All cities", cityId === null, () => navigate("picker")),
         ...cities.map((c) =>
-          el(
-            "button",
-            {
-              class: c.id === cityId ? "chip selected" : "chip",
-              onclick: () =>
-                navigate("picker", `?city=${encodeURIComponent(c.id)}`),
-            },
-            c.name,
+          renderChip(c.name, c.id === cityId, () =>
+            navigate("picker", `?city=${encodeURIComponent(c.id)}`),
           ),
         ),
       ];
@@ -141,18 +130,8 @@ export function renderPicker(root: HTMLElement): void {
       );
     })
     .catch(() => {
-      mount(
-        root,
-        el(
-          "div",
-          { class: "banner banner--warning" },
-          "Couldn't load interventions.",
-        ),
-        el(
-          "button",
-          { class: "btn", onclick: () => renderPicker(root) },
-          "Retry",
-        ),
+      renderErrorBanner(root, "Couldn't load interventions.", () =>
+        renderPicker(root),
       );
     });
 }

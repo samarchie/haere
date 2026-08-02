@@ -49,7 +49,9 @@ export function isValidDestination(value: unknown): value is Destination {
   const v = value as Record<string, unknown>;
   return (
     typeof v.label === "string" &&
+    v.label.trim().length > 0 &&
     typeof v.address === "string" &&
+    v.address.trim().length > 0 &&
     typeof v.lat === "number" &&
     Number.isFinite(v.lat) &&
     typeof v.lng === "number" &&
@@ -99,4 +101,13 @@ export function loadWizardState(): WizardState | null {
 
 export function clearWizardState(): void {
   localStorage.removeItem(WIZARD_STORAGE_KEY);
+}
+
+export function requireCityAndAnalysis(
+  wizard: WizardState,
+): { cityId: string; analysisId: string } | null {
+  if (wizard.cityId === null || wizard.analysisId === null) {
+    return null;
+  }
+  return { cityId: wizard.cityId, analysisId: wizard.analysisId };
 }

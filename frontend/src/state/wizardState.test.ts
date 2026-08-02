@@ -4,7 +4,9 @@ import {
   type WizardState,
   clearWizardState,
   emptyWizardState,
+  isValidDestination,
   loadWizardState,
+  requireCityAndAnalysis,
   saveWizardState,
 } from "./wizardState";
 
@@ -80,5 +82,74 @@ describe("wizardState", () => {
     saveWizardState(emptyWizardState());
     clearWizardState();
     expect(loadWizardState()).toBeNull();
+  });
+
+  it("returns null for a destination with a blank label", () => {
+    localStorage.setItem(
+      WIZARD_STORAGE_KEY,
+      JSON.stringify({
+        cityId: "canterbury",
+        analysisId: "remove-route-135",
+        origin: null,
+        destinations: [
+          { label: "", address: "15 Cashel Street", lat: -43.53, lng: 172.64 },
+        ],
+        scenario: null,
+      }),
+    );
+    expect(loadWizardState()).toBeNull();
+  });
+});
+
+describe("isValidDestination", () => {
+  it("rejects a blank/whitespace-only label", () => {
+    expect(
+      isValidDestination({
+        label: "   ",
+        address: "15 Cashel Street",
+        lat: -43.53,
+        lng: 172.64,
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts a valid destination", () => {
+    expect(
+      isValidDestination({
+        label: "Work",
+        address: "15 Cashel Street",
+        lat: -43.53,
+        lng: 172.64,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("requireCityAndAnalysis", () => {
+  it("returns null when cityId is missing", () => {
+    expect(
+      requireCityAndAnalysis({
+        ...emptyWizardState(),
+        analysisId: "remove-route-135",
+      }),
+    ).toBeNull();
+  });
+
+  it("returns null when analysisId is missing", () => {
+    expect(
+      requireCityAndAnalysis({ ...emptyWizardState(), cityId: "canterbury" }),
+    ).toBeNull();
+  });
+
+  it("returns the cityId and analysisId when both are present", () => {
+    const wizard: WizardState = {
+      ...emptyWizardState(),
+      cityId: "canterbury",
+      analysisId: "remove-route-135",
+    };
+    expect(requireCityAndAnalysis(wizard)).toEqual({
+      cityId: "canterbury",
+      analysisId: "remove-route-135",
+    });
   });
 });
