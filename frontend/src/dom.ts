@@ -42,3 +42,15 @@ export function mount(root: HTMLElement, ...children: Child[]): void {
     root.append(child);
   }
 }
+
+export function renderErrorBanner(
+  root: HTMLElement,
+  message: string,
+  onRetry: () => void,
+): void {
+  mount(
+    root,
+    el("div", { class: "banner banner--warning" }, message),
+    el("button", { class: "btn", onclick: onRetry }, "Retry"),
+  );
+}
