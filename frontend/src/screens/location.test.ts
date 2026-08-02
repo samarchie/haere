@@ -1,12 +1,14 @@
 import { latLngToCell } from "h3-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Manifest } from "../data/manifest";
+import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import {
   type FieldRow,
   canAddDestination,
   canContinue,
   emptyFieldRow,
   fieldStatusText,
+  renderLocation,
   resolveOriginRouting,
 } from "./location";
 
@@ -186,5 +188,194 @@ describe("resolveOriginRouting", () => {
       type: "reroute",
       search: "?city=canterbury&reason=multi-match",
     });
+  });
+});
+
+function seedWizard(
+  overrides: Partial<ReturnType<typeof emptyWizardState>> = {},
+): void {
+  saveWizardState({
+    ...emptyWizardState(),
+    cityId: "canterbury",
+    analysisId: "test-analysis",
+    ...overrides,
+  });
+}
+
+function makeRoot(): HTMLElement {
+  const root = document.createElement("div");
+  document.body.append(root);
+  return root;
+}
+
+async function flushMicrotasks(): Promise<void> {
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+}
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+describe("renderLocation", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  it("adding a destination keeps both destination fields in the DOM", () => {
+    seedWizard();
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    const addButton = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "+ Add another destination",
+    ) as HTMLButtonElement;
+    expect(addButton).toBeTruthy();
+    addButton.click();
+
+    const destinationInputs = root.querySelectorAll(
+      'input[id^="destination-"]',
+    );
+    expect(destinationInputs.length).toBe(2);
+  });
+
+  it("shows a no-match status and keeps the typed address after a failed geocode", async () => {
+    vi.useFakeTimers();
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ features: [] }),
+      }),
+    );
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    const input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "Sm Street";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    await vi.advanceTimersByTimeAsync(500);
+    await flushMicrotasks();
+
+    const updatedInput = root.querySelector(
+      "#destination-0",
+    ) as HTMLInputElement;
+    expect(updatedInput.value).toBe("Sm Street");
+    expect(root.textContent).toContain("No address found");
+  });
+
+  it("keeps an edited destination present as a field through the idle transition", async () => {
+    vi.useFakeTimers();
+    seedWizard({
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "Old Address",
+          lat: -43.5,
+          lng: 172.6,
+        },
+      ],
+    });
+    const { promise: pending } = deferred<{
+      ok: boolean;
+      json: () => Promise<{ features: never[] }>;
+    }>();
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(pending));
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    expect(root.querySelectorAll('input[id^="destination-"]').length).toBe(1);
+
+    const input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "New Address 123";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // Before the debounced geocode fires, the field must still be present
+    // with the freshly typed address.
+    const stillThere = root.querySelector("#destination-0") as HTMLInputElement;
+    expect(stillThere).toBeTruthy();
+    expect(stillThere.value).toBe("New Address 123");
+
+    // Advance to the point the debounce fires and the request is in flight
+    // (status becomes "geocoding") — the field must still survive this
+    // re-render, since it's driven from the live in-memory row, not from
+    // whatever was last persisted to storage.
+    await vi.advanceTimersByTimeAsync(500);
+
+    const midFlight = root.querySelector("#destination-0") as HTMLInputElement;
+    expect(midFlight).toBeTruthy();
+    expect(midFlight.value).toBe("New Address 123");
+    expect(root.textContent).toContain("Looking that up");
+  });
+
+  it("ignores a stale geocode response that resolves after a newer edit", async () => {
+    vi.useFakeTimers();
+    seedWizard();
+    const first = deferred<{
+      ok: boolean;
+      json?: () => Promise<{ features: unknown[] }>;
+    }>();
+    const second = deferred<{
+      ok: boolean;
+      json?: () => Promise<{ features: unknown[] }>;
+    }>();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes(encodeURIComponent("first address"))) {
+          return first.promise;
+        }
+        if (url.includes(encodeURIComponent("second address"))) {
+          return second.promise;
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }),
+    );
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    let input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "first address";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+    // First request ("first address") is now in flight.
+
+    input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "second address";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+    // Second request ("second address") is now in flight too.
+
+    // Resolve the NEWER request first, as a successful-looking no-match.
+    second.resolve({ ok: true, json: () => Promise.resolve({ features: [] }) });
+    await flushMicrotasks();
+
+    // Now resolve the STALE, older request — this must be ignored because
+    // the row's address has moved on since it was fired.
+    first.resolve({ ok: false });
+    await flushMicrotasks();
+
+    const finalInput = root.querySelector("#destination-0") as HTMLInputElement;
+    expect(finalInput.value).toBe("second address");
+    expect(root.textContent).toContain("No address found");
+    expect(root.textContent).not.toContain("unavailable right now");
   });
 });

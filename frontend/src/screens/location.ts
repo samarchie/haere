@@ -131,7 +131,11 @@ export function renderLocation(root: HTMLElement): void {
     ? {
         address: wizard.origin.address,
         status: "resolved",
-        point: { ...wizard.origin, label: wizard.origin.address },
+        point: {
+          lat: wizard.origin.lat,
+          lng: wizard.origin.lng,
+          label: wizard.origin.address,
+        },
       }
     : emptyFieldRow();
   const destinations: FieldRow[] =
@@ -161,18 +165,23 @@ export function renderLocation(root: HTMLElement): void {
     return { manifest: manifestCache, hexIds: hexIdsCache };
   }
 
-  function commit(): void {
-    const resolvedDestinations = destinations
-      .filter((d) => d.status === "resolved" && d.point)
-      .map((d, i) => {
-        const point = d.point as GeocodeResult;
-        return {
+  // Writes the resolved subset of origin/destinations to wizardState.
+  // Does NOT touch the in-memory origin/destinations arrays and does NOT
+  // re-render — call renderForm() separately if the DOM needs updating.
+  function persist(): void {
+    const resolvedDestinations = destinations.flatMap((d, i) => {
+      if (d.status !== "resolved" || !d.point) {
+        return [];
+      }
+      return [
+        {
           label: `Destination ${i + 1}`,
           address: d.address,
-          lat: point.lat,
-          lng: point.lng,
-        };
-      });
+          lat: d.point.lat,
+          lng: d.point.lng,
+        },
+      ];
+    });
 
     saveWizardState({
       ...wizard,
@@ -186,29 +195,36 @@ export function renderLocation(root: HTMLElement): void {
           : null,
       destinations: resolvedDestinations,
     });
-    renderLocation(root);
+  }
+
+  // Re-renders the DOM from the current in-memory origin/destinations
+  // arrays (mutated in place — never re-derived from storage).
+  function renderForm(): void {
+    renderFields();
   }
 
   function handleGeocode(row: FieldRow, isOrigin: boolean): void {
+    const requestAddress = row.address;
     row.status = "geocoding";
-    commit();
+    persist();
+    renderForm();
 
     forwardGeocode(row.address).then(async (outcome) => {
+      if (row.address !== requestAddress) {
+        return;
+      }
       if (!outcome.ok) {
         row.status = outcome.reason;
-        commit();
+        persist();
+        renderForm();
         return;
       }
 
-      const { manifest, hexIds } = await ensureAreaData();
-      const rowIndex = resolveHexRowIndex(
-        outcome.result.lat,
-        outcome.result.lng,
-        manifest.hexagonResolution,
-        hexIds,
-      );
-
-      if (rowIndex === null && isOrigin) {
+      if (isOrigin) {
+        const { manifest, hexIds } = await ensureAreaData();
+        if (row.address !== requestAddress) {
+          return;
+        }
         const routing = await resolveOriginRouting(
           outcome.result,
           cityId,
@@ -216,15 +232,35 @@ export function renderLocation(root: HTMLElement): void {
           manifest,
           hexIds,
         );
+        if (row.address !== requestAddress) {
+          return;
+        }
         if (routing.type === "reroute") {
           navigate("picker", routing.search);
           return;
         }
+        row.point = outcome.result;
+        row.status = "resolved";
+        persist();
+        renderForm();
+        return;
       }
+
+      const { manifest, hexIds } = await ensureAreaData();
+      if (row.address !== requestAddress) {
+        return;
+      }
+      const rowIndex = resolveHexRowIndex(
+        outcome.result.lat,
+        outcome.result.lng,
+        manifest.hexagonResolution,
+        hexIds,
+      );
 
       row.point = outcome.result;
       row.status = rowIndex === null ? "outside-area" : "resolved";
-      commit();
+      persist();
+      renderForm();
     });
   }
 
@@ -233,6 +269,7 @@ export function renderLocation(root: HTMLElement): void {
   function fieldEl(
     row: FieldRow,
     label: string,
+    fieldId: string,
     isOrigin: boolean,
     onRemove?: () => void,
   ): HTMLElement {
@@ -247,8 +284,9 @@ export function renderLocation(root: HTMLElement): void {
     return el(
       "div",
       { class: "field" },
-      el("label", {}, label),
+      el("label", { for: fieldId }, label),
       el("input", {
+        id: fieldId,
         type: "text",
         value: row.address,
         oninput: (e: Event) => {
@@ -262,7 +300,12 @@ export function renderLocation(root: HTMLElement): void {
       }),
       el(
         "button",
-        { class: "btn", disabled: true, title: "coming in a future update" },
+        {
+          type: "button",
+          class: "btn",
+          disabled: true,
+          title: "coming in a future update",
+        },
         "📍",
       ),
       statusText ? el("p", { class: statusClass }, statusText) : null,
@@ -272,59 +315,67 @@ export function renderLocation(root: HTMLElement): void {
     );
   }
 
-  const destinationEls = destinations.map((d, i) =>
-    fieldEl(
-      d,
-      `Destination ${i + 1}`,
-      false,
-      destinations.length > 1
-        ? () => {
-            destinations.splice(i, 1);
-            commit();
-          }
-        : undefined,
-    ),
-  );
+  function renderFields(): void {
+    const destinationEls = destinations.map((d, i) =>
+      fieldEl(
+        d,
+        `Destination ${i + 1}`,
+        `destination-${i}`,
+        false,
+        destinations.length > 1
+          ? () => {
+              destinations.splice(i, 1);
+              persist();
+              renderForm();
+            }
+          : undefined,
+      ),
+    );
 
-  const continueEnabled = canContinue(origin, destinations);
+    const continueEnabled = canContinue(origin, destinations);
 
-  mount(
-    root,
-    el(
-      "div",
-      { class: "stepper" },
-      "① City/Analysis  ② Location  ③ Scenario  ④ Results",
-    ),
-    el("h2", {}, "Where are you starting from?"),
-    fieldEl(origin, "Home address", true),
-    el("h3", {}, "Where do you need to get to?"),
-    ...destinationEls,
-    canAddDestination(destinations)
-      ? el(
-          "button",
-          {
-            class: "btn btn-ghost",
-            onclick: () => {
-              destinations.push(emptyFieldRow());
-              commit();
+    mount(
+      root,
+      el(
+        "div",
+        { class: "stepper" },
+        "① City/Analysis  ② Location  ③ Scenario  ④ Results",
+      ),
+      el("h2", {}, "Where are you starting from?"),
+      fieldEl(origin, "Home address", "origin", true),
+      el("h3", {}, "Where do you need to get to?"),
+      ...destinationEls,
+      canAddDestination(destinations)
+        ? el(
+            "button",
+            {
+              type: "button",
+              class: "btn btn-ghost",
+              onclick: () => {
+                destinations.push(emptyFieldRow());
+                renderForm();
+              },
             },
+            "+ Add another destination",
+          )
+        : null,
+      el("p", {}, `${destinations.length} of 5 destinations`),
+      el(
+        "button",
+        {
+          type: "button",
+          class: "btn btn-primary",
+          disabled: !continueEnabled,
+          onclick: () => {
+            if (continueEnabled) {
+              navigate("scenario");
+            }
           },
-          "+ Add another destination",
-        )
-      : null,
-    el("p", {}, `${destinations.length} of 5 destinations`),
-    el(
-      "button",
-      {
-        class: "btn btn-primary",
-        disabled: !continueEnabled,
-        onclick: () => {
-          if (continueEnabled) {
-            navigate("scenario");
-          }
         },
-      },
-      "Continue →",
-    ),
-  );
+        "Continue →",
+      ),
+    );
+  }
+
+  renderForm();
 }
