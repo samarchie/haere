@@ -26,6 +26,50 @@ export interface WizardState {
 
 export const WIZARD_STORAGE_KEY = "haere.wizardState";
 
+function isValidOrigin(value: unknown): value is WizardOrigin {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.address === "string" &&
+    typeof v.lat === "number" &&
+    Number.isFinite(v.lat) &&
+    typeof v.lng === "number" &&
+    Number.isFinite(v.lng)
+  );
+}
+
+function isValidScenario(value: unknown): value is WizardScenario {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.calendarType === "string" && typeof v.timeWindow === "string";
+}
+
+function isValidDestination(value: unknown): value is Destination {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.label === "string" &&
+    typeof v.address === "string" &&
+    typeof v.lat === "number" &&
+    Number.isFinite(v.lat) &&
+    typeof v.lng === "number" &&
+    Number.isFinite(v.lng)
+  );
+}
+
+export function isWizardState(value: unknown): value is WizardState {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    (typeof v.cityId === "string" || v.cityId === null) &&
+    (typeof v.analysisId === "string" || v.analysisId === null) &&
+    (v.origin === null || isValidOrigin(v.origin)) &&
+    Array.isArray(v.destinations) &&
+    v.destinations.every(isValidDestination) &&
+    (v.scenario === null || isValidScenario(v.scenario))
+  );
+}
+
 export function emptyWizardState(): WizardState {
   return {
     cityId: null,
@@ -46,7 +90,8 @@ export function loadWizardState(): WizardState | null {
     return null;
   }
   try {
-    return JSON.parse(raw) as WizardState;
+    const parsed: unknown = JSON.parse(raw);
+    return isWizardState(parsed) ? parsed : null;
   } catch {
     return null;
   }

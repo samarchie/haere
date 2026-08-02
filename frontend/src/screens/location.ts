@@ -3,7 +3,7 @@ import { type GeocodeResult, forwardGeocode } from "../data/geocode";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
 import { type Manifest, fetchManifest } from "../data/manifest";
 import { el, mount } from "../dom";
-import { navigate } from "../router";
+import { currentScreen, navigate } from "../router";
 import {
   emptyWizardState,
   loadWizardState,
@@ -209,6 +209,9 @@ export function renderLocation(root: HTMLElement): void {
   // replaceChildren(), since this now runs on every keystroke (not just
   // after the debounce), and losing focus mid-typing would be jarring.
   function renderForm(): void {
+    if (currentScreen() !== "location") {
+      return;
+    }
     const active = document.activeElement;
     let restoreId: string | null = null;
     let restoreStart: number | null = null;

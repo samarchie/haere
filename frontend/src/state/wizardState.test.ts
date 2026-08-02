@@ -48,6 +48,34 @@ describe("wizardState", () => {
     expect(loadWizardState()).toBeNull();
   });
 
+  it("returns null for a malformed/legacy-shaped stored value instead of throwing downstream", () => {
+    localStorage.setItem(
+      WIZARD_STORAGE_KEY,
+      JSON.stringify({
+        cityId: "canterbury",
+        analysisId: "remove-route-135",
+        origin: null,
+        // Legacy/corrupted shape: destinations missing entirely, and no
+        // scenario field either.
+      }),
+    );
+    expect(loadWizardState()).toBeNull();
+  });
+
+  it("returns null when destinations entries are missing required fields", () => {
+    localStorage.setItem(
+      WIZARD_STORAGE_KEY,
+      JSON.stringify({
+        cityId: "canterbury",
+        analysisId: "remove-route-135",
+        origin: null,
+        destinations: [{ label: "Work" }],
+        scenario: null,
+      }),
+    );
+    expect(loadWizardState()).toBeNull();
+  });
+
   it("clearWizardState removes the saved state", () => {
     saveWizardState(emptyWizardState());
     clearWizardState();

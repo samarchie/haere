@@ -1,6 +1,7 @@
 import { latLngToCell } from "h3-js";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Manifest } from "../data/manifest";
+import { el } from "../dom";
 import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import {
   type FieldRow,
@@ -226,11 +227,20 @@ function deferred<T>(): {
 }
 
 describe("renderLocation", () => {
+  beforeEach(() => {
+    // renderLocation's renderForm() only renders while the location screen
+    // is the current one (see Finding 3's guard) — the real router always
+    // navigates (updating the path) before rendering a screen, so tests
+    // must reflect that same precondition.
+    window.history.replaceState(null, "", "/location");
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     localStorage.clear();
     document.body.innerHTML = "";
+    window.history.replaceState(null, "", "/");
   });
 
   it("adding a destination keeps both destination fields in the DOM", () => {
@@ -672,6 +682,50 @@ describe("renderLocation", () => {
     expect(finalInput.value).toBe("ab");
     expect(root.textContent).not.toContain("Full Address Match");
     expect(root.textContent).not.toContain("matched to the model grid");
+  });
+
+  it("does not re-render the location form over a screen navigated to while a geocode was in flight", async () => {
+    vi.useFakeTimers();
+    seedWizard({
+      origin: { address: "123 Main St", lat: -43.5, lng: 172.6 },
+    });
+    const { promise: pending, resolve } = deferred<{
+      ok: boolean;
+      json?: () => Promise<{ features: unknown[] }>;
+    }>();
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(pending));
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    const input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "New Destination";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+    // The geocode is now in flight (mid-await on forwardGeocode).
+
+    // Simulate the user navigating away (e.g. clicking Continue) before the
+    // in-flight geocode resolves, the same way router.test.ts simulates
+    // navigation.
+    window.history.pushState(null, "", "/scenario");
+    root.replaceChildren(el("p", {}, "scenario screen placeholder"));
+
+    resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          features: [
+            {
+              geometry: { coordinates: [172.61, -43.51] },
+              properties: { name: "New Destination Match" },
+            },
+          ],
+        }),
+    });
+    await flushMicrotasks();
+
+    expect(root.textContent).toBe("scenario screen placeholder");
+    expect(root.textContent).not.toContain("New Destination Match");
   });
 
   it("recovers from a transient area-data fetch failure instead of getting stuck at 'geocoding' forever", async () => {

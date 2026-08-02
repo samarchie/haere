@@ -2,8 +2,13 @@ import { latLngToCell } from "h3-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { currentSearch } from "../router";
 import { decodeResultsParam } from "../state/resultsUrl";
-import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import {
+  emptyWizardState,
+  loadWizardState,
+  saveWizardState,
+} from "../state/wizardState";
+import {
+  type PercentileMinutes,
   deltaFor,
   formatDelta,
   formatRange,
@@ -70,26 +75,49 @@ describe("deltaFor", () => {
   });
 });
 
+const REACHABLE: PercentileMinutes = { p25: 8, p50: 10, p75: 12 };
+const UNREACHABLE: PercentileMinutes = { p25: null, p50: null, p75: null };
+
 describe("formatDelta", () => {
   it("formats a worse delta", () => {
-    expect(formatDelta(15)).toEqual({ text: "+15 min · worse", tone: "worse" });
+    expect(formatDelta(15, REACHABLE, REACHABLE)).toEqual({
+      text: "+15 min · worse",
+      tone: "worse",
+    });
   });
 
   it("formats a better delta", () => {
-    expect(formatDelta(-4)).toEqual({
+    expect(formatDelta(-4, REACHABLE, REACHABLE)).toEqual({
       text: "-4 min · better",
       tone: "better",
     });
   });
 
   it("formats no change", () => {
-    expect(formatDelta(0)).toEqual({ text: "No change", tone: "none" });
+    expect(formatDelta(0, REACHABLE, REACHABLE)).toEqual({
+      text: "No change",
+      tone: "none",
+    });
   });
 
-  it("formats an unreachable delta", () => {
-    expect(formatDelta(null)).toEqual({
+  it("formats both sides unreachable", () => {
+    expect(formatDelta(null, UNREACHABLE, UNREACHABLE)).toEqual({
       text: "No route today or after",
       tone: "none",
+    });
+  });
+
+  it("formats a lost route (reachable today, unreachable after) distinctly", () => {
+    expect(formatDelta(null, REACHABLE, UNREACHABLE)).toEqual({
+      text: "No longer reachable",
+      tone: "worse",
+    });
+  });
+
+  it("formats a gained route (unreachable today, reachable after) distinctly", () => {
+    expect(formatDelta(null, UNREACHABLE, REACHABLE)).toEqual({
+      text: "Newly reachable",
+      tone: "better",
     });
   });
 });
@@ -481,6 +509,126 @@ describe("renderResults", () => {
         lng: DEST_POINT_2.lng,
       },
     ]);
+  });
+
+  it("clicking + Add another destination seeds wizardState from the current payload, not whatever was already stored", async () => {
+    // Seed a divergent wizardState first, to prove the click actually
+    // performs the seeding rather than coincidentally matching.
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "other-city",
+      analysisId: "other-analysis",
+    });
+
+    const { hexIds, destIndex } = sortedHexIds();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.endsWith("/manifest.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                hexagon_resolution: RESOLUTION,
+                hex_count: 2,
+                percentiles: [25, 50, 75],
+                encoding: {
+                  dtype: "uint8",
+                  bytes_per_value: 1,
+                  byte_order: "little",
+                  unreachable: 255,
+                },
+                scenarios: [
+                  {
+                    calendar_type: "weekday",
+                    time_window: "am_peak",
+                    start: "07:00",
+                    end: "09:00",
+                    variants: {
+                      baseline: {
+                        "25": "baseline_25.bin",
+                        "50": "baseline_50.bin",
+                        "75": "baseline_75.bin",
+                      },
+                      modified: {
+                        "25": "modified_25.bin",
+                        "50": "modified_50.bin",
+                        "75": "modified_75.bin",
+                      },
+                    },
+                  },
+                ],
+              }),
+          });
+        }
+        if (url.endsWith("/hexes.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(hexIds),
+          });
+        }
+        if (url.endsWith("/analyses.json")) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+        }
+        for (const p of [25, 50, 75]) {
+          if (
+            url.includes(`baseline_${p}.bin`) ||
+            url.includes(`modified_${p}.bin`)
+          ) {
+            return Promise.resolve({
+              status: 206,
+              arrayBuffer: () =>
+                Promise.resolve(rowBytes(destIndex, 10).buffer),
+            });
+          }
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }),
+    );
+
+    const payload = {
+      cityId: "canterbury",
+      analysisId: "remove-route-135",
+      origin: {
+        address: ORIGIN_POINT.address,
+        lat: ORIGIN_POINT.lat,
+        lng: ORIGIN_POINT.lng,
+      },
+      destinations: [
+        {
+          label: DEST_POINT.label,
+          address: DEST_POINT.address,
+          lat: DEST_POINT.lat,
+          lng: DEST_POINT.lng,
+        },
+      ],
+      scenario: { calendarType: "weekday", timeWindow: "am_peak" },
+    };
+    const { encodeResultsParam } = await import("../state/resultsUrl");
+    window.history.replaceState(
+      null,
+      "",
+      `/results?r=${encodeResultsParam(payload)}`,
+    );
+
+    const root = makeRoot();
+    renderResults(root);
+    await flushMicrotasks();
+
+    const addButton = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "+ Add another destination",
+    ) as HTMLButtonElement;
+    expect(addButton).toBeTruthy();
+    addButton.click();
+
+    expect(loadWizardState()).toEqual({
+      cityId: payload.cityId,
+      analysisId: payload.analysisId,
+      origin: payload.origin,
+      destinations: payload.destinations,
+      scenario: payload.scenario,
+    });
   });
 
   it("shows a retry banner when the results data fails to load, and retry re-attempts the fetch", async () => {

@@ -15,7 +15,11 @@ import {
   decodeResultsParam,
   encodeResultsParam,
 } from "../state/resultsUrl";
-import { type Destination, loadWizardState } from "../state/wizardState";
+import {
+  type Destination,
+  loadWizardState,
+  saveWizardState,
+} from "../state/wizardState";
 
 export interface PercentileMinutes {
   p25: number | null;
@@ -62,11 +66,21 @@ export function deltaFor(
   );
 }
 
-export function formatDelta(delta: number | null): {
+export function formatDelta(
+  delta: number | null,
+  baseline: PercentileMinutes,
+  modified: PercentileMinutes,
+): {
   text: string;
   tone: "better" | "worse" | "none";
 } {
   if (delta === null) {
+    if (baseline.p50 !== null && modified.p50 === null) {
+      return { text: "No longer reachable", tone: "worse" };
+    }
+    if (baseline.p50 === null && modified.p50 !== null) {
+      return { text: "Newly reachable", tone: "better" };
+    }
     return { text: "No route today or after", tone: "none" };
   }
   if (delta === 0) {
@@ -290,7 +304,7 @@ function renderVerdictScreen(
   }>,
 ): void {
   const rowEls = rows.map(({ destination, baseline, modified, delta }, i) => {
-    const { text: deltaText, tone } = formatDelta(delta);
+    const { text: deltaText, tone } = formatDelta(delta, baseline, modified);
     return el(
       "div",
       { class: "verdict-row" },
@@ -369,11 +383,19 @@ function renderVerdictScreen(
     ...rowEls,
     el(
       "button",
-      // Note: this navigates to the location screen, which reads/writes wizardState —
-      // that can diverge from the URL `payload` this screen renders from (e.g. on a
-      // shared link opened in a fresh session). Same class of bug as the ✕ handler
-      // fixed above; not addressed here.
-      { class: "btn btn-ghost", onclick: () => navigate("location") },
+      {
+        class: "btn btn-ghost",
+        onclick: () => {
+          saveWizardState({
+            cityId: payload.cityId,
+            analysisId: payload.analysisId,
+            origin: payload.origin,
+            destinations: payload.destinations,
+            scenario: payload.scenario,
+          });
+          navigate("location");
+        },
+      },
       "+ Add another destination",
     ),
     consultationBanner,
