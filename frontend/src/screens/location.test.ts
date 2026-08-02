@@ -287,6 +287,27 @@ describe("renderLocation", () => {
     expect(destinationInputs.length).toBe(2);
   });
 
+  it("does not append a 6th destination row when already at the 5-destination cap", () => {
+    seedWizard({
+      destinations: [1, 2, 3, 4, 5].map((n) => ({
+        label: `Destination ${n}`,
+        address: "Old Address",
+        lat: -43.5,
+        lng: 172.6,
+      })),
+    });
+    window.history.replaceState(null, "", "/location?addDestination=1");
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    const destinationInputs = root.querySelectorAll(
+      'input[id^="destination-"]',
+    );
+    expect(destinationInputs.length).toBe(5);
+    expect(window.location.search).not.toContain("addDestination");
+  });
+
   it("clears the addDestination flag from the URL after consuming it", () => {
     seedWizard({
       destinations: [

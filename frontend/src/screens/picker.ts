@@ -73,9 +73,9 @@ export function renderPicker(root: HTMLElement): void {
       const bannerText = bannerTextFor(reason);
 
       const chips = [
-        renderChip("All cities", cityId === null, () =>
-          navigate("picker", "?city="),
-        ),
+        renderChip("All cities", cityId === null, () => {
+          if (cityId !== null) navigate("picker", "?city=");
+        }),
         ...cities.map((c) =>
           renderChip(c.name, c.id === cityId, () =>
             navigate("picker", `?city=${encodeURIComponent(c.id)}`),

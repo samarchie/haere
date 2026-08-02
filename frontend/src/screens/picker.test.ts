@@ -115,6 +115,7 @@ describe("renderPicker city filter defaulting from wizardState", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/picker");
   });
 
   it("defaults the filter from wizard.cityId when no ?city= param is present", async () => {
