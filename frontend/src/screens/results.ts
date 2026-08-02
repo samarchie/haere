@@ -15,12 +15,9 @@ import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
+  seedWizardStateFromPayload,
 } from "../state/resultsUrl";
-import {
-  type Destination,
-  loadWizardState,
-  saveWizardState,
-} from "../state/wizardState";
+import { type Destination, loadWizardState } from "../state/wizardState";
 
 export interface PercentileMinutes {
   p25: number | null;
@@ -378,13 +375,7 @@ function renderVerdictScreen(
     : null;
 
   const navigateFromStepper = (screen: Screen): void => {
-    saveWizardState({
-      cityId: payload.cityId,
-      analysisId: payload.analysisId,
-      origin: payload.origin,
-      destinations: payload.destinations,
-      scenario: payload.scenario,
-    });
+    seedWizardStateFromPayload(payload);
     navigate(screen);
   };
 
@@ -398,13 +389,7 @@ function renderVerdictScreen(
       {
         class: "btn btn-ghost",
         onclick: () => {
-          saveWizardState({
-            cityId: payload.cityId,
-            analysisId: payload.analysisId,
-            origin: payload.origin,
-            destinations: payload.destinations,
-            scenario: payload.scenario,
-          });
+          seedWizardStateFromPayload(payload);
           navigate("location");
         },
       },

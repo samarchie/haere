@@ -26,7 +26,7 @@ export interface WizardState {
 
 export const WIZARD_STORAGE_KEY = "haere.wizardState";
 
-function isValidOrigin(value: unknown): value is WizardOrigin {
+export function isValidOrigin(value: unknown): value is WizardOrigin {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
@@ -38,13 +38,13 @@ function isValidOrigin(value: unknown): value is WizardOrigin {
   );
 }
 
-function isValidScenario(value: unknown): value is WizardScenario {
+export function isValidScenario(value: unknown): value is WizardScenario {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return typeof v.calendarType === "string" && typeof v.timeWindow === "string";
 }
 
-function isValidDestination(value: unknown): value is Destination {
+export function isValidDestination(value: unknown): value is Destination {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (

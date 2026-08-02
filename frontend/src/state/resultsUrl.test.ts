@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
+  seedWizardStateFromPayload,
 } from "./resultsUrl";
+import { loadWizardState } from "./wizardState";
 
 const samplePayload: ResultsPayload = {
   cityId: "canterbury",
@@ -17,6 +19,22 @@ const samplePayload: ResultsPayload = {
 };
 
 describe("resultsUrl", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("seedWizardStateFromPayload saves a wizardState matching the payload", () => {
+    seedWizardStateFromPayload(samplePayload);
+
+    expect(loadWizardState()).toEqual({
+      cityId: samplePayload.cityId,
+      analysisId: samplePayload.analysisId,
+      origin: samplePayload.origin,
+      destinations: samplePayload.destinations,
+      scenario: samplePayload.scenario,
+    });
+  });
+
   it("round-trips a full payload", () => {
     const encoded = encodeResultsParam(samplePayload);
     expect(decodeResultsParam(encoded)).toEqual(samplePayload);
