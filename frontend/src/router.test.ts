@@ -35,6 +35,16 @@ describe("router", () => {
     expect(window.location.search).toBe("?r=abc123");
   });
 
+  it("navigate triggers onNavigate subscribers without a manual popstate dispatch", () => {
+    const handler = vi.fn();
+    const unsubscribe = onNavigate(handler);
+
+    navigate("scenario");
+
+    expect(handler).toHaveBeenCalledWith("scenario");
+    unsubscribe();
+  });
+
   it("onNavigate fires its handler on popstate, and unsubscribe stops it", () => {
     const handler = vi.fn();
     const unsubscribe = onNavigate(handler);
