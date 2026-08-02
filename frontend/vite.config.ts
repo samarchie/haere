@@ -5,18 +5,13 @@ import { defineConfig } from "vite";
 
 function serveOutputData(): Plugin {
   const outputRoot = path.resolve(__dirname, "../output");
-  const analysesFixture = path.resolve(__dirname, "fixtures/analyses.json");
 
   const handler: Connect.NextHandleFunction = (req, res, next) => {
     const requestPath = (req.url ?? "").split("?")[0];
-    const filePath =
-      requestPath === "/analyses.json"
-        ? analysesFixture
-        : path.join(outputRoot, requestPath);
+    const filePath = path.join(outputRoot, requestPath);
 
     const isAllowed =
-      filePath === analysesFixture ||
-      (filePath.startsWith(outputRoot + path.sep) && !filePath.includes(".."));
+      filePath.startsWith(outputRoot + path.sep) && !filePath.includes("..");
     if (!isAllowed) {
       res.statusCode = 403;
       res.end();
