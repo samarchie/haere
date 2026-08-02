@@ -136,4 +136,33 @@ describe("renderPicker city filter defaulting from wizardState", () => {
     const selectedChip = root.querySelector(".chip.selected");
     expect(selectedChip?.textContent).toBe("Christchurch");
   });
+
+  it("clicking All cities shows the unfiltered list and does not snap back to the wizardState city", async () => {
+    saveWizardState({ ...emptyWizardState(), cityId: "canterbury" });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, json: () => Promise.resolve(analyses) }),
+    );
+    const root = document.createElement("div");
+
+    renderPicker(root);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const allCitiesChip = Array.from(root.querySelectorAll("button")).find(
+      (b) => b.textContent === "All cities",
+    ) as HTMLButtonElement;
+    expect(allCitiesChip).toBeTruthy();
+    allCitiesChip.click();
+    expect(window.location.search).toBe("?city=");
+
+    // Simulate the app's popstate-driven re-render of the current screen.
+    renderPicker(root);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(root.textContent).toContain("2 of 2 interventions");
+    const selectedChip = root.querySelector(".chip.selected");
+    expect(selectedChip?.textContent).toBe("All cities");
+  });
 });

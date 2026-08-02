@@ -61,8 +61,11 @@ export function renderPicker(root: HTMLElement): void {
 
   fetchAnalyses()
     .then((analyses) => {
+      const rawCity = currentSearch().get("city");
       const cityId =
-        currentSearch().get("city") ?? loadWizardState()?.cityId ?? null;
+        rawCity === null
+          ? (loadWizardState()?.cityId ?? null)
+          : rawCity || null;
       const reason = currentSearch().get("reason");
       const shown = filterByCity(analyses, cityId);
       const cities = cityOptions(analyses);
@@ -70,7 +73,9 @@ export function renderPicker(root: HTMLElement): void {
       const bannerText = bannerTextFor(reason);
 
       const chips = [
-        renderChip("All cities", cityId === null, () => navigate("picker")),
+        renderChip("All cities", cityId === null, () =>
+          navigate("picker", "?city="),
+        ),
         ...cities.map((c) =>
           renderChip(c.name, c.id === cityId, () =>
             navigate("picker", `?city=${encodeURIComponent(c.id)}`),
