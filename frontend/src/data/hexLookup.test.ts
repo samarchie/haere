@@ -76,6 +76,7 @@ describe("fetchHexIds", () => {
     expect(result).toEqual(ids);
     expect(fetch).toHaveBeenCalledWith(
       "/data/canterbury/remove-route-135/hexes.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 });

@@ -43,7 +43,10 @@ describe("fetchAnalyses", () => {
 
     const analyses = await fetchAnalyses();
 
-    expect(fetch).toHaveBeenCalledWith("/data/analyses.json");
+    expect(fetch).toHaveBeenCalledWith(
+      "/data/analyses.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(analyses).toHaveLength(2);
     expect(analyses[0]).toEqual<AnalysisSummary>({
       cityId: "canterbury",

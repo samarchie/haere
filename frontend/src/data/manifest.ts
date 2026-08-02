@@ -1,8 +1,10 @@
 import { DATA_BASE_URL } from "../config";
+import { fetchJson } from "./fetchJson";
 
 export interface EncodingInfo {
   dtype: "uint8" | "uint16";
   bytesPerValue: number;
+  byteOrder: string;
   unreachable: number;
 }
 
@@ -42,6 +44,7 @@ interface RawManifest {
   encoding: {
     dtype: "uint8" | "uint16";
     bytes_per_value: number;
+    byte_order: string;
     unreachable: number;
   };
   scenarios: RawScenario[];
@@ -51,10 +54,9 @@ export async function fetchManifest(
   cityId: string,
   analysisId: string,
 ): Promise<Manifest> {
-  const response = await fetch(
+  const raw = await fetchJson<RawManifest>(
     `${DATA_BASE_URL}/${cityId}/${analysisId}/manifest.json`,
   );
-  const raw = (await response.json()) as RawManifest;
 
   return {
     hexagonResolution: raw.hexagon_resolution,
@@ -63,6 +65,7 @@ export async function fetchManifest(
     encoding: {
       dtype: raw.encoding.dtype,
       bytesPerValue: raw.encoding.bytes_per_value,
+      byteOrder: raw.encoding.byte_order,
       unreachable: raw.encoding.unreachable,
     },
     scenarios: raw.scenarios.map((s) => ({
@@ -75,9 +78,16 @@ export async function fetchManifest(
   };
 }
 
-export function isScenarioComplete(scenario: Scenario): boolean {
-  return (
-    Boolean(scenario.variants.baseline) && Boolean(scenario.variants.modified)
+export function isScenarioComplete(
+  scenario: Scenario,
+  percentiles: number[],
+): boolean {
+  const { baseline, modified } = scenario.variants;
+  if (!baseline || !modified) {
+    return false;
+  }
+  return percentiles.every(
+    (p) => String(p) in baseline && String(p) in modified,
   );
 }
 

@@ -1,4 +1,5 @@
 import { DATA_BASE_URL } from "../config";
+import { fetchJson } from "./fetchJson";
 
 export interface AnalysisSummary {
   cityId: string;
@@ -21,8 +22,9 @@ interface RawAnalysisSummary {
 }
 
 export async function fetchAnalyses(): Promise<AnalysisSummary[]> {
-  const response = await fetch(`${DATA_BASE_URL}/analyses.json`);
-  const raw = (await response.json()) as RawAnalysisSummary[];
+  const raw = await fetchJson<RawAnalysisSummary[]>(
+    `${DATA_BASE_URL}/analyses.json`,
+  );
 
   return raw.map((a) => ({
     cityId: a.city_id,

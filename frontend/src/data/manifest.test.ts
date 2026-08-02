@@ -76,12 +76,14 @@ describe("fetchManifest", () => {
 
     expect(fetch).toHaveBeenCalledWith(
       "/data/canterbury/remove-route-135/manifest.json",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(manifest.hexagonResolution).toBe(9);
     expect(manifest.hexCount).toBe(3559);
     expect(manifest.encoding).toEqual({
       dtype: "uint8",
       bytesPerValue: 1,
+      byteOrder: "little",
       unreachable: 255,
     });
     expect(manifest.scenarios).toHaveLength(2);
@@ -104,11 +106,23 @@ describe("isScenarioComplete", () => {
   };
 
   it("is true when both baseline and modified are present", () => {
-    expect(isScenarioComplete(complete)).toBe(true);
+    expect(isScenarioComplete(complete, [50])).toBe(true);
   });
 
   it("is false when modified is missing", () => {
-    expect(isScenarioComplete(incomplete)).toBe(false);
+    expect(isScenarioComplete(incomplete, [50])).toBe(false);
+  });
+
+  it("is false when modified is missing some but not all percentiles", () => {
+    const partial: Scenario = {
+      ...complete,
+      variants: {
+        baseline: { "25": "a25.bin", "50": "a50.bin", "75": "a75.bin" },
+        modified: { "50": "b50.bin" },
+      },
+    };
+
+    expect(isScenarioComplete(partial, [25, 50, 75])).toBe(false);
   });
 });
 

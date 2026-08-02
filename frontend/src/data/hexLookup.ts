@@ -1,5 +1,6 @@
 import { latLngToCell } from "h3-js";
 import { DATA_BASE_URL } from "../config";
+import { fetchJson } from "./fetchJson";
 
 export function binarySearch(
   sortedIds: string[],
@@ -37,8 +38,7 @@ export async function fetchHexIds(
   cityId: string,
   analysisId: string,
 ): Promise<string[]> {
-  const response = await fetch(
+  return fetchJson<string[]>(
     `${DATA_BASE_URL}/${cityId}/${analysisId}/hexes.json`,
   );
-  return (await response.json()) as string[];
 }
