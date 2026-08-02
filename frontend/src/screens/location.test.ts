@@ -378,4 +378,217 @@ describe("renderLocation", () => {
     expect(root.textContent).toContain("No address found");
     expect(root.textContent).not.toContain("unavailable right now");
   });
+
+  it("keeps focus and caret in a destination field across the immediate re-render triggered by typing", () => {
+    seedWizard();
+    const root = makeRoot();
+    renderLocation(root);
+
+    const input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.focus();
+    input.value = "1600 Amp";
+    input.setSelectionRange(5, 5);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const afterRerender = root.querySelector(
+      "#destination-0",
+    ) as HTMLInputElement;
+    expect(afterRerender).toBeTruthy();
+    expect(document.activeElement).toBe(afterRerender);
+    expect(afterRerender.selectionStart).toBe(5);
+    expect(afterRerender.selectionEnd).toBe(5);
+  });
+
+  it("gives each field its own debounce timer, so typing in one field does not cancel another field's pending geocode", async () => {
+    vi.useFakeTimers();
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ features: [] }),
+      }),
+    );
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    const originInput = root.querySelector("#origin") as HTMLInputElement;
+    originInput.value = "Origin Address";
+    originInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // Switch to the destination field within the origin's debounce window.
+    await vi.advanceTimersByTimeAsync(200);
+    const destInput = root.querySelector("#destination-0") as HTMLInputElement;
+    destInput.value = "Destination Address";
+    destInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // Advance far enough for both fields' own 500ms debounce timers to fire.
+    await vi.advanceTimersByTimeAsync(500);
+    await flushMicrotasks();
+
+    const matches = root.textContent?.match(/No address found/g) ?? [];
+    expect(matches.length).toBe(2);
+  });
+
+  it("disables Continue immediately when a resolved field is edited, before the debounce fires", () => {
+    vi.useFakeTimers();
+    seedWizard({
+      origin: { address: "123 Main St", lat: -43.5, lng: 172.6 },
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "456 Other St",
+          lat: -43.51,
+          lng: 172.61,
+        },
+      ],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ features: [] }),
+      }),
+    );
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    const findContinue = () =>
+      Array.from(root.querySelectorAll("button")).find(
+        (b) => b.textContent === "Continue →",
+      ) as HTMLButtonElement;
+
+    expect(findContinue().disabled).toBe(false);
+
+    const originInput = root.querySelector("#origin") as HTMLInputElement;
+    originInput.value = "New Address";
+    originInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(findContinue().disabled).toBe(true);
+  });
+
+  it("uses a monotonic per-row counter so a stale response can't win an edit-away-and-back race", async () => {
+    vi.useFakeTimers();
+    seedWizard();
+
+    const resolution = 9;
+    const hexIds = [
+      latLngToCell(-43.5, 172.6, resolution),
+      latLngToCell(-43.51, 172.61, resolution),
+    ].sort();
+
+    const photonQueue = [
+      deferred<{ ok: boolean; json: () => Promise<unknown> }>(),
+      deferred<{ ok: boolean; json: () => Promise<unknown> }>(),
+      deferred<{ ok: boolean; json: () => Promise<unknown> }>(),
+    ];
+    let photonCallIndex = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("photon.komoot.io")) {
+          return photonQueue[photonCallIndex++].promise;
+        }
+        if (url.includes("/manifest.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                hexagon_resolution: resolution,
+                hex_count: hexIds.length,
+                percentiles: [50],
+                encoding: {
+                  dtype: "uint8",
+                  bytes_per_value: 1,
+                  byte_order: "little",
+                  unreachable: 255,
+                },
+                scenarios: [],
+              }),
+          });
+        }
+        if (url.includes("/hexes.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(hexIds),
+          });
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }),
+    );
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    // Request #1: type "abc" and let its debounce fire (photon call #1
+    // goes in flight).
+    let input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "abc";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+
+    // Request #2: edit away to "abcd" and let its debounce fire (photon
+    // call #2 goes in flight).
+    input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "abcd";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+
+    // Request #3: edit back to "abc" (the SAME address as request #1) and
+    // let its debounce fire (photon call #3 goes in flight). Address-
+    // equality staleness checks can't tell #1 and #3 apart; a monotonic
+    // counter can.
+    input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "abc";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+
+    // Resolve the CURRENT request (#3) first, then the stale #2, then the
+    // stale #1 LAST — deliberately out of order. An address-equality
+    // staleness guard sees #1's captured address ("abc") still matches the
+    // row's current address ("abc", since we edited back to it) and would
+    // wrongly accept this late-arriving stale response, clobbering the
+    // already-correct state from #3. A monotonic per-row counter rejects
+    // #1 regardless of resolution order, because a newer request (#3) has
+    // since started for this row.
+    photonQueue[2].resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          features: [
+            {
+              geometry: { coordinates: [172.61, -43.51] },
+              properties: { name: "Third (current)" },
+            },
+          ],
+        }),
+    });
+    await flushMicrotasks();
+
+    photonQueue[1].resolve({
+      ok: true,
+      json: () => Promise.resolve({ features: [] }),
+    });
+    await flushMicrotasks();
+
+    photonQueue[0].resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          features: [
+            {
+              geometry: { coordinates: [172.6, -43.5] },
+              properties: { name: "First (stale)" },
+            },
+          ],
+        }),
+    });
+    await flushMicrotasks();
+
+    expect(root.textContent).toContain("Third (current)");
+    expect(root.textContent).not.toContain("First (stale)");
+  });
 });

@@ -107,17 +107,6 @@ export async function resolveOriginRouting(
   return { type: "reroute", search: "?reason=outside-area" };
 }
 
-function debounce<A extends unknown[]>(
-  fn: (...args: A) => void,
-  ms: number,
-): (...args: A) => void {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  return (...args: A) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
-
 export function renderLocation(root: HTMLElement): void {
   const wizard = loadWizardState() ?? emptyWizardState();
   if (wizard.cityId === null || wizard.analysisId === null) {
@@ -147,22 +136,30 @@ export function renderLocation(root: HTMLElement): void {
         }))
       : [emptyFieldRow()];
 
-  let manifestCache: Manifest | null = null;
-  let hexIdsCache: string[] | null = null;
+  let areaDataPromise: Promise<{
+    manifest: Manifest;
+    hexIds: string[];
+  }> | null = null;
 
-  async function ensureAreaData(): Promise<{
+  // Per-row debounce timers and monotonic request counters. Keyed by the
+  // FieldRow object itself (via WeakMap) so each field's pending geocode
+  // is independent of every other field's, and so an edit-away-and-back
+  // on the same field can invalidate an earlier in-flight request for
+  // that field without relying on address equality.
+  const debounceTimers = new WeakMap<FieldRow, ReturnType<typeof setTimeout>>();
+  const requestCounters = new WeakMap<FieldRow, number>();
+
+  function ensureAreaData(): Promise<{
     manifest: Manifest;
     hexIds: string[];
   }> {
-    if (manifestCache === null || hexIdsCache === null) {
-      const [manifest, hexIds] = await Promise.all([
+    if (areaDataPromise === null) {
+      areaDataPromise = Promise.all([
         fetchManifest(cityId, analysisId),
         fetchHexIds(cityId, analysisId),
-      ]);
-      manifestCache = manifest;
-      hexIdsCache = hexIds;
+      ]).then(([manifest, hexIds]) => ({ manifest, hexIds }));
     }
-    return { manifest: manifestCache, hexIds: hexIdsCache };
+    return areaDataPromise;
   }
 
   // Writes the resolved subset of origin/destinations to wizardState.
@@ -198,19 +195,51 @@ export function renderLocation(root: HTMLElement): void {
   }
 
   // Re-renders the DOM from the current in-memory origin/destinations
-  // arrays (mutated in place — never re-derived from storage).
+  // arrays (mutated in place — never re-derived from storage). Preserves
+  // focus and caret position across the underlying mount()'s
+  // replaceChildren(), since this now runs on every keystroke (not just
+  // after the debounce), and losing focus mid-typing would be jarring.
   function renderForm(): void {
+    const active = document.activeElement;
+    let restoreId: string | null = null;
+    let restoreStart: number | null = null;
+    let restoreEnd: number | null = null;
+    if (
+      active instanceof HTMLInputElement &&
+      active.id &&
+      root.contains(active)
+    ) {
+      restoreId = active.id;
+      restoreStart = active.selectionStart;
+      restoreEnd = active.selectionEnd;
+    }
+
     renderFields();
+
+    if (restoreId) {
+      const toRestore = root.querySelector(
+        `input[id="${restoreId}"]`,
+      ) as HTMLInputElement | null;
+      if (toRestore) {
+        toRestore.focus();
+        if (restoreStart !== null && restoreEnd !== null) {
+          toRestore.setSelectionRange(restoreStart, restoreEnd);
+        }
+      }
+    }
   }
 
   function handleGeocode(row: FieldRow, isOrigin: boolean): void {
-    const requestAddress = row.address;
+    const requestId = (requestCounters.get(row) ?? 0) + 1;
+    requestCounters.set(row, requestId);
+    const isStale = () => requestCounters.get(row) !== requestId;
+
     row.status = "geocoding";
     persist();
     renderForm();
 
     forwardGeocode(row.address).then(async (outcome) => {
-      if (row.address !== requestAddress) {
+      if (isStale()) {
         return;
       }
       if (!outcome.ok) {
@@ -222,7 +251,7 @@ export function renderLocation(root: HTMLElement): void {
 
       if (isOrigin) {
         const { manifest, hexIds } = await ensureAreaData();
-        if (row.address !== requestAddress) {
+        if (isStale()) {
           return;
         }
         const routing = await resolveOriginRouting(
@@ -232,7 +261,7 @@ export function renderLocation(root: HTMLElement): void {
           manifest,
           hexIds,
         );
-        if (row.address !== requestAddress) {
+        if (isStale()) {
           return;
         }
         if (routing.type === "reroute") {
@@ -247,7 +276,7 @@ export function renderLocation(root: HTMLElement): void {
       }
 
       const { manifest, hexIds } = await ensureAreaData();
-      if (row.address !== requestAddress) {
+      if (isStale()) {
         return;
       }
       const rowIndex = resolveHexRowIndex(
@@ -264,7 +293,27 @@ export function renderLocation(root: HTMLElement): void {
     });
   }
 
-  const debouncedGeocode = debounce(handleGeocode, 500);
+  function scheduleGeocode(row: FieldRow, isOrigin: boolean): void {
+    const existing = debounceTimers.get(row);
+    if (existing !== undefined) {
+      clearTimeout(existing);
+    }
+    debounceTimers.set(
+      row,
+      setTimeout(() => {
+        debounceTimers.delete(row);
+        handleGeocode(row, isOrigin);
+      }, 500),
+    );
+  }
+
+  function cancelScheduledGeocode(row: FieldRow): void {
+    const existing = debounceTimers.get(row);
+    if (existing !== undefined) {
+      clearTimeout(existing);
+      debounceTimers.delete(row);
+    }
+  }
 
   function fieldEl(
     row: FieldRow,
@@ -293,8 +342,12 @@ export function renderLocation(root: HTMLElement): void {
           row.address = (e.target as HTMLInputElement).value;
           row.status = "idle";
           row.point = null;
+          persist();
+          renderForm();
           if (row.address.trim().length > 2) {
-            debouncedGeocode(row, isOrigin);
+            scheduleGeocode(row, isOrigin);
+          } else {
+            cancelScheduledGeocode(row);
           }
         },
       }),
@@ -310,7 +363,11 @@ export function renderLocation(root: HTMLElement): void {
       ),
       statusText ? el("p", { class: statusClass }, statusText) : null,
       onRemove
-        ? el("button", { class: "btn btn-ghost", onclick: onRemove }, "Remove")
+        ? el(
+            "button",
+            { type: "button", class: "btn btn-ghost", onclick: onRemove },
+            "Remove",
+          )
         : null,
     );
   }
