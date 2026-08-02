@@ -33,7 +33,11 @@ export function renderStepper(
       );
     }
     if (index === currentIndex) {
-      return el("span", { "data-step": step.screen }, step.label);
+      return el(
+        "span",
+        { class: "stepper__current", "data-step": step.screen },
+        step.label,
+      );
     }
     return el(
       "span",
@@ -42,5 +46,9 @@ export function renderStepper(
     );
   });
 
-  return el("div", { class: "stepper" }, ...stepEls);
+  const spacedStepEls = stepEls.flatMap((stepEl, index) =>
+    index === 0 ? [stepEl] : [" ", stepEl],
+  );
+
+  return el("div", { class: "stepper" }, ...spacedStepEls);
 }

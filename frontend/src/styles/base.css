@@ -120,6 +120,10 @@ body {
 }
 
 .stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
   font-size: 13px;
   color: var(--muted);
   margin-bottom: 24px;
@@ -133,6 +137,11 @@ body {
   color: var(--accent);
   text-decoration: underline;
   cursor: pointer;
+}
+
+.stepper__current {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .stepper__future {

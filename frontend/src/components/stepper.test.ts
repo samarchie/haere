@@ -51,6 +51,25 @@ describe("renderStepper", () => {
     expect(onNavigate).not.toHaveBeenCalled();
   });
 
+  it("renders step labels with visible whitespace separation between them", () => {
+    const node = renderStepper("results");
+
+    expect(node.textContent).toContain("① City/Analysis");
+    expect(node.textContent).toContain("② Location");
+    expect(node.textContent).toContain("③ Scenario");
+    expect(node.textContent).toContain("④ Results");
+    expect(node.textContent).not.toContain("Analysis②");
+    expect(node.textContent).not.toContain("Location③");
+    expect(node.textContent).not.toContain("Scenario④");
+  });
+
+  it("gives the current step a distinct class for visual highlighting", () => {
+    const node = renderStepper("location");
+
+    const current = node.querySelector("[data-step='location']");
+    expect(current?.classList.contains("stepper__current")).toBe(true);
+  });
+
   it("defaults onNavigate to the router's navigate when not provided", () => {
     window.history.replaceState(null, "", "/scenario");
     const node = renderStepper("results");
