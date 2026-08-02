@@ -1,25 +1,28 @@
+import { renderStepper } from "../components/stepper";
 import { DATA_BASE_URL } from "../config";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
-import { type Scenario, fetchManifest, findScenario } from "../data/manifest";
+import {
+  type Manifest,
+  type Scenario,
+  fetchManifest,
+  findScenario,
+} from "../data/manifest";
 import {
   computeDeltaMinutes,
   fetchRow,
   readValueAt,
   toVerdictValue,
 } from "../data/travelTimes";
-import { el, mount } from "../dom";
-import { currentSearch, navigate } from "../router";
+import { el, mount, renderErrorBanner } from "../dom";
+import { type Screen, currentSearch, navigate, replaceScreen } from "../router";
 import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
+  seedWizardStateFromPayload,
 } from "../state/resultsUrl";
-import {
-  type Destination,
-  loadWizardState,
-  saveWizardState,
-} from "../state/wizardState";
+import { type Destination, loadWizardState } from "../state/wizardState";
 
 export interface PercentileMinutes {
   p25: number | null;
@@ -103,29 +106,34 @@ async function fetchAllRows(
   baseline: Record<number, Uint8Array>;
   modified: Record<number, Uint8Array>;
 }> {
-  const baseline: Record<number, Uint8Array> = {};
-  const modified: Record<number, Uint8Array> = {};
-
+  const jobs: Array<{
+    p: number;
+    variant: "baseline" | "modified";
+    path: string;
+  }> = [];
   for (const p of percentiles) {
     const baselinePath = scenario.variants.baseline?.[String(p)];
     const modifiedPath = scenario.variants.modified?.[String(p)];
-    if (baselinePath) {
-      baseline[p] = await fetchRow(
-        `${DATA_BASE_URL}/${cityId}/${analysisId}/${baselinePath}`,
-        rowIndex,
-        hexCount,
-        bytesPerValue,
-      );
-    }
-    if (modifiedPath) {
-      modified[p] = await fetchRow(
-        `${DATA_BASE_URL}/${cityId}/${analysisId}/${modifiedPath}`,
-        rowIndex,
-        hexCount,
-        bytesPerValue,
-      );
-    }
+    if (baselinePath) jobs.push({ p, variant: "baseline", path: baselinePath });
+    if (modifiedPath) jobs.push({ p, variant: "modified", path: modifiedPath });
   }
+
+  const fetched = await Promise.all(
+    jobs.map((job) =>
+      fetchRow(
+        `${DATA_BASE_URL}/${cityId}/${analysisId}/${job.path}`,
+        rowIndex,
+        hexCount,
+        bytesPerValue,
+      ),
+    ),
+  );
+
+  const baseline: Record<number, Uint8Array> = {};
+  const modified: Record<number, Uint8Array> = {};
+  jobs.forEach((job, i) => {
+    (job.variant === "baseline" ? baseline : modified)[job.p] = fetched[i];
+  });
 
   return { baseline, modified };
 }
@@ -166,17 +174,78 @@ export function renderResults(root: HTMLElement): void {
       destinations: wizard.destinations,
       scenario: wizard.scenario,
     };
-    window.history.replaceState(
-      null,
-      "",
-      `/results?r=${encodeResultsParam(payload)}`,
-    );
+    replaceScreen("results", `?r=${encodeResultsParam(payload)}`);
     renderResults(root);
     return;
   }
 
   mount(root, el("p", {}, "Loading your results…"));
   loadResults(root, decoded);
+}
+
+interface VerdictRow {
+  destination: Destination;
+  baseline: PercentileMinutes;
+  modified: PercentileMinutes;
+  delta: number | null;
+}
+
+interface FetchedRows {
+  baseline: Record<number, Uint8Array>;
+  modified: Record<number, Uint8Array>;
+}
+
+interface ResultsRenderContext {
+  analysis: AnalysisSummary | null;
+  payload: ResultsPayload;
+  manifest: Manifest;
+  hexIds: string[];
+  fetchedRows: FetchedRows;
+}
+
+function buildVerdictRows(
+  destinations: Destination[],
+  manifest: Manifest,
+  hexIds: string[],
+  rows: FetchedRows,
+): VerdictRow[] {
+  return destinations.map((destination) => {
+    const colIndex = resolveHexRowIndex(
+      destination.lat,
+      destination.lng,
+      manifest.hexagonResolution,
+      hexIds,
+    );
+    const unreachable: PercentileMinutes = {
+      p25: null,
+      p50: null,
+      p75: null,
+    };
+    const colInRange =
+      colIndex !== null && colIndex >= 0 && colIndex < manifest.hexCount;
+    const baseline = !colInRange
+      ? unreachable
+      : readPercentileMinutes(
+          rows.baseline,
+          colIndex,
+          manifest.encoding.bytesPerValue,
+          manifest.encoding.unreachable,
+        );
+    const modified = !colInRange
+      ? unreachable
+      : readPercentileMinutes(
+          rows.modified,
+          colIndex,
+          manifest.encoding.bytesPerValue,
+          manifest.encoding.unreachable,
+        );
+    return {
+      destination,
+      baseline,
+      modified,
+      delta: deltaFor(baseline, modified),
+    };
+  });
 }
 
 async function loadResults(
@@ -236,126 +305,101 @@ async function loadResults(
       manifest.encoding.bytesPerValue,
     );
 
-    const verdictRows = payload.destinations.map((destination) => {
-      const colIndex = resolveHexRowIndex(
-        destination.lat,
-        destination.lng,
-        manifest.hexagonResolution,
-        hexIds,
-      );
-      const unreachable: PercentileMinutes = {
-        p25: null,
-        p50: null,
-        p75: null,
-      };
-      const colInRange =
-        colIndex !== null && colIndex >= 0 && colIndex < manifest.hexCount;
-      const baseline = !colInRange
-        ? unreachable
-        : readPercentileMinutes(
-            rows.baseline,
-            colIndex,
-            manifest.encoding.bytesPerValue,
-            manifest.encoding.unreachable,
-          );
-      const modified = !colInRange
-        ? unreachable
-        : readPercentileMinutes(
-            rows.modified,
-            colIndex,
-            manifest.encoding.bytesPerValue,
-            manifest.encoding.unreachable,
-          );
-      return {
-        destination,
-        baseline,
-        modified,
-        delta: deltaFor(baseline, modified),
-      };
-    });
+    const verdictRows = buildVerdictRows(
+      payload.destinations,
+      manifest,
+      hexIds,
+      rows,
+    );
 
-    renderVerdictScreen(root, analysis, payload, verdictRows);
-  } catch {
-    mount(
+    renderVerdictScreen(
       root,
-      el(
-        "div",
-        { class: "banner banner--warning" },
-        "Couldn't load your results.",
-      ),
-      el(
-        "button",
-        { class: "btn", onclick: () => loadResults(root, payload) },
-        "Retry",
-      ),
+      {
+        analysis,
+        payload,
+        manifest,
+        hexIds,
+        fetchedRows: rows,
+      },
+      verdictRows,
+    );
+  } catch {
+    renderErrorBanner(root, "Couldn't load your results.", () =>
+      loadResults(root, payload),
     );
   }
 }
 
 function renderVerdictScreen(
   root: HTMLElement,
-  analysis: AnalysisSummary | null,
-  payload: ResultsPayload,
-  rows: Array<{
-    destination: Destination;
-    baseline: PercentileMinutes;
-    modified: PercentileMinutes;
-    delta: number | null;
-  }>,
+  ctx: ResultsRenderContext,
+  verdictRows: VerdictRow[],
 ): void {
-  const rowEls = rows.map(({ destination, baseline, modified, delta }, i) => {
-    const { text: deltaText, tone } = formatDelta(delta, baseline, modified);
-    return el(
-      "div",
-      { class: "verdict-row" },
-      el(
+  const { analysis, payload, manifest, hexIds, fetchedRows } = ctx;
+  const rowEls = verdictRows.map(
+    ({ destination, baseline, modified, delta }, i) => {
+      const { text: deltaText, tone } = formatDelta(delta, baseline, modified);
+      return el(
         "div",
-        {},
-        el("strong", {}, destination.label || destination.address),
-        rows.length > 1
-          ? el(
-              "button",
-              {
-                class: "btn btn-ghost",
-                onclick: () => {
-                  const remainingDestinations = payload.destinations.filter(
-                    (_, idx) => idx !== i,
-                  );
-                  const nextPayload: ResultsPayload = {
-                    ...payload,
-                    destinations: remainingDestinations,
-                  };
-                  window.history.replaceState(
-                    null,
-                    "",
-                    `/results?r=${encodeResultsParam(nextPayload)}`,
-                  );
-                  renderResults(root);
-                },
-              },
-              "✕",
-            )
-          : null,
-      ),
-      el(
-        "span",
-        { class: `verdict-row__delta verdict-row__delta--${tone}` },
-        deltaText,
-      ),
-      el("p", {}, `Today: ${formatRange(baseline)}`),
-      el("p", {}, `After: ${formatRange(modified)}`),
-      el(
-        "details",
-        {},
-        el("summary", {}, "Why a range?"),
+        { class: "verdict-row" },
         el(
-          "p",
+          "div",
           {},
-          "Travel time varies trip to trip. We show the typical time plus the fastest and slowest 25% of trips, so you see the range you might actually experience.",
+          el("strong", {}, destination.label || destination.address),
+          verdictRows.length > 1
+            ? el(
+                "button",
+                {
+                  class: "btn btn-ghost",
+                  onclick: () => {
+                    const remainingDestinations = payload.destinations.filter(
+                      (_, idx) => idx !== i,
+                    );
+                    const nextPayload: ResultsPayload = {
+                      ...payload,
+                      destinations: remainingDestinations,
+                    };
+                    replaceScreen(
+                      "results",
+                      `?r=${encodeResultsParam(nextPayload)}`,
+                    );
+                    const nextVerdictRows = buildVerdictRows(
+                      remainingDestinations,
+                      manifest,
+                      hexIds,
+                      fetchedRows,
+                    );
+                    renderVerdictScreen(
+                      root,
+                      { ...ctx, payload: nextPayload },
+                      nextVerdictRows,
+                    );
+                  },
+                },
+                "✕",
+              )
+            : null,
         ),
-      ),
-    );
-  });
+        el(
+          "span",
+          { class: `verdict-row__delta verdict-row__delta--${tone}` },
+          deltaText,
+        ),
+        el("p", {}, `Today: ${formatRange(baseline)}`),
+        el("p", {}, `After: ${formatRange(modified)}`),
+        el(
+          "details",
+          {},
+          el("summary", {}, "Why a range?"),
+          el(
+            "p",
+            {},
+            "Travel time varies trip to trip. We show the typical time plus the fastest and slowest 25% of trips, so you see the range you might actually experience.",
+          ),
+        ),
+      );
+    },
+  );
 
   const consultationBanner = analysis?.consultationUrl
     ? el(
@@ -376,9 +420,14 @@ function renderVerdictScreen(
       )
     : null;
 
+  const navigateFromStepper = (screen: Screen): void => {
+    seedWizardStateFromPayload(payload);
+    navigate(screen);
+  };
+
   mount(
     root,
-    el("div", { class: "stepper" }, "① ② ③ ④ Results"),
+    renderStepper("results", navigateFromStepper),
     el("h2", {}, "Here's what changes"),
     ...rowEls,
     el(
@@ -386,14 +435,8 @@ function renderVerdictScreen(
       {
         class: "btn btn-ghost",
         onclick: () => {
-          saveWizardState({
-            cityId: payload.cityId,
-            analysisId: payload.analysisId,
-            origin: payload.origin,
-            destinations: payload.destinations,
-            scenario: payload.scenario,
-          });
-          navigate("location");
+          seedWizardStateFromPayload(payload);
+          navigate("location", "?addDestination=1");
         },
       },
       "+ Add another destination",

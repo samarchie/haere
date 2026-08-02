@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { currentScreen, currentSearch, navigate, onNavigate } from "./router";
+import {
+  currentScreen,
+  currentSearch,
+  navigate,
+  onNavigate,
+  replaceScreen,
+} from "./router";
 
 describe("router", () => {
   beforeEach(() => {
@@ -57,6 +63,13 @@ describe("router", () => {
     window.history.pushState(null, "", "/scenario");
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("replaceScreen replaces the current history entry with the given path and search", () => {
+    navigate("picker");
+    replaceScreen("results", "?r=abc123");
+    expect(window.location.pathname).toBe("/results");
+    expect(window.location.search).toBe("?r=abc123");
   });
 
   it("currentSearch reflects the current query string", () => {

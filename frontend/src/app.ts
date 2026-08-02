@@ -22,6 +22,7 @@ export function startApp(
   const render = () => {
     renderers[currentScreen()](root);
   };
+  const unsubscribe = onNavigate(render);
   render();
-  return onNavigate(render);
+  return unsubscribe;
 }

@@ -2,7 +2,11 @@ import { latLngToCell } from "h3-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Manifest } from "../data/manifest";
 import { el } from "../dom";
-import { emptyWizardState, saveWizardState } from "../state/wizardState";
+import {
+  emptyWizardState,
+  loadWizardState,
+  saveWizardState,
+} from "../state/wizardState";
 import {
   type FieldRow,
   canAddDestination,
@@ -118,7 +122,7 @@ describe("resolveOriginRouting", () => {
 
     expect(routing).toEqual({
       type: "reroute",
-      search: "?reason=outside-area",
+      search: "?city=canterbury&reason=outside-area",
     });
   });
 
@@ -259,6 +263,68 @@ describe("renderLocation", () => {
       'input[id^="destination-"]',
     );
     expect(destinationInputs.length).toBe(2);
+  });
+
+  it("appends a blank destination row when navigated with ?addDestination=1", () => {
+    seedWizard({
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "Old Address",
+          lat: -43.5,
+          lng: 172.6,
+        },
+      ],
+    });
+    window.history.replaceState(null, "", "/location?addDestination=1");
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    const destinationInputs = root.querySelectorAll(
+      'input[id^="destination-"]',
+    );
+    expect(destinationInputs.length).toBe(2);
+  });
+
+  it("does not append a 6th destination row when already at the 5-destination cap", () => {
+    seedWizard({
+      destinations: [1, 2, 3, 4, 5].map((n) => ({
+        label: `Destination ${n}`,
+        address: "Old Address",
+        lat: -43.5,
+        lng: 172.6,
+      })),
+    });
+    window.history.replaceState(null, "", "/location?addDestination=1");
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    const destinationInputs = root.querySelectorAll(
+      'input[id^="destination-"]',
+    );
+    expect(destinationInputs.length).toBe(5);
+    expect(window.location.search).not.toContain("addDestination");
+  });
+
+  it("clears the addDestination flag from the URL after consuming it", () => {
+    seedWizard({
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "Old Address",
+          lat: -43.5,
+          lng: 172.6,
+        },
+      ],
+    });
+    window.history.replaceState(null, "", "/location?addDestination=1");
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    expect(window.location.search).not.toContain("addDestination");
   });
 
   it("shows a no-match status and keeps the typed address after a failed geocode", async () => {
@@ -808,5 +874,76 @@ describe("renderLocation", () => {
     await flushMicrotasks();
 
     expect(root.textContent).toContain("matched to the model grid");
+  });
+});
+
+describe("renderLocation destination label numbering", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/location");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    localStorage.clear();
+    document.body.innerHTML = "";
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("numbers resolved destinations sequentially, skipping an unresolved middle row", () => {
+    seedWizard({
+      destinations: [
+        { label: "Destination 1", address: "First", lat: -43.5, lng: 172.6 },
+        { label: "Destination 2", address: "Second", lat: -43.51, lng: 172.61 },
+        { label: "Destination 3", address: "Third", lat: -43.52, lng: 172.62 },
+      ],
+    });
+    const root = makeRoot();
+    renderLocation(root);
+
+    // Make the middle destination unresolved by editing it to a short,
+    // non-geocodable value (idle status, no new request scheduled).
+    const middleInput = root.querySelector(
+      "#destination-1",
+    ) as HTMLInputElement;
+    middleInput.value = "ab";
+    middleInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const saved = loadWizardState();
+    expect(saved?.destinations.map((d) => d.label)).toEqual([
+      "Destination 1",
+      "Destination 2",
+    ]);
+    expect(saved?.destinations.map((d) => d.address)).toEqual([
+      "First",
+      "Third",
+    ]);
+  });
+});
+
+describe("renderLocation stepper", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/location");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    localStorage.clear();
+    document.body.innerHTML = "";
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("renders a stepper with location as the current step and picker as a clickable prior step", () => {
+    seedWizard();
+    const root = makeRoot();
+
+    renderLocation(root);
+
+    const current = root.querySelector("[data-step='location']");
+    expect(current?.tagName).toBe("SPAN");
+    const priorStep = root.querySelector("[data-step='picker']");
+    expect(priorStep?.tagName).toBe("BUTTON");
+    expect(priorStep?.classList.contains("stepper__link")).toBe(true);
   });
 });

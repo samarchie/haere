@@ -26,7 +26,7 @@ export interface WizardState {
 
 export const WIZARD_STORAGE_KEY = "haere.wizardState";
 
-function isValidOrigin(value: unknown): value is WizardOrigin {
+export function isValidOrigin(value: unknown): value is WizardOrigin {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
@@ -38,18 +38,20 @@ function isValidOrigin(value: unknown): value is WizardOrigin {
   );
 }
 
-function isValidScenario(value: unknown): value is WizardScenario {
+export function isValidScenario(value: unknown): value is WizardScenario {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return typeof v.calendarType === "string" && typeof v.timeWindow === "string";
 }
 
-function isValidDestination(value: unknown): value is Destination {
+export function isValidDestination(value: unknown): value is Destination {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
     typeof v.label === "string" &&
+    v.label.trim().length > 0 &&
     typeof v.address === "string" &&
+    v.address.trim().length > 0 &&
     typeof v.lat === "number" &&
     Number.isFinite(v.lat) &&
     typeof v.lng === "number" &&
@@ -99,4 +101,13 @@ export function loadWizardState(): WizardState | null {
 
 export function clearWizardState(): void {
   localStorage.removeItem(WIZARD_STORAGE_KEY);
+}
+
+export function requireCityAndAnalysis(
+  wizard: WizardState,
+): { cityId: string; analysisId: string } | null {
+  if (wizard.cityId === null || wizard.analysisId === null) {
+    return null;
+  }
+  return { cityId: wizard.cityId, analysisId: wizard.analysisId };
 }

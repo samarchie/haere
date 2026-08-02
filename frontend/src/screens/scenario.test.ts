@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Manifest, Scenario } from "../data/manifest";
-import { emptyWizardState, saveWizardState } from "../state/wizardState";
+import {
+  emptyWizardState,
+  loadWizardState,
+  saveWizardState,
+} from "../state/wizardState";
 import { availableCombos, defaultScenario, renderScenario } from "./scenario";
 
 function scenario(
@@ -216,6 +220,58 @@ describe("renderScenario", () => {
     expect(seeResults().disabled).toBe(false);
   });
 
+  it("persists a chip selection immediately, without clicking See results", async () => {
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(rawManifest()),
+      }),
+    );
+
+    const root = makeRoot();
+    renderScenario(root);
+    await flushMicrotasks();
+
+    findChip(root, "saturday").click();
+
+    expect(loadWizardState()?.scenario).toEqual({
+      calendarType: "saturday",
+      timeWindow: "midday",
+    });
+  });
+
+  it("does not persist an incomplete fallback combo to wizardState", async () => {
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(rawManifest()),
+      }),
+    );
+
+    const root = makeRoot();
+    renderScenario(root);
+    await flushMicrotasks();
+
+    expect(loadWizardState()?.scenario).toBeNull();
+
+    // "sunday" only has an incomplete combo (evening), so clicking it must
+    // not persist that unrenderable selection to wizardState.
+    findChip(root, "sunday").click();
+
+    expect(loadWizardState()?.scenario).toBeNull();
+
+    // A complete-combo click still persists as before.
+    findChip(root, "saturday").click();
+    expect(loadWizardState()?.scenario).toEqual({
+      calendarType: "saturday",
+      timeWindow: "midday",
+    });
+  });
+
   it("shows a retry banner when the manifest fetch fails", async () => {
     seedWizard();
     vi.stubGlobal(
@@ -233,5 +289,33 @@ describe("renderScenario", () => {
 
     const retry = findChip(root, "Retry");
     expect(retry).toBeTruthy();
+  });
+});
+
+describe("renderScenario stepper", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  it("renders a stepper with scenario as the current step and location as a clickable prior step", async () => {
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(rawManifest()),
+      }),
+    );
+    const root = makeRoot();
+
+    renderScenario(root);
+    await flushMicrotasks();
+
+    const current = root.querySelector("[data-step='scenario']");
+    expect(current?.tagName).toBe("SPAN");
+    const priorStep = root.querySelector("[data-step='location']");
+    expect(priorStep?.tagName).toBe("BUTTON");
   });
 });

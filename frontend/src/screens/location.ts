@@ -1,12 +1,19 @@
+import { renderStepper } from "../components/stepper";
 import { fetchAnalyses, filterByCity } from "../data/analysisCatalogue";
 import { type GeocodeResult, forwardGeocode } from "../data/geocode";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
 import { type Manifest, fetchManifest } from "../data/manifest";
 import { el, mount } from "../dom";
-import { currentScreen, navigate } from "../router";
+import {
+  currentScreen,
+  currentSearch,
+  navigate,
+  replaceScreen,
+} from "../router";
 import {
   emptyWizardState,
   loadWizardState,
+  requireCityAndAnalysis,
   saveWizardState,
 } from "../state/wizardState";
 
@@ -104,17 +111,20 @@ export async function resolveOriginRouting(
     }
   }
 
-  return { type: "reroute", search: "?reason=outside-area" };
+  return {
+    type: "reroute",
+    search: `?city=${encodeURIComponent(cityId)}&reason=outside-area`,
+  };
 }
 
 export function renderLocation(root: HTMLElement): void {
   const wizard = loadWizardState() ?? emptyWizardState();
-  if (wizard.cityId === null || wizard.analysisId === null) {
+  const ids = requireCityAndAnalysis(wizard);
+  if (!ids) {
     navigate("picker");
     return;
   }
-  const cityId = wizard.cityId;
-  const analysisId = wizard.analysisId;
+  const { cityId, analysisId } = ids;
 
   const origin: FieldRow = wizard.origin
     ? {
@@ -136,18 +146,25 @@ export function renderLocation(root: HTMLElement): void {
         }))
       : [emptyFieldRow()];
 
+  if (currentSearch().get("addDestination") === "1") {
+    if (canAddDestination(destinations)) {
+      destinations.push(emptyFieldRow());
+    }
+    replaceScreen("location");
+  }
+
   let areaDataPromise: Promise<{
     manifest: Manifest;
     hexIds: string[];
   }> | null = null;
 
-  // Per-row debounce timers and monotonic request counters. Keyed by the
-  // FieldRow object itself (via WeakMap) so each field's pending geocode
-  // is independent of every other field's, and so an edit-away-and-back
-  // on the same field can invalidate an earlier in-flight request for
-  // that field without relying on address equality.
+  // Per-row debounce timers and abort controllers. Keyed by the FieldRow
+  // object itself (via WeakMap) so each field's pending geocode is
+  // independent of every other field's, and so an edit-away-and-back on the
+  // same field can invalidate an earlier in-flight request for that field
+  // without relying on address equality.
   const debounceTimers = new WeakMap<FieldRow, ReturnType<typeof setTimeout>>();
-  const requestCounters = new WeakMap<FieldRow, number>();
+  const abortControllers = new WeakMap<FieldRow, AbortController>();
 
   function ensureAreaData(): Promise<{
     manifest: Manifest;
@@ -175,19 +192,17 @@ export function renderLocation(root: HTMLElement): void {
   // Does NOT touch the in-memory origin/destinations arrays and does NOT
   // re-render — call renderForm() separately if the DOM needs updating.
   function persist(): void {
-    const resolvedDestinations = destinations.flatMap((d, i) => {
-      if (d.status !== "resolved" || !d.point) {
-        return [];
-      }
-      return [
-        {
-          label: `Destination ${i + 1}`,
-          address: d.address,
-          lat: d.point.lat,
-          lng: d.point.lng,
-        },
-      ];
-    });
+    const resolvedDestinations = destinations
+      .filter(
+        (d): d is FieldRow & { point: GeocodeResult } =>
+          d.status === "resolved" && d.point !== null,
+      )
+      .map((d, i) => ({
+        label: `Destination ${i + 1}`,
+        address: d.address,
+        lat: d.point.lat,
+        lng: d.point.lng,
+      }));
 
     saveWizardState({
       ...wizard,
@@ -241,30 +256,34 @@ export function renderLocation(root: HTMLElement): void {
     }
   }
 
-  function handleGeocode(row: FieldRow, isOrigin: boolean): void {
-    const requestId = (requestCounters.get(row) ?? 0) + 1;
-    requestCounters.set(row, requestId);
-    const isStale = () => requestCounters.get(row) !== requestId;
-
-    row.status = "geocoding";
+  function commit(): void {
     persist();
     renderForm();
+  }
+
+  function handleGeocode(row: FieldRow, isOrigin: boolean): void {
+    abortControllers.get(row)?.abort();
+    const controller = new AbortController();
+    abortControllers.set(row, controller);
+    const { signal } = controller;
+
+    row.status = "geocoding";
+    commit();
 
     forwardGeocode(row.address)
       .then(async (outcome) => {
-        if (isStale()) {
+        if (signal.aborted) {
           return;
         }
         if (!outcome.ok) {
           row.status = outcome.reason;
-          persist();
-          renderForm();
+          commit();
           return;
         }
 
         if (isOrigin) {
           const { manifest, hexIds } = await ensureAreaData();
-          if (isStale()) {
+          if (signal.aborted) {
             return;
           }
           const routing = await resolveOriginRouting(
@@ -274,7 +293,7 @@ export function renderLocation(root: HTMLElement): void {
             manifest,
             hexIds,
           );
-          if (isStale()) {
+          if (signal.aborted) {
             return;
           }
           if (routing.type === "reroute") {
@@ -283,13 +302,12 @@ export function renderLocation(root: HTMLElement): void {
           }
           row.point = outcome.result;
           row.status = "resolved";
-          persist();
-          renderForm();
+          commit();
           return;
         }
 
         const { manifest, hexIds } = await ensureAreaData();
-        if (isStale()) {
+        if (signal.aborted) {
           return;
         }
         const rowIndex = resolveHexRowIndex(
@@ -301,20 +319,18 @@ export function renderLocation(root: HTMLElement): void {
 
         row.point = outcome.result;
         row.status = rowIndex === null ? "outside-area" : "resolved";
-        persist();
-        renderForm();
+        commit();
       })
       .catch(() => {
         // Anything throwing in the chain above (most notably a rejected
         // ensureAreaData() after exhausting retries, or resolveOriginRouting
         // failing) must not leave the row stuck at "geocoding" forever with
         // an unhandled rejection.
-        if (isStale()) {
+        if (signal.aborted) {
           return;
         }
         row.status = "unavailable";
-        persist();
-        renderForm();
+        commit();
       });
   }
 
@@ -367,12 +383,11 @@ export function renderLocation(root: HTMLElement): void {
           row.address = (e.target as HTMLInputElement).value;
           row.status = "idle";
           row.point = null;
-          // Orphan any in-flight request for this row immediately (not just
+          // Abort any in-flight request for this row immediately (not just
           // pending debounce timers) so its eventual resolution is always
-          // treated as stale by the isStale() checks in handleGeocode.
-          requestCounters.set(row, (requestCounters.get(row) ?? 0) + 1);
-          persist();
-          renderForm();
+          // treated as stale by the signal.aborted checks in handleGeocode.
+          abortControllers.get(row)?.abort();
+          commit();
           if (row.address.trim().length > 2) {
             scheduleGeocode(row, isOrigin);
           } else {
@@ -411,10 +426,9 @@ export function renderLocation(root: HTMLElement): void {
         destinations.length > 1
           ? () => {
               cancelScheduledGeocode(d);
-              requestCounters.set(d, (requestCounters.get(d) ?? 0) + 1);
+              abortControllers.get(d)?.abort();
               destinations.splice(i, 1);
-              persist();
-              renderForm();
+              commit();
             }
           : undefined,
       ),
@@ -424,11 +438,7 @@ export function renderLocation(root: HTMLElement): void {
 
     mount(
       root,
-      el(
-        "div",
-        { class: "stepper" },
-        "① City/Analysis  ② Location  ③ Scenario  ④ Results",
-      ),
+      renderStepper("location"),
       el("h2", {}, "Where are you starting from?"),
       fieldEl(origin, "Home address", "origin", true),
       el("h3", {}, "Where do you need to get to?"),

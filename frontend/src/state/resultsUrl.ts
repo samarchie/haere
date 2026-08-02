@@ -1,4 +1,10 @@
-import type { Destination } from "./wizardState";
+import {
+  type Destination,
+  isValidDestination,
+  isValidOrigin,
+  isValidScenario,
+  saveWizardState,
+} from "./wizardState";
 
 export interface ResultsPayload {
   cityId: string;
@@ -6,37 +12,6 @@ export interface ResultsPayload {
   origin: { address: string; lat: number; lng: number };
   destinations: Destination[];
   scenario: { calendarType: string; timeWindow: string };
-}
-
-function isValidOrigin(value: unknown): value is ResultsPayload["origin"] {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.address === "string" &&
-    typeof v.lat === "number" &&
-    Number.isFinite(v.lat) &&
-    typeof v.lng === "number" &&
-    Number.isFinite(v.lng)
-  );
-}
-
-function isValidScenario(value: unknown): value is ResultsPayload["scenario"] {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.calendarType === "string" && typeof v.timeWindow === "string";
-}
-
-function isValidDestination(value: unknown): value is Destination {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.label === "string" &&
-    typeof v.address === "string" &&
-    typeof v.lat === "number" &&
-    Number.isFinite(v.lat) &&
-    typeof v.lng === "number" &&
-    Number.isFinite(v.lng)
-  );
 }
 
 function isResultsPayload(value: unknown): value is ResultsPayload {
@@ -73,4 +48,14 @@ export function decodeResultsParam(param: string): ResultsPayload | null {
   } catch {
     return null;
   }
+}
+
+export function seedWizardStateFromPayload(payload: ResultsPayload): void {
+  saveWizardState({
+    cityId: payload.cityId,
+    analysisId: payload.analysisId,
+    origin: payload.origin,
+    destinations: payload.destinations,
+    scenario: payload.scenario,
+  });
 }

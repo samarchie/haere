@@ -39,6 +39,30 @@ describe("startApp", () => {
     expect(renderers.picker).toHaveBeenCalledWith(root);
   });
 
+  it("re-renders the redirect target when a screen navigates synchronously on its first render", () => {
+    const root = document.createElement("div");
+    let redirected = false;
+    const renderers = {
+      landing: vi.fn(),
+      picker: vi.fn(() => {
+        if (!redirected) {
+          redirected = true;
+          window.history.pushState(null, "", "/");
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }
+      }),
+      location: vi.fn(),
+      scenario: vi.fn(),
+      results: vi.fn(),
+    };
+
+    window.history.replaceState(null, "", "/picker");
+    startApp(root, renderers);
+
+    expect(renderers.picker).toHaveBeenCalledTimes(1);
+    expect(renderers.landing).toHaveBeenCalledWith(root);
+  });
+
   it("stops re-rendering after the returned unsubscribe is called", () => {
     const root = document.createElement("div");
     const renderers = {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { el, mount } from "./dom";
+import { el, mount, renderErrorBanner } from "./dom";
 
 describe("el", () => {
   it("creates an element with the given tag", () => {
@@ -49,5 +49,21 @@ describe("mount", () => {
 
     expect(root.children).toHaveLength(1);
     expect(root.textContent).toBe("hello");
+  });
+});
+
+describe("renderErrorBanner", () => {
+  it("renders a warning banner with the message and a retry button", () => {
+    const root = document.createElement("div");
+    const onRetry = vi.fn();
+
+    renderErrorBanner(root, "Something went wrong", onRetry);
+
+    const banner = root.querySelector(".banner--warning");
+    expect(banner?.textContent).toBe("Something went wrong");
+    const button = root.querySelector("button");
+    expect(button?.textContent).toBe("Retry");
+    button?.dispatchEvent(new MouseEvent("click"));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

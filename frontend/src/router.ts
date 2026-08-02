@@ -26,6 +26,11 @@ export function navigate(screen: Screen, search = ""): void {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+export function replaceScreen(screen: Screen, search = ""): void {
+  const path = SCREEN_TO_PATH[screen] + search;
+  window.history.replaceState(null, "", path);
+}
+
 export function onNavigate(handler: (screen: Screen) => void): () => void {
   const listener = () => handler(currentScreen());
   window.addEventListener("popstate", listener);
