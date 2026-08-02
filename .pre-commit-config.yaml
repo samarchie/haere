@@ -7,3 +7,11 @@ repos:
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: biome check (frontend)
+        entry: bash -c 'cd frontend && npx --yes @biomejs/biome check --write .'
+        language: system
+        files: ^frontend/
+        pass_filenames: false
