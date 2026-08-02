@@ -74,6 +74,18 @@ export function renderScenario(root: HTMLElement): void {
           ? combos.filter((c) => c.calendarType === selected?.calendarType)
           : [];
 
+        function persistIfComplete(): void {
+          const isComplete = combos.some(
+            (c) =>
+              c.calendarType === selected?.calendarType &&
+              c.timeWindow === selected?.timeWindow &&
+              c.complete,
+          );
+          if (isComplete) {
+            saveWizardState({ ...wizard, scenario: selected });
+          }
+        }
+
         const calendarChips = calendarTypes.map((ct) =>
           renderChip(ct, selected?.calendarType === ct, () => {
             const firstForType = combos.find(
@@ -89,7 +101,7 @@ export function renderScenario(root: HTMLElement): void {
                   timeWindow:
                     combos.find((c) => c.calendarType === ct)?.timeWindow ?? "",
                 };
-            saveWizardState({ ...wizard, scenario: selected });
+            persistIfComplete();
             renderChips();
           }),
         );
@@ -104,7 +116,7 @@ export function renderScenario(root: HTMLElement): void {
                 calendarType: c.calendarType,
                 timeWindow: c.timeWindow,
               };
-              saveWizardState({ ...wizard, scenario: selected });
+              persistIfComplete();
               renderChips();
             },
             {

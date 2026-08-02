@@ -242,6 +242,36 @@ describe("renderScenario", () => {
     });
   });
 
+  it("does not persist an incomplete fallback combo to wizardState", async () => {
+    seedWizard();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(rawManifest()),
+      }),
+    );
+
+    const root = makeRoot();
+    renderScenario(root);
+    await flushMicrotasks();
+
+    expect(loadWizardState()?.scenario).toBeNull();
+
+    // "sunday" only has an incomplete combo (evening), so clicking it must
+    // not persist that unrenderable selection to wizardState.
+    findChip(root, "sunday").click();
+
+    expect(loadWizardState()?.scenario).toBeNull();
+
+    // A complete-combo click still persists as before.
+    findChip(root, "saturday").click();
+    expect(loadWizardState()?.scenario).toEqual({
+      calendarType: "saturday",
+      timeWindow: "midday",
+    });
+  });
+
   it("shows a retry banner when the manifest fetch fails", async () => {
     seedWizard();
     vi.stubGlobal(
