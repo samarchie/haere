@@ -183,20 +183,32 @@ export function renderResults(root: HTMLElement): void {
   loadResults(root, decoded);
 }
 
-function buildVerdictRows(
-  destinations: Destination[],
-  manifest: Manifest,
-  hexIds: string[],
-  rows: {
-    baseline: Record<number, Uint8Array>;
-    modified: Record<number, Uint8Array>;
-  },
-): Array<{
+export interface VerdictRow {
   destination: Destination;
   baseline: PercentileMinutes;
   modified: PercentileMinutes;
   delta: number | null;
-}> {
+}
+
+export interface FetchedRows {
+  baseline: Record<number, Uint8Array>;
+  modified: Record<number, Uint8Array>;
+}
+
+interface ResultsRenderContext {
+  analysis: AnalysisSummary | null;
+  payload: ResultsPayload;
+  manifest: Manifest;
+  hexIds: string[];
+  fetchedRows: FetchedRows;
+}
+
+function buildVerdictRows(
+  destinations: Destination[],
+  manifest: Manifest,
+  hexIds: string[],
+  rows: FetchedRows,
+): VerdictRow[] {
   return destinations.map((destination) => {
     const colIndex = resolveHexRowIndex(
       destination.lat,
@@ -302,12 +314,14 @@ async function loadResults(
 
     renderVerdictScreen(
       root,
-      analysis,
-      payload,
+      {
+        analysis,
+        payload,
+        manifest,
+        hexIds,
+        fetchedRows: rows,
+      },
       verdictRows,
-      manifest,
-      hexIds,
-      rows,
     );
   } catch {
     renderErrorBanner(root, "Couldn't load your results.", () =>
@@ -318,87 +332,74 @@ async function loadResults(
 
 function renderVerdictScreen(
   root: HTMLElement,
-  analysis: AnalysisSummary | null,
-  payload: ResultsPayload,
-  rows: Array<{
-    destination: Destination;
-    baseline: PercentileMinutes;
-    modified: PercentileMinutes;
-    delta: number | null;
-  }>,
-  manifest: Manifest,
-  hexIds: string[],
-  fetchedRows: {
-    baseline: Record<number, Uint8Array>;
-    modified: Record<number, Uint8Array>;
-  },
+  ctx: ResultsRenderContext,
+  verdictRows: VerdictRow[],
 ): void {
-  const rowEls = rows.map(({ destination, baseline, modified, delta }, i) => {
-    const { text: deltaText, tone } = formatDelta(delta, baseline, modified);
-    return el(
-      "div",
-      { class: "verdict-row" },
-      el(
+  const { analysis, payload, manifest, hexIds, fetchedRows } = ctx;
+  const rowEls = verdictRows.map(
+    ({ destination, baseline, modified, delta }, i) => {
+      const { text: deltaText, tone } = formatDelta(delta, baseline, modified);
+      return el(
         "div",
-        {},
-        el("strong", {}, destination.label || destination.address),
-        rows.length > 1
-          ? el(
-              "button",
-              {
-                class: "btn btn-ghost",
-                onclick: () => {
-                  const remainingDestinations = payload.destinations.filter(
-                    (_, idx) => idx !== i,
-                  );
-                  const nextPayload: ResultsPayload = {
-                    ...payload,
-                    destinations: remainingDestinations,
-                  };
-                  replaceScreen(
-                    "results",
-                    `?r=${encodeResultsParam(nextPayload)}`,
-                  );
-                  const nextVerdictRows = buildVerdictRows(
-                    remainingDestinations,
-                    manifest,
-                    hexIds,
-                    fetchedRows,
-                  );
-                  renderVerdictScreen(
-                    root,
-                    analysis,
-                    nextPayload,
-                    nextVerdictRows,
-                    manifest,
-                    hexIds,
-                    fetchedRows,
-                  );
-                },
-              },
-              "✕",
-            )
-          : null,
-      ),
-      el(
-        "span",
-        { class: `verdict-row__delta verdict-row__delta--${tone}` },
-        deltaText,
-      ),
-      el("p", {}, `Today: ${formatRange(baseline)}`),
-      el("p", {}, `After: ${formatRange(modified)}`),
-      el(
-        "details",
-        {},
-        el("summary", {}, "Why a range?"),
+        { class: "verdict-row" },
         el(
-          "p",
+          "div",
           {},
-          "Travel time varies trip to trip. We show the typical time plus the fastest and slowest 25% of trips, so you see the range you might actually experience.",
+          el("strong", {}, destination.label || destination.address),
+          verdictRows.length > 1
+            ? el(
+                "button",
+                {
+                  class: "btn btn-ghost",
+                  onclick: () => {
+                    const remainingDestinations = payload.destinations.filter(
+                      (_, idx) => idx !== i,
+                    );
+                    const nextPayload: ResultsPayload = {
+                      ...payload,
+                      destinations: remainingDestinations,
+                    };
+                    replaceScreen(
+                      "results",
+                      `?r=${encodeResultsParam(nextPayload)}`,
+                    );
+                    const nextVerdictRows = buildVerdictRows(
+                      remainingDestinations,
+                      manifest,
+                      hexIds,
+                      fetchedRows,
+                    );
+                    renderVerdictScreen(
+                      root,
+                      { ...ctx, payload: nextPayload },
+                      nextVerdictRows,
+                    );
+                  },
+                },
+                "✕",
+              )
+            : null,
         ),
-      ),
-    );
-  });
+        el(
+          "span",
+          { class: `verdict-row__delta verdict-row__delta--${tone}` },
+          deltaText,
+        ),
+        el("p", {}, `Today: ${formatRange(baseline)}`),
+        el("p", {}, `After: ${formatRange(modified)}`),
+        el(
+          "details",
+          {},
+          el("summary", {}, "Why a range?"),
+          el(
+            "p",
+            {},
+            "Travel time varies trip to trip. We show the typical time plus the fastest and slowest 25% of trips, so you see the range you might actually experience.",
+          ),
+        ),
+      );
+    },
+  );
 
   const consultationBanner = analysis?.consultationUrl
     ? el(
