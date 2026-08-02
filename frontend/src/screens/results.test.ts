@@ -1,5 +1,7 @@
 import { latLngToCell } from "h3-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { currentSearch } from "../router";
+import { decodeResultsParam } from "../state/resultsUrl";
 import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import {
   deltaFor,
@@ -289,6 +291,196 @@ describe("renderResults", () => {
       b.textContent?.includes("See how this change looks"),
     ) as HTMLButtonElement;
     expect(mapButton.disabled).toBe(true);
+    expect(mapButton.title).toBe("coming in a future update");
+  });
+
+  it("removing a destination re-renders from the URL payload, not wizardState", async () => {
+    seedWizard();
+
+    const DEST_POINT_2 = {
+      label: "Home",
+      address: "789 Third St",
+      lat: -43.51,
+      lng: 172.62,
+    };
+
+    const originCell = latLngToCell(
+      ORIGIN_POINT.lat,
+      ORIGIN_POINT.lng,
+      RESOLUTION,
+    );
+    const dest1Cell = latLngToCell(DEST_POINT.lat, DEST_POINT.lng, RESOLUTION);
+    const dest2Cell = latLngToCell(
+      DEST_POINT_2.lat,
+      DEST_POINT_2.lng,
+      RESOLUTION,
+    );
+    const hexIds = [originCell, dest1Cell, dest2Cell].sort();
+    const dest1Index = hexIds.indexOf(dest1Cell);
+    const dest2Index = hexIds.indexOf(dest2Cell);
+
+    function twoDestRowBytes(values: Record<number, number>): Uint8Array {
+      const bytes = new Uint8Array(3);
+      for (const [idx, value] of Object.entries(values)) {
+        bytes[Number(idx)] = value;
+      }
+      return bytes;
+    }
+
+    // Stale wizardState deliberately diverges from the URL payload we render
+    // from, to prove removal doesn't read/write it.
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "canterbury",
+      analysisId: "remove-route-135",
+      origin: {
+        address: ORIGIN_POINT.address,
+        lat: ORIGIN_POINT.lat,
+        lng: ORIGIN_POINT.lng,
+      },
+      destinations: [],
+      scenario: { calendarType: "weekday", timeWindow: "am_peak" },
+    });
+
+    const rowValues: Record<string, Record<number, number>> = {
+      "baseline_25.bin": { [dest1Index]: 5, [dest2Index]: 6 },
+      "baseline_50.bin": { [dest1Index]: 8, [dest2Index]: 9 },
+      "baseline_75.bin": { [dest1Index]: 12, [dest2Index]: 13 },
+      "modified_25.bin": { [dest1Index]: 18, [dest2Index]: 19 },
+      "modified_50.bin": { [dest1Index]: 23, [dest2Index]: 24 },
+      "modified_75.bin": { [dest1Index]: 30, [dest2Index]: 31 },
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.endsWith("/manifest.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                hexagon_resolution: RESOLUTION,
+                hex_count: 3,
+                percentiles: [25, 50, 75],
+                encoding: {
+                  dtype: "uint8",
+                  bytes_per_value: 1,
+                  byte_order: "little",
+                  unreachable: 255,
+                },
+                scenarios: [
+                  {
+                    calendar_type: "weekday",
+                    time_window: "am_peak",
+                    start: "07:00",
+                    end: "09:00",
+                    variants: {
+                      baseline: {
+                        "25": "baseline_25.bin",
+                        "50": "baseline_50.bin",
+                        "75": "baseline_75.bin",
+                      },
+                      modified: {
+                        "25": "modified_25.bin",
+                        "50": "modified_50.bin",
+                        "75": "modified_75.bin",
+                      },
+                    },
+                  },
+                ],
+              }),
+          });
+        }
+        if (url.endsWith("/hexes.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(hexIds),
+          });
+        }
+        if (url.endsWith("/analyses.json")) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+        }
+        for (const [file, values] of Object.entries(rowValues)) {
+          if (url.includes(file)) {
+            return Promise.resolve({
+              status: 206,
+              arrayBuffer: () =>
+                Promise.resolve(twoDestRowBytes(values).buffer),
+            });
+          }
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }),
+    );
+
+    const payload = {
+      cityId: "canterbury",
+      analysisId: "remove-route-135",
+      origin: {
+        address: ORIGIN_POINT.address,
+        lat: ORIGIN_POINT.lat,
+        lng: ORIGIN_POINT.lng,
+      },
+      destinations: [
+        {
+          label: DEST_POINT.label,
+          address: DEST_POINT.address,
+          lat: DEST_POINT.lat,
+          lng: DEST_POINT.lng,
+        },
+        {
+          label: DEST_POINT_2.label,
+          address: DEST_POINT_2.address,
+          lat: DEST_POINT_2.lat,
+          lng: DEST_POINT_2.lng,
+        },
+      ],
+      scenario: { calendarType: "weekday", timeWindow: "am_peak" },
+    };
+    const { encodeResultsParam } = await import("../state/resultsUrl");
+    window.history.replaceState(
+      null,
+      "",
+      `/results?r=${encodeResultsParam(payload)}`,
+    );
+
+    const root = makeRoot();
+    renderResults(root);
+    await flushMicrotasks();
+
+    expect(root.textContent).toContain("Work");
+    expect(root.textContent).toContain("Home");
+    expect(root.textContent).toContain("Today: 5–12 min (typically 8)");
+    expect(root.textContent).toContain("Today: 6–13 min (typically 9)");
+
+    const removeButtons = Array.from(root.querySelectorAll("button")).filter(
+      (b) => b.textContent === "✕",
+    );
+    expect(removeButtons.length).toBe(2);
+    removeButtons[0].click();
+    await flushMicrotasks();
+
+    expect(root.textContent).not.toContain("Work");
+    expect(root.textContent).toContain("Home");
+    expect(root.textContent).toContain("Today: 6–13 min (typically 9)");
+    expect(root.textContent).toContain("After: 19–31 min (typically 24)");
+
+    const remainingRemoveButtons = Array.from(
+      root.querySelectorAll("button"),
+    ).filter((b) => b.textContent === "✕");
+    expect(remainingRemoveButtons.length).toBe(0);
+
+    const encoded = currentSearch().get("r");
+    expect(encoded).toBeTruthy();
+    const decoded = decodeResultsParam(encoded as string);
+    expect(decoded?.destinations).toEqual([
+      {
+        label: DEST_POINT_2.label,
+        address: DEST_POINT_2.address,
+        lat: DEST_POINT_2.lat,
+        lng: DEST_POINT_2.lng,
+      },
+    ]);
   });
 
   it("shows a retry banner when the results data fails to load, and retry re-attempts the fetch", async () => {

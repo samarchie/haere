@@ -15,12 +15,7 @@ import {
   decodeResultsParam,
   encodeResultsParam,
 } from "../state/resultsUrl";
-import {
-  type Destination,
-  emptyWizardState,
-  loadWizardState,
-  saveWizardState,
-} from "../state/wizardState";
+import { type Destination, loadWizardState } from "../state/wizardState";
 
 export interface PercentileMinutes {
   p25: number | null;
@@ -239,24 +234,24 @@ async function loadResults(
         p50: null,
         p75: null,
       };
-      const baseline =
-        colIndex === null
-          ? unreachable
-          : readPercentileMinutes(
-              rows.baseline,
-              colIndex,
-              manifest.encoding.bytesPerValue,
-              manifest.encoding.unreachable,
-            );
-      const modified =
-        colIndex === null
-          ? unreachable
-          : readPercentileMinutes(
-              rows.modified,
-              colIndex,
-              manifest.encoding.bytesPerValue,
-              manifest.encoding.unreachable,
-            );
+      const colInRange =
+        colIndex !== null && colIndex >= 0 && colIndex < manifest.hexCount;
+      const baseline = !colInRange
+        ? unreachable
+        : readPercentileMinutes(
+            rows.baseline,
+            colIndex,
+            manifest.encoding.bytesPerValue,
+            manifest.encoding.unreachable,
+          );
+      const modified = !colInRange
+        ? unreachable
+        : readPercentileMinutes(
+            rows.modified,
+            colIndex,
+            manifest.encoding.bytesPerValue,
+            manifest.encoding.unreachable,
+          );
       return {
         destination,
         baseline,
@@ -265,7 +260,7 @@ async function loadResults(
       };
     });
 
-    renderVerdictScreen(root, analysis, verdictRows);
+    renderVerdictScreen(root, analysis, payload, verdictRows);
   } catch {
     mount(
       root,
@@ -286,6 +281,7 @@ async function loadResults(
 function renderVerdictScreen(
   root: HTMLElement,
   analysis: AnalysisSummary | null,
+  payload: ResultsPayload,
   rows: Array<{
     destination: Destination;
     baseline: PercentileMinutes;
@@ -308,12 +304,18 @@ function renderVerdictScreen(
               {
                 class: "btn btn-ghost",
                 onclick: () => {
-                  const wizard = loadWizardState() ?? emptyWizardState();
-                  const remaining = wizard.destinations.filter(
+                  const remainingDestinations = payload.destinations.filter(
                     (_, idx) => idx !== i,
                   );
-                  saveWizardState({ ...wizard, destinations: remaining });
-                  window.history.replaceState(null, "", "/results");
+                  const nextPayload: ResultsPayload = {
+                    ...payload,
+                    destinations: remainingDestinations,
+                  };
+                  window.history.replaceState(
+                    null,
+                    "",
+                    `/results?r=${encodeResultsParam(nextPayload)}`,
+                  );
                   renderResults(root);
                 },
               },
@@ -367,6 +369,10 @@ function renderVerdictScreen(
     ...rowEls,
     el(
       "button",
+      // Note: this navigates to the location screen, which reads/writes wizardState —
+      // that can diverge from the URL `payload` this screen renders from (e.g. on a
+      // shared link opened in a fresh session). Same class of bug as the ✕ handler
+      // fixed above; not addressed here.
       { class: "btn btn-ghost", onclick: () => navigate("location") },
       "+ Add another destination",
     ),
