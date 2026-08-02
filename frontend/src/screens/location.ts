@@ -157,7 +157,16 @@ export function renderLocation(root: HTMLElement): void {
       areaDataPromise = Promise.all([
         fetchManifest(cityId, analysisId),
         fetchHexIds(cityId, analysisId),
-      ]).then(([manifest, hexIds]) => ({ manifest, hexIds }));
+      ])
+        .then(([manifest, hexIds]) => ({ manifest, hexIds }))
+        .catch((err) => {
+          // Don't let a transient failure permanently poison every future
+          // geocode attempt on this screen visit — clear the cache so the
+          // next call retries the fetch, while still surfacing this
+          // rejection to the current caller.
+          areaDataPromise = null;
+          throw err;
+        });
     }
     return areaDataPromise;
   }
@@ -238,59 +247,72 @@ export function renderLocation(root: HTMLElement): void {
     persist();
     renderForm();
 
-    forwardGeocode(row.address).then(async (outcome) => {
-      if (isStale()) {
-        return;
-      }
-      if (!outcome.ok) {
-        row.status = outcome.reason;
-        persist();
-        renderForm();
-        return;
-      }
+    forwardGeocode(row.address)
+      .then(async (outcome) => {
+        if (isStale()) {
+          return;
+        }
+        if (!outcome.ok) {
+          row.status = outcome.reason;
+          persist();
+          renderForm();
+          return;
+        }
 
-      if (isOrigin) {
+        if (isOrigin) {
+          const { manifest, hexIds } = await ensureAreaData();
+          if (isStale()) {
+            return;
+          }
+          const routing = await resolveOriginRouting(
+            outcome.result,
+            cityId,
+            analysisId,
+            manifest,
+            hexIds,
+          );
+          if (isStale()) {
+            return;
+          }
+          if (routing.type === "reroute") {
+            navigate("picker", routing.search);
+            return;
+          }
+          row.point = outcome.result;
+          row.status = "resolved";
+          persist();
+          renderForm();
+          return;
+        }
+
         const { manifest, hexIds } = await ensureAreaData();
         if (isStale()) {
           return;
         }
-        const routing = await resolveOriginRouting(
-          outcome.result,
-          cityId,
-          analysisId,
-          manifest,
+        const rowIndex = resolveHexRowIndex(
+          outcome.result.lat,
+          outcome.result.lng,
+          manifest.hexagonResolution,
           hexIds,
         );
+
+        row.point = outcome.result;
+        row.status = rowIndex === null ? "outside-area" : "resolved";
+        persist();
+        renderForm();
+      })
+      .catch(() => {
+        // Anything throwing in the chain above (most notably a rejected
+        // ensureAreaData() after exhausting retries, or resolveOriginRouting
+        // failing) must not leave the row stuck at "geocoding" forever with
+        // an unhandled rejection.
         if (isStale()) {
           return;
         }
-        if (routing.type === "reroute") {
-          navigate("picker", routing.search);
-          return;
-        }
-        row.point = outcome.result;
-        row.status = "resolved";
+        row.status = "unavailable";
         persist();
         renderForm();
-        return;
-      }
-
-      const { manifest, hexIds } = await ensureAreaData();
-      if (isStale()) {
-        return;
-      }
-      const rowIndex = resolveHexRowIndex(
-        outcome.result.lat,
-        outcome.result.lng,
-        manifest.hexagonResolution,
-        hexIds,
-      );
-
-      row.point = outcome.result;
-      row.status = rowIndex === null ? "outside-area" : "resolved";
-      persist();
-      renderForm();
-    });
+      });
   }
 
   function scheduleGeocode(row: FieldRow, isOrigin: boolean): void {
@@ -342,6 +364,10 @@ export function renderLocation(root: HTMLElement): void {
           row.address = (e.target as HTMLInputElement).value;
           row.status = "idle";
           row.point = null;
+          // Orphan any in-flight request for this row immediately (not just
+          // pending debounce timers) so its eventual resolution is always
+          // treated as stale by the isStale() checks in handleGeocode.
+          requestCounters.set(row, (requestCounters.get(row) ?? 0) + 1);
           persist();
           renderForm();
           if (row.address.trim().length > 2) {
@@ -381,6 +407,8 @@ export function renderLocation(root: HTMLElement): void {
         false,
         destinations.length > 1
           ? () => {
+              cancelScheduledGeocode(d);
+              requestCounters.set(d, (requestCounters.get(d) ?? 0) + 1);
               destinations.splice(i, 1);
               persist();
               renderForm();

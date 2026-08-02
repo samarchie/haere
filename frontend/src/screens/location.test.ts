@@ -591,4 +591,168 @@ describe("renderLocation", () => {
     expect(root.textContent).toContain("Third (current)");
     expect(root.textContent).not.toContain("First (stale)");
   });
+
+  it("invalidates an in-flight geocode when the field is edited before it resolves, even when the edit doesn't fire a new request", async () => {
+    vi.useFakeTimers();
+    seedWizard();
+    const resolution = 9;
+    const cell = latLngToCell(-43.5, 172.6, resolution);
+    const first = deferred<{
+      ok: boolean;
+      json?: () => Promise<{ features: unknown[] }>;
+    }>();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes(encodeURIComponent("full address"))) {
+          return first.promise;
+        }
+        if (url.includes("/manifest.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                hexagon_resolution: resolution,
+                hex_count: 1,
+                percentiles: [50],
+                encoding: {
+                  dtype: "uint8",
+                  bytes_per_value: 1,
+                  byte_order: "little",
+                  unreachable: 255,
+                },
+                scenarios: [],
+              }),
+          });
+        }
+        if (url.includes("/hexes.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([cell]),
+          });
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }),
+    );
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    const input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "full address";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+    // Request is now in flight (mid-await on forwardGeocode).
+
+    // Edit the field down to a value short enough that no new geocode is
+    // scheduled (below the 3-character threshold, so cancelScheduledGeocode
+    // runs instead of scheduleGeocode). This isolates the oninput counter
+    // bump: nothing else in the codebase invalidates the in-flight request
+    // here except that bump.
+    input.value = "ab";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // Now let the orphaned in-flight request resolve successfully.
+    first.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          features: [
+            {
+              geometry: { coordinates: [172.6, -43.5] },
+              properties: { name: "Full Address Match" },
+            },
+          ],
+        }),
+    });
+    await flushMicrotasks();
+
+    const finalInput = root.querySelector("#destination-0") as HTMLInputElement;
+    expect(finalInput.value).toBe("ab");
+    expect(root.textContent).not.toContain("Full Address Match");
+    expect(root.textContent).not.toContain("matched to the model grid");
+  });
+
+  it("recovers from a transient area-data fetch failure instead of getting stuck at 'geocoding' forever", async () => {
+    vi.useFakeTimers();
+    seedWizard();
+
+    const resolution = 9;
+    const cell = latLngToCell(-43.5, 172.6, resolution);
+    let manifestCallCount = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.includes("photon.komoot.io")) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                features: [
+                  {
+                    geometry: { coordinates: [172.6, -43.5] },
+                    properties: { name: "Some Address" },
+                  },
+                ],
+              }),
+          });
+        }
+        if (url.includes("/manifest.json")) {
+          manifestCallCount++;
+          if (manifestCallCount === 1) {
+            return Promise.resolve({ ok: false, status: 500 });
+          }
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                hexagon_resolution: resolution,
+                hex_count: 1,
+                percentiles: [50],
+                encoding: {
+                  dtype: "uint8",
+                  bytes_per_value: 1,
+                  byte_order: "little",
+                  unreachable: 255,
+                },
+                scenarios: [],
+              }),
+          });
+        }
+        if (url.includes("/hexes.json")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([cell]),
+          });
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }),
+    );
+
+    const root = makeRoot();
+    renderLocation(root);
+
+    // First attempt: the manifest fetch fails once, so ensureAreaData()'s
+    // cached promise rejects.
+    let input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "first attempt";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+    await flushMicrotasks();
+
+    expect(root.textContent).toContain("unavailable right now");
+
+    // Second attempt on the same field: the manifest fetch now succeeds.
+    // This only works if the rejected promise was evicted from the cache,
+    // proving Finding 2 is fixed rather than permanently poisoned.
+    input = root.querySelector("#destination-0") as HTMLInputElement;
+    input.value = "second attempt";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(500);
+    await flushMicrotasks();
+
+    expect(root.textContent).toContain("matched to the model grid");
+  });
 });
