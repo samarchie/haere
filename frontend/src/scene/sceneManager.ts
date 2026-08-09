@@ -9,7 +9,7 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { Screen } from "../router";
-import { anchorFor } from "./anchors";
+import { type AnchorConfig, anchorFor } from "./anchors";
 import { type ScreenRect, projectToScreen } from "./projectToScreen";
 
 const GLB_URL = "/bus_stop_new.glb";
@@ -22,10 +22,12 @@ export class SceneManager {
   private scene = new Scene();
   private controls: OrbitControls;
   private nodes = new Map<string, Object3D>();
-  private currentScreen: Screen | null = null;
+  private currentAnchor: AnchorConfig | null = null;
   private overlayListeners = new Set<(rect: ScreenRect) => void>();
   private firstDragListeners = new Set<() => void>();
   private raf = 0;
+  private tweenRaf = 0;
+  private disposed = false;
   private loaded: Promise<void>;
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -48,10 +50,14 @@ export class SceneManager {
   }
 
   private async load(): Promise<void> {
-    const loader = new GLTFLoader();
-    const gltf = await loader.loadAsync(GLB_URL);
-    this.scene.add(gltf.scene);
-    gltf.scene.traverse((node) => this.nodes.set(node.name, node));
+    try {
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(GLB_URL);
+      this.scene.add(gltf.scene);
+      gltf.scene.traverse((node) => this.nodes.set(node.name, node));
+    } catch (error) {
+      console.warn(`scene: failed to load "${GLB_URL}"`, error);
+    }
   }
 
   private handleFirstDrag = (): void => {
@@ -73,18 +79,18 @@ export class SceneManager {
 
   async goToAnchor(screen: Screen): Promise<void> {
     await this.loaded;
-    if (this.currentScreen === screen) {
+    const config = anchorFor(screen);
+    if (this.currentAnchor?.anchorNode === config.anchorNode) {
       return;
     }
-    this.currentScreen = screen;
 
-    const config = anchorFor(screen);
     const camNode = this.nodes.get(config.camNode);
     const anchorNode = this.nodes.get(config.anchorNode);
     if (!camNode || !anchorNode) {
       console.warn(`scene: missing node for screen "${screen}"`);
       return;
     }
+    this.currentAnchor = config;
 
     await this.tweenCameraTo(
       camNode.position.clone(),
@@ -103,12 +109,13 @@ export class SceneManager {
   }
 
   private notifyOverlayForCurrentScreen(): void {
-    if (!this.currentScreen) {
+    if (!this.currentAnchor) {
       return;
     }
-    const config = anchorFor(this.currentScreen);
+    const config = this.currentAnchor;
     const target = this.nodes.get(config.targetMesh);
     if (!target) {
+      console.warn(`scene: missing target mesh "${config.targetMesh}"`);
       return;
     }
     const bounds = new Box3().setFromObject(target);
@@ -126,7 +133,7 @@ export class SceneManager {
       .applyMatrix4(this.camera.matrixWorldInverse);
     if (viewSpaceCenter.z >= 0) {
       console.warn(
-        `scene: target mesh for screen "${this.currentScreen}" is behind the camera; skipping overlay update`,
+        `scene: target mesh "${config.targetMesh}" is behind the camera; skipping overlay update`,
       );
       return;
     }
@@ -150,6 +157,9 @@ export class SceneManager {
       const startTime = performance.now();
 
       const step = (): void => {
+        if (this.disposed) {
+          return;
+        }
         const elapsed = performance.now() - startTime;
         const t = Math.min(1, elapsed / TWEEN_MS);
         const eased = 1 - (1 - t) ** 3;
@@ -167,7 +177,7 @@ export class SceneManager {
         this.camera.lookAt(this.controls.target);
 
         if (t < 1) {
-          requestAnimationFrame(step);
+          this.tweenRaf = requestAnimationFrame(step);
         } else {
           resolve();
         }
@@ -188,7 +198,9 @@ export class SceneManager {
   }
 
   dispose(): void {
+    this.disposed = true;
     cancelAnimationFrame(this.raf);
+    cancelAnimationFrame(this.tweenRaf);
     window.removeEventListener("resize", this.handleResize);
     this.controls.removeEventListener("start", this.handleFirstDrag);
     this.controls.dispose();
