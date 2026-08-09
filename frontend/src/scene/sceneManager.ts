@@ -1,5 +1,7 @@
 import {
+  AmbientLight,
   Box3,
+  DirectionalLight,
   type Object3D,
   PerspectiveCamera,
   Scene,
@@ -43,6 +45,13 @@ export class SceneManager {
     this.controls.enablePan = false;
     this.controls.enableZoom = false;
     this.controls.addEventListener("start", this.handleFirstDrag);
+
+    // bus_stop_new.glb carries no KHR_lights_punctual data, so the scene
+    // supplies its own lighting or every material renders pure black.
+    this.scene.add(new AmbientLight(0xffffff, 1.2));
+    const sun = new DirectionalLight(0xffffff, 2.2);
+    sun.position.set(5, 10, 7.5);
+    this.scene.add(sun);
 
     this.loaded = this.load();
     window.addEventListener("resize", this.handleResize);
