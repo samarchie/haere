@@ -203,6 +203,8 @@ body.scene-active #app {
   z-index: 1;
   max-width: none;
   margin: 0;
+  box-sizing: border-box;
+  overflow: auto;
   transition: left 0.2s ease-out, top 0.2s ease-out, width 0.2s ease-out, height
     0.2s ease-out;
 }

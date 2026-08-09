@@ -31,6 +31,7 @@ export class SceneManager {
   private tweenRaf = 0;
   private disposed = false;
   private loaded: Promise<void>;
+  private navigationId = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true });
@@ -87,7 +88,12 @@ export class SceneManager {
   };
 
   async goToAnchor(screen: Screen): Promise<void> {
+    const requestId = ++this.navigationId;
     await this.loaded;
+    if (requestId !== this.navigationId) {
+      return;
+    }
+
     const config = anchorFor(screen);
     if (this.currentAnchor?.anchorNode === config.anchorNode) {
       return;
@@ -101,10 +107,23 @@ export class SceneManager {
     }
     this.currentAnchor = config;
 
+    // Widen the look-around clamps to unbounded before the tween starts:
+    // OrbitControls.update() (called every frame by tick()) clamps to
+    // whatever range is currently set, so leaving the previous anchor's
+    // narrow range in place would fight the tween's own camera positioning
+    // for the whole flight.
+    this.controls.minAzimuthAngle = Number.NEGATIVE_INFINITY;
+    this.controls.maxAzimuthAngle = Number.POSITIVE_INFINITY;
+    this.controls.minPolarAngle = 0;
+    this.controls.maxPolarAngle = Math.PI;
+
     await this.tweenCameraTo(
       camNode.position.clone(),
       anchorNode.position.clone(),
     );
+    if (requestId !== this.navigationId) {
+      return;
+    }
 
     const resting = camNode.position.clone().sub(anchorNode.position);
     const restingAzimuth = Math.atan2(resting.x, resting.z);
