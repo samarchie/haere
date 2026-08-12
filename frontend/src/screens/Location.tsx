@@ -141,6 +141,10 @@ export function Location() {
     ];
   });
   const [origin, ...destinations] = rows;
+  const [justRemoved, setJustRemoved] = useState<{
+    row: FieldRow;
+    index: number;
+  } | null>(null);
 
   const areaDataRef = useRef<Promise<{
     manifest: Manifest;
@@ -265,8 +269,20 @@ export function Location() {
     updateRow(rowId, (row) => ({ ...row, status: "idle" }));
   }
 
-  function handleDelete(rowId: number) {
-    setRows((current) => current.filter((row) => row.id !== rowId));
+  function handleDelete(row: FieldRow, index: number) {
+    setRows((current) => current.filter((r) => r.id !== row.id));
+    setJustRemoved({ row, index });
+  }
+
+  function handleUndo() {
+    if (!justRemoved) return;
+    const { row, index } = justRemoved;
+    setRows((current) => {
+      const next = [...current];
+      next.splice(index, 0, row);
+      return next;
+    });
+    setJustRemoved(null);
   }
 
   function renderSummaryRow(
@@ -385,9 +401,24 @@ export function Location() {
           {destinations.map((d, i) =>
             d.status === "resolved"
               ? renderSummaryRow(d, `Destination ${i + 1}`, () =>
-                  handleDelete(d.id),
+                  handleDelete(d, i + 1),
                 )
               : renderEditingRow(d, `Destination ${i + 1}`, false),
+          )}
+
+          {justRemoved && (
+            <div className="mb-1 mt-1 flex items-center justify-between rounded-md border border-kotare-grey bg-kotare-grey/15 px-3 py-2">
+              <span className="text-[11.5px] text-ink-soft">
+                Destination removed
+              </span>
+              <button
+                type="button"
+                className="sd-focus text-[11.5px] font-bold text-kotare-blue"
+                onClick={handleUndo}
+              >
+                Undo
+              </button>
+            </div>
           )}
 
           {canAddDestination(destinations) && (

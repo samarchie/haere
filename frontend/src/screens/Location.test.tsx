@@ -315,4 +315,45 @@ describe("Location", () => {
 
     expect(screen.getByLabelText("Destination 1")).toHaveValue("15 Cashel St");
   });
+
+  it("deleting a destination shows an undo strip that restores it in place", () => {
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "123 Riccarton Rd", lat: -43.5, lng: 172.6 },
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "15 Cashel St",
+          lat: -43.53,
+          lng: 172.63,
+        },
+        {
+          label: "Destination 2",
+          address: "88 Riccarton Rd",
+          lat: -43.54,
+          lng: 172.6,
+        },
+      ],
+    });
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText("Delete Destination 1"));
+
+    expect(screen.getByText("Destination removed")).toBeInTheDocument();
+    expect(screen.queryByText("15 Cashel St")).not.toBeInTheDocument();
+    expect(screen.getByText("1 of 5 destinations")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Undo"));
+
+    expect(screen.queryByText("Destination removed")).not.toBeInTheDocument();
+    expect(screen.getByText("15 Cashel St")).toBeInTheDocument();
+    expect(screen.getByText("2 of 5 destinations")).toBeInTheDocument();
+  });
 });
