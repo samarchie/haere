@@ -66,8 +66,7 @@ export function PinDropMap({
     const { lat, lng } = map.getCenter();
     const label =
       (await reverseGeocode(lat, lng)) ??
-      addressText.trim() ??
-      `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      (addressText.trim() || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
     setConfirming(false);
     onResolve({ lat, lng, label });
   }

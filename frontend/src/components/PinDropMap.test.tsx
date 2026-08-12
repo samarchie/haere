@@ -63,7 +63,7 @@ describe("PinDropMap", () => {
     });
   });
 
-  it("falls back to a coordinate label when reverse geocoding finds nothing", async () => {
+  it("falls back to a coordinate label when reverse geocoding and the address field are both empty", async () => {
     vi.spyOn(geocode, "reverseGeocode").mockResolvedValue(null);
     const onResolve = vi.fn();
 
@@ -72,16 +72,18 @@ describe("PinDropMap", () => {
         open
         onClose={() => {}}
         onResolve={onResolve}
-        initialPoint={{ lat: -43.5, lng: 172.6, label: "Start" }}
+        initialPoint={null}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Use this location" }));
 
     await waitFor(() => expect(onResolve).toHaveBeenCalled());
-    expect(onResolve).toHaveBeenCalledWith(
-      expect.objectContaining({ lat: -43.5, lng: 172.6 }),
-    );
+    expect(onResolve).toHaveBeenCalledWith({
+      lat: -43.5321,
+      lng: 172.6362,
+      label: "-43.53210, 172.63620",
+    });
   });
 
   it("re-centers the map when Locate me returns a position", async () => {
