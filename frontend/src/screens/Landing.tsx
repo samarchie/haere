@@ -4,7 +4,20 @@ import { type Screen, navigate } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import type { WizardState } from "../state/wizardState";
 
-export function hasResumableProgress(state: WizardState): boolean {
+export function hasResumableProgress(
+  state: WizardState,
+  liveAnalysisIds: Set<string> | null,
+): boolean {
+  const chosenAnalysisIsLive =
+    state.analysisId === null ||
+    state.cityId === null ||
+    liveAnalysisIds === null ||
+    liveAnalysisIds.has(`${state.cityId}::${state.analysisId}`);
+
+  if (!chosenAnalysisIsLive) {
+    return false;
+  }
+
   return (
     state.analysisId !== null ||
     state.origin !== null ||
@@ -26,7 +39,7 @@ export function resumeScreen(
 
 export function Landing() {
   const { wizard, resetWizard } = useWizardState();
-  const resumable = hasResumableProgress(wizard);
+  const resumable = hasResumableProgress(wizard, null);
 
   const goTo = (screen: Screen) => navigate(screen);
 

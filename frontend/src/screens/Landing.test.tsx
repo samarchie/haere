@@ -7,12 +7,70 @@ import { Landing, hasResumableProgress, resumeScreen } from "./Landing";
 
 describe("hasResumableProgress", () => {
   it("is false for an empty wizard state", () => {
-    expect(hasResumableProgress(emptyWizardState())).toBe(false);
+    expect(hasResumableProgress(emptyWizardState(), null)).toBe(false);
   });
 
   it("is true once a proposal has been chosen", () => {
     expect(
-      hasResumableProgress({ ...emptyWizardState(), analysisId: "remove-135" }),
+      hasResumableProgress(
+        {
+          ...emptyWizardState(),
+          cityId: "christchurch",
+          analysisId: "remove-135",
+        },
+        null,
+      ),
+    ).toBe(true);
+  });
+
+  it("is true when the live analysis set isn't known yet (null skips the check)", () => {
+    expect(
+      hasResumableProgress(
+        {
+          ...emptyWizardState(),
+          cityId: "christchurch",
+          analysisId: "remove-135",
+        },
+        null,
+      ),
+    ).toBe(true);
+  });
+
+  it("is true when the chosen analysis is in the live set", () => {
+    expect(
+      hasResumableProgress(
+        {
+          ...emptyWizardState(),
+          cityId: "christchurch",
+          analysisId: "remove-135",
+        },
+        new Set(["christchurch::remove-135"]),
+      ),
+    ).toBe(true);
+  });
+
+  it("is false when the chosen analysis has been removed from the live set", () => {
+    expect(
+      hasResumableProgress(
+        {
+          ...emptyWizardState(),
+          cityId: "christchurch",
+          analysisId: "retired-proposal",
+        },
+        new Set(["christchurch::remove-135"]),
+      ),
+    ).toBe(false);
+  });
+
+  it("is true for an origin-only state even when the live set is known and empty", () => {
+    expect(
+      hasResumableProgress(
+        {
+          ...emptyWizardState(),
+          origin: { address: "1 Main St", lat: -43.5, lng: 172.6 },
+        },
+        new Set(),
+      ),
     ).toBe(true);
   });
 });
