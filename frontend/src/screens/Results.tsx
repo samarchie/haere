@@ -21,6 +21,7 @@ import {
 } from "../data/travelTimes";
 import { navigate, replaceScreen, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
+import { appendHistoryEntry } from "../state/resultsHistory";
 import {
   type ResultsPayload,
   decodeResultsParam,
@@ -331,6 +332,32 @@ export function Results() {
     viewScenario,
     retryCount,
   ]);
+
+  useEffect(() => {
+    if (state.status !== "ready") return;
+    const { analysis, manifest, hexIds, payload, rows } = state.data;
+    const verdictRows = buildVerdictRows(
+      payload.destinations,
+      manifest,
+      hexIds,
+      rows,
+    );
+    const changedCount = verdictRows.filter(
+      (row) => row.delta !== null && row.delta !== 0,
+    ).length;
+
+    appendHistoryEntry({
+      cityId: payload.cityId,
+      analysisId: payload.analysisId,
+      proposalTitle: analysis?.title ?? payload.analysisId,
+      cityName: analysis?.cityName ?? payload.cityId,
+      origin: payload.origin,
+      destinations: payload.destinations,
+      scenario: payload.scenario,
+      destinationCount: payload.destinations.length,
+      changedCount,
+    });
+  }, [state]);
 
   if (state.status === "loading") {
     return <p className="text-ink-soft">Loading your results…</p>;
