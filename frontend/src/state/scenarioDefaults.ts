@@ -21,17 +21,8 @@ export function defaultScenario(
     (c) =>
       c.calendarType === "weekday" && c.timeWindow === "am_peak" && c.complete,
   );
-  if (weekdayAmPeak) {
-    return {
-      calendarType: weekdayAmPeak.calendarType,
-      timeWindow: weekdayAmPeak.timeWindow,
-    };
-  }
-  const firstComplete = combos.find((c) => c.complete);
-  return firstComplete
-    ? {
-        calendarType: firstComplete.calendarType,
-        timeWindow: firstComplete.timeWindow,
-      }
+  const match = weekdayAmPeak ?? combos.find((c) => c.complete);
+  return match
+    ? { calendarType: match.calendarType, timeWindow: match.timeWindow }
     : null;
 }

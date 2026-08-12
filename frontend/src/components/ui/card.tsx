@@ -1,12 +1,11 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "../../lib/cn";
 
-export type CardState = "resting" | "expanded" | "selected";
+export type CardState = "resting" | "expanded";
 
 const STATE_CLASSES: Record<CardState, string> = {
   resting: "border border-kotare-grey",
   expanded: "border border-kotare-blue",
-  selected: "border-2 border-kotare-navy",
 };
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {

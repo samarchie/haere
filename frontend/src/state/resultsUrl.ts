@@ -1,9 +1,9 @@
 import {
   type Destination,
+  type WizardState,
   isValidDestination,
   isValidOrigin,
   isValidScenario,
-  saveWizardState,
 } from "./wizardState";
 
 export interface ResultsPayload {
@@ -50,12 +50,12 @@ export function decodeResultsParam(param: string): ResultsPayload | null {
   }
 }
 
-export function seedWizardStateFromPayload(payload: ResultsPayload): void {
-  saveWizardState({
+export function toWizardState(payload: ResultsPayload): WizardState {
+  return {
     cityId: payload.cityId,
     analysisId: payload.analysisId,
     origin: payload.origin,
     destinations: payload.destinations,
     scenario: payload.scenario,
-  });
+  };
 }

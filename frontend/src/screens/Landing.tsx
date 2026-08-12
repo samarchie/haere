@@ -78,7 +78,7 @@ export function Landing() {
         <button
           type="button"
           className="sd-focus mt-4 block text-[12.5px] font-semibold text-kotare-blue hover:text-kotare-navy"
-          onClick={() => goTo("proposal")}
+          onClick={() => navigate("proposal", "?city=")}
         >
           View proposed changes →
         </button>

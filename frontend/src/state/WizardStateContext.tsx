@@ -1,4 +1,11 @@
-import { type ReactNode, createContext, useContext, useState } from "react";
+import {
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import {
   type WizardState,
   clearWizardState,
@@ -20,18 +27,23 @@ export function WizardStateProvider({ children }: { children: ReactNode }) {
     () => loadWizardState() ?? emptyWizardState(),
   );
 
-  const setWizard = (next: WizardState) => {
+  const setWizard = useCallback((next: WizardState) => {
     saveWizardState(next);
     setWizardRaw(next);
-  };
+  }, []);
 
-  const resetWizard = () => {
+  const resetWizard = useCallback(() => {
     clearWizardState();
     setWizardRaw(emptyWizardState());
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ wizard, setWizard, resetWizard }),
+    [wizard, setWizard, resetWizard],
+  );
 
   return (
-    <WizardStateContext.Provider value={{ wizard, setWizard, resetWizard }}>
+    <WizardStateContext.Provider value={value}>
       {children}
     </WizardStateContext.Provider>
   );

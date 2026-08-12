@@ -25,6 +25,7 @@ import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
+  toWizardState,
 } from "../state/resultsUrl";
 import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
 import type { Destination } from "../state/wizardState";
@@ -115,34 +116,29 @@ async function fetchAllRows(
   hexCount: number,
   bytesPerValue: number,
 ): Promise<FetchedRows> {
-  const jobs: Array<{
-    p: number;
-    variant: "baseline" | "modified";
-    path: string;
-  }> = [];
-  for (const p of percentiles) {
-    const baselinePath = scenario.variants.baseline?.[String(p)];
-    const modifiedPath = scenario.variants.modified?.[String(p)];
-    if (baselinePath) jobs.push({ p, variant: "baseline", path: baselinePath });
-    if (modifiedPath) jobs.push({ p, variant: "modified", path: modifiedPath });
+  async function fetchVariant(
+    variant: "baseline" | "modified",
+  ): Promise<Record<number, Uint8Array>> {
+    const rows: Record<number, Uint8Array> = {};
+    await Promise.all(
+      percentiles.map(async (p) => {
+        const path = scenario.variants[variant]?.[String(p)];
+        if (!path) return;
+        rows[p] = await fetchRow(
+          `${DATA_BASE_URL}/${cityId}/${analysisId}/${path}`,
+          rowIndex,
+          hexCount,
+          bytesPerValue,
+        );
+      }),
+    );
+    return rows;
   }
 
-  const fetched = await Promise.all(
-    jobs.map((job) =>
-      fetchRow(
-        `${DATA_BASE_URL}/${cityId}/${analysisId}/${job.path}`,
-        rowIndex,
-        hexCount,
-        bytesPerValue,
-      ),
-    ),
-  );
-
-  const baseline: Record<number, Uint8Array> = {};
-  const modified: Record<number, Uint8Array> = {};
-  jobs.forEach((job, i) => {
-    (job.variant === "baseline" ? baseline : modified)[job.p] = fetched[i];
-  });
+  const [baseline, modified] = await Promise.all([
+    fetchVariant("baseline"),
+    fetchVariant("modified"),
+  ]);
   return { baseline, modified };
 }
 
@@ -223,9 +219,18 @@ export function Results() {
     calendarType: string;
     timeWindow: string;
   } | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const encoded = search.get("r");
+  const {
+    cityId,
+    analysisId,
+    origin,
+    destinations,
+    scenario: savedScenario,
+  } = wizard;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is a re-run trigger, not a read dependency.
   useEffect(() => {
     let cancelled = false;
 
@@ -233,22 +238,14 @@ export function Results() {
       let payload = encoded ? decodeResultsParam(encoded) : null;
 
       if (!payload) {
-        if (
-          !wizard.cityId ||
-          !wizard.analysisId ||
-          !wizard.origin ||
-          wizard.destinations.length === 0
-        ) {
+        if (!cityId || !analysisId || !origin || destinations.length === 0) {
           navigate("landing");
           return;
         }
 
-        let scenario = viewScenario ?? wizard.scenario;
+        let scenario = viewScenario ?? savedScenario;
         if (!scenario) {
-          const manifestForDefault = await fetchManifest(
-            wizard.cityId,
-            wizard.analysisId,
-          );
+          const manifestForDefault = await fetchManifest(cityId, analysisId);
           scenario = defaultScenario(availableCombos(manifestForDefault));
           if (!scenario) {
             if (!cancelled) setState({ status: "error" });
@@ -257,10 +254,10 @@ export function Results() {
         }
 
         payload = {
-          cityId: wizard.cityId,
-          analysisId: wizard.analysisId,
-          origin: wizard.origin,
-          destinations: wizard.destinations,
+          cityId,
+          analysisId,
+          origin,
+          destinations,
           scenario,
         };
         replaceScreen("results", `?r=${encodeResultsParam(payload)}`);
@@ -322,15 +319,38 @@ export function Results() {
       cancelled = true;
     };
     // Re-runs when the URL payload, the wizard's own saved trip, or the
-    // in-screen scenario selection changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [encoded, wizard, viewScenario]);
+    // in-screen scenario selection changes. retryCount isn't read in the
+    // body — it exists only to force a re-run when the user clicks Retry.
+  }, [
+    encoded,
+    cityId,
+    analysisId,
+    origin,
+    destinations,
+    savedScenario,
+    viewScenario,
+    retryCount,
+  ]);
 
   if (state.status === "loading") {
     return <p className="text-ink-soft">Loading your results…</p>;
   }
   if (state.status === "error") {
-    return <Alert>Couldn't load your results. Try again shortly.</Alert>;
+    return (
+      <Alert>
+        Couldn't load your results. Try again shortly.
+        <Button
+          className="mt-3"
+          variant="outline"
+          onClick={() => {
+            setState({ status: "loading" });
+            setRetryCount((n) => n + 1);
+          }}
+        >
+          Retry
+        </Button>
+      </Alert>
+    );
   }
 
   const { analysis, manifest, hexIds, payload, rows } = state.data;
@@ -351,26 +371,14 @@ export function Results() {
     defaultForManifest?.timeWindow === payload.scenario.timeWindow;
 
   function backToLocation() {
-    setWizard({
-      cityId: payload.cityId,
-      analysisId: payload.analysisId,
-      origin: payload.origin,
-      destinations: payload.destinations,
-      scenario: payload.scenario,
-    });
+    setWizard(toWizardState(payload));
     navigate("location");
   }
 
   function changeScenario(next: { calendarType: string; timeWindow: string }) {
     const updated = { ...payload, scenario: next };
     setViewScenario(next);
-    setWizard({
-      cityId: updated.cityId,
-      analysisId: updated.analysisId,
-      origin: updated.origin,
-      destinations: updated.destinations,
-      scenario: updated.scenario,
-    });
+    setWizard(toWizardState(updated));
     replaceScreen("results", `?r=${encodeResultsParam(updated)}`);
   }
 

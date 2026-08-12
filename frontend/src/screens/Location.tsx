@@ -88,28 +88,27 @@ export async function resolveOriginRouting(
     (a) => a.analysisId !== analysisId,
   );
 
-  for (const sibling of siblings) {
-    const [siblingHexIds, siblingManifest] = await Promise.all([
-      fetchHexIds(sibling.cityId, sibling.analysisId),
-      fetchManifest(sibling.cityId, sibling.analysisId),
-    ]);
-    const siblingRow = resolveHexRowIndex(
-      point.lat,
-      point.lng,
-      siblingManifest.hexagonResolution,
-      siblingHexIds,
-    );
-    if (siblingRow !== null) {
-      return {
-        type: "reroute",
-        search: `?city=${encodeURIComponent(cityId)}&reason=multi-match`,
-      };
-    }
-  }
+  const siblingMatches = await Promise.all(
+    siblings.map(async (sibling) => {
+      const [siblingHexIds, siblingManifest] = await Promise.all([
+        fetchHexIds(sibling.cityId, sibling.analysisId),
+        fetchManifest(sibling.cityId, sibling.analysisId),
+      ]);
+      return (
+        resolveHexRowIndex(
+          point.lat,
+          point.lng,
+          siblingManifest.hexagonResolution,
+          siblingHexIds,
+        ) !== null
+      );
+    }),
+  );
 
+  const reason = siblingMatches.some(Boolean) ? "multi-match" : "outside-area";
   return {
     type: "reroute",
-    search: `?city=${encodeURIComponent(cityId)}&reason=outside-area`,
+    search: `?city=${encodeURIComponent(cityId)}&reason=${reason}`,
   };
 }
 
@@ -118,8 +117,9 @@ export function Location() {
   const search = useSearchParams();
   const ids = requireCityAndAnalysis(wizard);
 
-  const [origin, setOrigin] = useState<FieldRow>(() =>
-    wizard.origin
+  // rows[0] is the origin (always present, never removable); rows[1:] are destinations.
+  const [rows, setRows] = useState<FieldRow[]>(() => {
+    const originRow: FieldRow = wizard.origin
       ? {
           id: nextRowId++,
           address: wizard.origin.address,
@@ -130,20 +130,25 @@ export function Location() {
             label: wizard.origin.address,
           },
         }
-      : emptyFieldRow(),
-  );
-  const [destinations, setDestinations] = useState<FieldRow[]>(() => {
-    const seeded: FieldRow[] = wizard.destinations.map((d) => ({
+      : emptyFieldRow();
+    const destinationRows: FieldRow[] = wizard.destinations.map((d) => ({
       id: nextRowId++,
       address: d.address,
       status: "resolved" as const,
       point: { lat: d.lat, lng: d.lng, label: d.address },
     }));
-    if (search.get("addDestination") === "1" && canAddDestination(seeded)) {
-      seeded.push(emptyFieldRow());
+    if (
+      search.get("addDestination") === "1" &&
+      canAddDestination(destinationRows)
+    ) {
+      destinationRows.push(emptyFieldRow());
     }
-    return seeded.length > 0 ? seeded : [emptyFieldRow()];
+    return [
+      originRow,
+      ...(destinationRows.length > 0 ? destinationRows : [emptyFieldRow()]),
+    ];
   });
+  const [origin, ...destinations] = rows;
 
   const areaDataRef = useRef<Promise<{
     manifest: Manifest;
@@ -160,34 +165,39 @@ export function Location() {
     }
   }, [ids]);
 
-  // Persisting is a side effect of origin/destinations changing, not of `wizard`/`setWizard` identity.
+  // Persisting is a side effect of rows changing, not of `wizard`/`setWizard` identity.
+  // Debounced so typing an address doesn't write to localStorage on every keystroke.
   // biome-ignore lint/correctness/useExhaustiveDependencies: wizard/setWizard intentionally excluded, see above.
   useEffect(() => {
-    const resolvedDestinations = destinations
-      .filter(
-        (d): d is FieldRow & { point: GeocodeResult } =>
-          d.status === "resolved" && d.point !== null,
-      )
-      .map((d, i) => ({
-        label: `Destination ${i + 1}`,
-        address: d.address,
-        lat: d.point.lat,
-        lng: d.point.lng,
-      }));
+    const timer = setTimeout(() => {
+      const resolvedDestinations = destinations
+        .map((d, i) => ({ ...d, label: `Destination ${i + 1}` }))
+        .filter(
+          (d): d is FieldRow & { point: GeocodeResult; label: string } =>
+            d.status === "resolved" && d.point !== null,
+        )
+        .map((d) => ({
+          label: d.label,
+          address: d.address,
+          lat: d.point.lat,
+          lng: d.point.lng,
+        }));
 
-    setWizard({
-      ...wizard,
-      origin:
-        origin.status === "resolved" && origin.point
-          ? {
-              address: origin.address,
-              lat: origin.point.lat,
-              lng: origin.point.lng,
-            }
-          : null,
-      destinations: resolvedDestinations,
-    });
-  }, [origin, destinations]);
+      setWizard({
+        ...wizard,
+        origin:
+          origin.status === "resolved" && origin.point
+            ? {
+                address: origin.address,
+                lat: origin.point.lat,
+                lng: origin.point.lng,
+              }
+            : null,
+        destinations: resolvedDestinations,
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [rows]);
 
   if (!ids) {
     return null;
@@ -209,18 +219,10 @@ export function Location() {
     return areaDataRef.current;
   }
 
-  function updateRow(
-    id: number,
-    isOrigin: boolean,
-    updater: (row: FieldRow) => FieldRow,
-  ) {
-    if (isOrigin) {
-      setOrigin((row) => (row.id === id ? updater(row) : row));
-    } else {
-      setDestinations((rows) =>
-        rows.map((row) => (row.id === id ? updater(row) : row)),
-      );
-    }
+  function updateRow(id: number, updater: (row: FieldRow) => FieldRow) {
+    setRows((current) =>
+      current.map((row) => (row.id === id ? updater(row) : row)),
+    );
   }
 
   function handleGeocode(rowId: number, address: string, isOrigin: boolean) {
@@ -229,16 +231,13 @@ export function Location() {
     abortControllers.current.set(rowId, controller);
     const { signal } = controller;
 
-    updateRow(rowId, isOrigin, (row) => ({ ...row, status: "geocoding" }));
+    updateRow(rowId, (row) => ({ ...row, status: "geocoding" }));
 
     forwardGeocode(address)
       .then(async (outcome) => {
         if (signal.aborted) return;
         if (!outcome.ok) {
-          updateRow(rowId, isOrigin, (row) => ({
-            ...row,
-            status: outcome.reason,
-          }));
+          updateRow(rowId, (row) => ({ ...row, status: outcome.reason }));
           return;
         }
 
@@ -257,7 +256,7 @@ export function Location() {
             navigate("proposal", routing.search);
             return;
           }
-          updateRow(rowId, isOrigin, (row) => ({
+          updateRow(rowId, (row) => ({
             ...row,
             point: outcome.result,
             status: "resolved",
@@ -273,7 +272,7 @@ export function Location() {
           manifest.hexagonResolution,
           hexIds,
         );
-        updateRow(rowId, isOrigin, (row) => ({
+        updateRow(rowId, (row) => ({
           ...row,
           point: outcome.result,
           status: rowIndex === null ? "outside-area" : "resolved",
@@ -281,10 +280,7 @@ export function Location() {
       })
       .catch(() => {
         if (signal.aborted) return;
-        updateRow(rowId, isOrigin, (row) => ({
-          ...row,
-          status: "unavailable",
-        }));
+        updateRow(rowId, (row) => ({ ...row, status: "unavailable" }));
       });
   }
 
@@ -309,7 +305,7 @@ export function Location() {
     const existing = debounceTimers.current.get(rowId);
     if (existing !== undefined) clearTimeout(existing);
 
-    updateRow(rowId, isOrigin, (row) => ({
+    updateRow(rowId, (row) => ({
       ...row,
       address: value,
       status: "idle",
@@ -393,9 +389,7 @@ export function Location() {
                 const existing = debounceTimers.current.get(d.id);
                 if (existing !== undefined) clearTimeout(existing);
                 abortControllers.current.get(d.id)?.abort();
-                setDestinations((rows) =>
-                  rows.filter((row) => row.id !== d.id),
-                );
+                setRows((current) => current.filter((row) => row.id !== d.id));
               }
             : undefined,
         ),
@@ -405,7 +399,7 @@ export function Location() {
         <button
           type="button"
           className="sd-focus mb-4 text-[12.5px] font-semibold text-kotare-blue"
-          onClick={() => setDestinations((rows) => [...rows, emptyFieldRow()])}
+          onClick={() => setRows((current) => [...current, emptyFieldRow()])}
         >
           + Add another destination
         </button>

@@ -52,13 +52,32 @@ export function Proposal() {
   const search = useSearchParams();
   const [analyses, setAnalyses] = useState<AnalysisSummary[] | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
+  // retryCount isn't read in the body — it exists only to force a re-run
+  // when the user clicks Retry.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is a re-run trigger, not a read dependency.
   useEffect(() => {
-    fetchAnalyses().then((fetched) => {
-      setAnalyses(fetched);
-      setExpandedId(fetched[0]?.analysisId ?? null);
-    });
-  }, []);
+    setLoadError(false);
+    fetchAnalyses()
+      .then((fetched) => {
+        setAnalyses(fetched);
+        setExpandedId(fetched[0]?.analysisId ?? null);
+      })
+      .catch(() => setLoadError(true));
+  }, [retryCount]);
+
+  if (loadError) {
+    return (
+      <div>
+        <Alert className="mb-3">Couldn't load interventions.</Alert>
+        <Button variant="outline" onClick={() => setRetryCount((n) => n + 1)}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (!analyses) {
     return <p className="text-ink-soft">Loading interventions…</p>;
