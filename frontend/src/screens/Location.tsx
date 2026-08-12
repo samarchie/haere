@@ -359,10 +359,8 @@ export function Location() {
           <p
             className={
               row.status === "resolved"
-                ? "mt-1 text-[12px] text-kotare-teal"
-                : row.status === "idle" || row.status === "geocoding"
-                  ? "mt-1 text-[12px] text-ink-soft"
-                  : "mt-1 text-[12px] text-kotare-brown"
+                ? "mt-1 text-[12px] text-ink"
+                : "mt-1 text-[12px] text-ink-soft"
             }
           >
             {statusText}
@@ -417,12 +415,17 @@ export function Location() {
         {destinations.length} of 5 destinations
       </p>
 
-      <Button
-        disabled={!continueEnabled}
-        onClick={() => continueEnabled && navigate("results")}
-      >
-        Continue →
-      </Button>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={() => navigate("proposal")}>
+          ← Back
+        </Button>
+        <Button
+          disabled={!continueEnabled}
+          onClick={() => continueEnabled && navigate("results")}
+        >
+          Continue →
+        </Button>
+      </div>
     </WizardShell>
   );
 }
