@@ -36,7 +36,7 @@ describe("AddressAutocomplete", () => {
       <AddressAutocomplete
         id="field-1"
         label="Home address"
-        value="ri"
+        value=""
         point={null}
         onChange={() => {}}
         onResolve={() => {}}
