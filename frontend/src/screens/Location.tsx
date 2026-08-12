@@ -153,7 +153,7 @@ export function Location() {
     }
   }, [ids]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: wizard/setWizard intentionally excluded, see the debounced-persistence note in the original implementation.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: wizard/setWizard read via closure so origin/destinations edits don't retrigger this debounced persistence effect on every keystroke.
   useEffect(() => {
     const timer = setTimeout(() => {
       const resolvedDestinations = destinations
@@ -223,34 +223,38 @@ export function Location() {
       noResults: false,
     }));
 
-    const { manifest, hexIds } = await ensureAreaData();
+    try {
+      const { manifest, hexIds } = await ensureAreaData();
 
-    if (isOrigin) {
-      const routing = await resolveOriginRouting(
-        result,
-        cityId,
-        analysisId,
-        manifest,
-        hexIds,
-      );
-      if (routing.type === "reroute") {
-        navigate("proposal", routing.search);
+      if (isOrigin) {
+        const routing = await resolveOriginRouting(
+          result,
+          cityId,
+          analysisId,
+          manifest,
+          hexIds,
+        );
+        if (routing.type === "reroute") {
+          navigate("proposal", routing.search);
+          return;
+        }
+        updateRow(rowId, (row) => ({ ...row, status: "resolved" }));
         return;
       }
-      updateRow(rowId, (row) => ({ ...row, status: "resolved" }));
-      return;
-    }
 
-    const rowIndex = resolveHexRowIndex(
-      result.lat,
-      result.lng,
-      manifest.hexagonResolution,
-      hexIds,
-    );
-    updateRow(rowId, (row) => ({
-      ...row,
-      status: rowIndex === null ? "outside-area" : "resolved",
-    }));
+      const rowIndex = resolveHexRowIndex(
+        result.lat,
+        result.lng,
+        manifest.hexagonResolution,
+        hexIds,
+      );
+      updateRow(rowId, (row) => ({
+        ...row,
+        status: rowIndex === null ? "outside-area" : "resolved",
+      }));
+    } catch {
+      updateRow(rowId, (row) => ({ ...row, noResults: true }));
+    }
   }
 
   function handleAddressChange(rowId: number, value: string) {

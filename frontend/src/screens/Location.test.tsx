@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnalysisSummary } from "../data/analysisCatalogue";
@@ -255,6 +255,36 @@ describe("Location", () => {
 
     fireEvent.click(screen.getByText("View all proposals →"));
     expect(window.location.pathname).toBe("/proposal");
+  });
+
+  it("shows the no-study-area notice when resolving the origin fails to look up area data", async () => {
+    vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([
+      { lat: -43.53, lng: 172.62, label: "123 Riccarton Road, Christchurch" },
+    ]);
+    vi.spyOn(manifestData, "fetchManifest").mockRejectedValue(
+      new Error("network down"),
+    );
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "123 Riccarton" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    fireEvent.click(screen.getByText("123 Riccarton Road, Christchurch"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(
+      screen.getByText("No study area covers this address yet"),
+    ).toBeInTheDocument();
   });
 
   it("clicking edit reverts a resolved destination to editing mode", async () => {
