@@ -66,3 +66,23 @@ export async function fetchSuggestions(
     return [];
   }
 }
+
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://photon.komoot.io/api/?lat=${lat}&lon=${lng}`,
+    );
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as PhotonResponse;
+    const [feature] = data.features;
+    return feature ? labelFor(feature, `${lat}, ${lng}`) : null;
+  } catch {
+    return null;
+  }
+}

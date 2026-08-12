@@ -71,9 +71,8 @@ function dedupeKey(e: {
   cityId: string;
   analysisId: string;
   origin: { address: string };
-  scenario: WizardScenario;
 }): string {
-  return `${tripKey(e.cityId, e.analysisId, e.origin.address)}::${e.scenario.calendarType}::${e.scenario.timeWindow}`;
+  return tripKey(e.cityId, e.analysisId, e.origin.address);
 }
 
 export function appendHistoryEntry(
