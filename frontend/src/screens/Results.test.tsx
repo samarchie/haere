@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as analysisCatalogue from "../data/analysisCatalogue";
+import * as hexLookup from "../data/hexLookup";
+import * as manifestData from "../data/manifest";
+import * as travelTimes from "../data/travelTimes";
+import { WizardStateProvider } from "../state/WizardStateContext";
+import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import {
+  Results,
   deltaFor,
   formatDelta,
   formatRange,
@@ -56,5 +64,89 @@ describe("formatDelta", () => {
         { p25: null, p50: 15, p75: null },
       ),
     ).toEqual({ text: "-5 min · better", tone: "better" });
+  });
+});
+
+describe("Results", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    window.history.replaceState(null, "", "/results");
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "Origin St", lat: -43.5, lng: 172.6 },
+      destinations: [
+        { label: "Work", address: "Work St", lat: -43.51, lng: 172.61 },
+      ],
+      scenario: { calendarType: "weekday", timeWindow: "am_peak" },
+    });
+
+    vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      hexagonResolution: 8,
+      hexCount: 1,
+      percentiles: [50],
+      encoding: {
+        dtype: "uint8",
+        bytesPerValue: 1,
+        byteOrder: "little",
+        unreachable: 255,
+      },
+      scenarios: [
+        {
+          calendarType: "weekday",
+          timeWindow: "am_peak",
+          start: "07:00",
+          end: "09:00",
+          variants: {
+            baseline: { "50": "am-baseline.bin" },
+            modified: { "50": "am-modified.bin" },
+          },
+        },
+        {
+          calendarType: "weekday",
+          timeWindow: "pm_peak",
+          start: "16:00",
+          end: "18:00",
+          variants: {
+            baseline: { "50": "pm-baseline.bin" },
+            modified: { "50": "pm-modified.bin" },
+          },
+        },
+      ],
+    });
+    vi.spyOn(hexLookup, "fetchHexIds").mockResolvedValue(["dummy"]);
+    vi.spyOn(hexLookup, "resolveHexRowIndex").mockReturnValue(0);
+    vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([]);
+    vi.spyOn(travelTimes, "fetchRow").mockImplementation(async (url) => {
+      if (url.includes("am-baseline")) return new Uint8Array([10]);
+      if (url.includes("am-modified")) return new Uint8Array([15]);
+      if (url.includes("pm-baseline")) return new Uint8Array([20]);
+      if (url.includes("pm-modified")) return new Uint8Array([20]);
+      throw new Error(`unexpected url: ${url}`);
+    });
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("re-renders with a new scenario's data after switching the time window", async () => {
+    render(
+      <WizardStateProvider>
+        <Results />
+      </WizardStateProvider>,
+    );
+
+    await waitFor(() => screen.getByText("Today: 10 min"));
+    expect(screen.getByText("After: 15 min")).toBeInTheDocument();
+    expect(
+      screen.getByText(/weekday · am_peak \(default\)/),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("pm_peak"));
+
+    await waitFor(() => screen.getByText("Today: 20 min"));
+    expect(screen.getByText("After: 20 min")).toBeInTheDocument();
+    expect(screen.getByText("No change")).toBeInTheDocument();
+    expect(screen.getByText("weekday · pm_peak")).toBeInTheDocument();
   });
 });

@@ -25,7 +25,6 @@ import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
-  seedWizardStateFromPayload,
 } from "../state/resultsUrl";
 import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
 import type { Destination } from "../state/wizardState";
@@ -209,13 +208,21 @@ interface LoadedData {
 }
 
 export function Results() {
-  const { wizard } = useWizardState();
+  const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
   const [state, setState] = useState<
     | { status: "loading" }
     | { status: "error" }
     | { status: "ready"; data: LoadedData }
   >({ status: "loading" });
+  // The scenario currently being viewed on screen. Neither updating wizard
+  // state nor rewriting the URL (via replaceState, which fires no event)
+  // triggers a re-render on its own, so changeScenario() below writes here
+  // too — this is what actually drives the data-loading effect to re-run.
+  const [viewScenario, setViewScenario] = useState<{
+    calendarType: string;
+    timeWindow: string;
+  } | null>(null);
 
   const encoded = search.get("r");
 
@@ -236,7 +243,7 @@ export function Results() {
           return;
         }
 
-        let scenario = wizard.scenario;
+        let scenario = viewScenario ?? wizard.scenario;
         if (!scenario) {
           const manifestForDefault = await fetchManifest(
             wizard.cityId,
@@ -257,6 +264,12 @@ export function Results() {
           scenario,
         };
         replaceScreen("results", `?r=${encodeResultsParam(payload)}`);
+      } else if (viewScenario) {
+        payload = { ...payload, scenario: viewScenario };
+      }
+
+      if (!viewScenario && !cancelled) {
+        setViewScenario(payload.scenario);
       }
 
       try {
@@ -308,9 +321,10 @@ export function Results() {
     return () => {
       cancelled = true;
     };
-    // Re-runs when the URL payload or the wizard's own saved trip changes.
+    // Re-runs when the URL payload, the wizard's own saved trip, or the
+    // in-screen scenario selection changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [encoded, wizard]);
+  }, [encoded, wizard, viewScenario]);
 
   if (state.status === "loading") {
     return <p className="text-ink-soft">Loading your results…</p>;
@@ -331,21 +345,30 @@ export function Results() {
   const timeWindows = combos.filter(
     (c) => c.calendarType === payload.scenario.calendarType,
   );
+  const defaultForManifest = defaultScenario(combos);
+  const isDefaultScenario =
+    defaultForManifest?.calendarType === payload.scenario.calendarType &&
+    defaultForManifest?.timeWindow === payload.scenario.timeWindow;
 
   function changeScenario(next: { calendarType: string; timeWindow: string }) {
-    seedWizardStateFromPayload({ ...payload, scenario: next });
-    replaceScreen(
-      "results",
-      `?r=${encodeResultsParam({ ...payload, scenario: next })}`,
-    );
+    const updated = { ...payload, scenario: next };
+    setViewScenario(next);
+    setWizard({
+      cityId: updated.cityId,
+      analysisId: updated.analysisId,
+      origin: updated.origin,
+      destinations: updated.destinations,
+      scenario: updated.scenario,
+    });
+    replaceScreen("results", `?r=${encodeResultsParam(updated)}`);
   }
 
   return (
     <WizardShell step={3} title="Your results">
       <details className="mb-4 rounded-md border border-kotare-grey p-3 text-[12px] text-ink-soft">
         <summary className="cursor-pointer font-mono">
-          {payload.scenario.calendarType} · {payload.scenario.timeWindow}{" "}
-          (default)
+          {payload.scenario.calendarType} · {payload.scenario.timeWindow}
+          {isDefaultScenario ? " (default)" : ""}
         </summary>
         <div className="mt-3 flex flex-col gap-2">
           <ToggleGroup
