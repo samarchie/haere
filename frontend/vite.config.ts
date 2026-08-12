@@ -5,7 +5,7 @@ import type { Connect, Plugin } from "vite";
 import { defineConfig } from "vite";
 
 function serveOutputData(): Plugin {
-  const outputRoot = path.resolve(__dirname, "../output");
+  const outputRoot = path.resolve(import.meta.dirname, "../output");
 
   const handler: Connect.NextHandleFunction = (req, res, next) => {
     const requestPath = (req.url ?? "").split("?")[0];

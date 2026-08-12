@@ -6,6 +6,7 @@ import * as manifestData from "../data/manifest";
 import * as travelTimes from "../data/travelTimes";
 import { useScreen } from "../router";
 import { WizardStateProvider } from "../state/WizardStateContext";
+import * as resultsHistory from "../state/resultsHistory";
 import { encodeResultsParam } from "../state/resultsUrl";
 import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import { Location } from "./Location";
@@ -192,5 +193,27 @@ describe("Results", () => {
       expect(screen.getByDisplayValue("Origin St")).toBeInTheDocument(),
     );
     expect(window.location.pathname).toBe("/location");
+  });
+
+  it("records a history entry once results are ready", async () => {
+    const appendSpy = vi.spyOn(resultsHistory, "appendHistoryEntry");
+
+    render(
+      <WizardStateProvider>
+        <Results />
+      </WizardStateProvider>,
+    );
+
+    await waitFor(() => screen.getByText("Today: 10 min"));
+
+    await waitFor(() => expect(appendSpy).toHaveBeenCalledOnce());
+    expect(appendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destinationCount: 1,
+        changedCount: 1,
+        proposalTitle: "remove-135",
+        cityName: "christchurch",
+      }),
+    );
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { forwardGeocode } from "./geocode";
+import { fetchSuggestions, forwardGeocode } from "./geocode";
 
 describe("forwardGeocode", () => {
   afterEach(() => {
@@ -90,5 +90,78 @@ describe("forwardGeocode", () => {
       ok: false,
       reason: "unavailable",
     });
+  });
+});
+
+describe("fetchSuggestions", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns up to five labeled results", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            features: [
+              {
+                geometry: { coordinates: [172.62, -43.53] },
+                properties: {
+                  name: "123",
+                  street: "Riccarton Road",
+                  city: "Christchurch",
+                },
+              },
+              {
+                geometry: { coordinates: [172.6, -43.5] },
+                properties: {
+                  name: "125",
+                  street: "Riccarton Road",
+                  city: "Christchurch",
+                },
+              },
+            ],
+          }),
+      }),
+    );
+
+    const results = await fetchSuggestions("123 Riccarton");
+
+    expect(results).toEqual([
+      { lat: -43.53, lng: 172.62, label: "123 Riccarton Road, Christchurch" },
+      { lat: -43.5, lng: 172.6, label: "125 Riccarton Road, Christchurch" },
+    ]);
+  });
+
+  it("calls Photon with limit=5", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ features: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchSuggestions("15 Cashel Street");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://photon.komoot.io/api/?q=15%20Cashel%20Street&limit=5",
+    );
+  });
+
+  it("returns an empty array when the response isn't ok", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+    expect(await fetchSuggestions("anything")).toEqual([]);
+  });
+
+  it("returns an empty array when fetch throws", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down")),
+    );
+    expect(await fetchSuggestions("anything")).toEqual([]);
   });
 });

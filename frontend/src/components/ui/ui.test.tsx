@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Badge } from "./badge";
 import { Button } from "./button";
+import { Modal } from "./modal";
 import { ToggleGroup } from "./toggle-group";
 
 describe("Button", () => {
@@ -62,5 +63,60 @@ describe("ToggleGroup", () => {
     );
     fireEvent.click(screen.getByRole("radio", { name: "All cities" }));
     expect(onValueChange).toHaveBeenCalledWith("");
+  });
+});
+
+describe("Modal", () => {
+  it("renders nothing when closed", () => {
+    render(
+      <Modal open={false} onClose={vi.fn()} title="About">
+        <p>Body copy</p>
+      </Modal>,
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("renders the title and children when open", () => {
+    render(
+      <Modal open={true} onClose={vi.fn()} title="About">
+        <p>Body copy</p>
+      </Modal>,
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("About")).toBeInTheDocument();
+    expect(screen.getByText("Body copy")).toBeInTheDocument();
+  });
+
+  it("calls onClose when the close button is clicked", () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open={true} onClose={onClose} title="About">
+        <p>Body copy</p>
+      </Modal>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /close/i }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("calls onClose on Escape", () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open={true} onClose={onClose} title="About">
+        <p>Body copy</p>
+      </Modal>,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("calls onClose when the backdrop is clicked", () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open={true} onClose={onClose} title="About">
+        <p>Body copy</p>
+      </Modal>,
+    );
+    fireEvent.click(screen.getByTestId("modal-backdrop"));
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
@@ -21,6 +21,7 @@ import {
 } from "../data/travelTimes";
 import { navigate, replaceScreen, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
+import { appendHistoryEntry } from "../state/resultsHistory";
 import {
   type ResultsPayload,
   decodeResultsParam,
@@ -332,6 +333,39 @@ export function Results() {
     retryCount,
   ]);
 
+  const verdictRows = useMemo(
+    () =>
+      state.status === "ready"
+        ? buildVerdictRows(
+            state.data.payload.destinations,
+            state.data.manifest,
+            state.data.hexIds,
+            state.data.rows,
+          )
+        : [],
+    [state],
+  );
+
+  useEffect(() => {
+    if (state.status !== "ready") return;
+    const { analysis, payload } = state.data;
+    const changedCount = verdictRows.filter(
+      (row) => row.delta !== null && row.delta !== 0,
+    ).length;
+
+    appendHistoryEntry({
+      cityId: payload.cityId,
+      analysisId: payload.analysisId,
+      proposalTitle: analysis?.title ?? payload.analysisId,
+      cityName: analysis?.cityName ?? payload.cityId,
+      origin: payload.origin,
+      destinations: payload.destinations,
+      scenario: payload.scenario,
+      destinationCount: payload.destinations.length,
+      changedCount,
+    });
+  }, [state, verdictRows]);
+
   if (state.status === "loading") {
     return <p className="text-ink-soft">Loading your results…</p>;
   }
@@ -353,13 +387,7 @@ export function Results() {
     );
   }
 
-  const { analysis, manifest, hexIds, payload, rows } = state.data;
-  const verdictRows = buildVerdictRows(
-    payload.destinations,
-    manifest,
-    hexIds,
-    rows,
-  );
+  const { analysis, manifest, payload } = state.data;
   const combos = availableCombos(manifest);
   const calendarTypes = Array.from(new Set(combos.map((c) => c.calendarType)));
   const timeWindows = combos.filter(
