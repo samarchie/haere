@@ -153,7 +153,7 @@ export function Location() {
     }
   }, [ids]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: wizard/setWizard read via closure so origin/destinations edits don't retrigger this debounced persistence effect on every keystroke.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: wizard/setWizard excluded so this effect's own setWizard call doesn't retrigger itself via wizard's changed identity — rows changing is the only thing that should schedule a new persist.
   useEffect(() => {
     const timer = setTimeout(() => {
       const resolvedDestinations = destinations
