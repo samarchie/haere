@@ -91,12 +91,17 @@ describe("appendHistoryEntry", () => {
   });
 
   it("caps the list at 10 entries, dropping the oldest", () => {
-    const existing = Array.from({ length: 10 }, (_, i) =>
-      makeEntry({
-        id: `${i}`,
-        origin: { address: `${i} Main St`, lat: -43.5, lng: 172.6 },
-      }),
-    );
+    // Seed order matches appendHistoryEntry's own newest-first convention:
+    // index 0 is the most recently added entry, the last index is the
+    // oldest. Built by counting down from "9" (newest) to "0" (oldest) so
+    // "0" is genuinely at the tail and is the one that should be evicted.
+    const existing = Array.from({ length: 10 }, (_, i) => {
+      const id = `${9 - i}`;
+      return makeEntry({
+        id,
+        origin: { address: `${id} Main St`, lat: -43.5, lng: 172.6 },
+      });
+    });
     saveHistory(existing);
 
     appendHistoryEntry({

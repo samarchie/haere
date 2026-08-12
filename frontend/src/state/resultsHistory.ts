@@ -65,8 +65,7 @@ export function appendHistoryEntry(
   entry: Omit<HistoryEntry, "id" | "savedAt">,
 ): void {
   const key = dedupeKey(entry);
-  const loaded = loadHistory().reverse();
-  const withoutDuplicate = loaded.filter((e) => dedupeKey(e) !== key);
+  const withoutDuplicate = loadHistory().filter((e) => dedupeKey(e) !== key);
   const next: HistoryEntry = {
     ...entry,
     id: crypto.randomUUID(),
