@@ -1,7 +1,7 @@
 import * as RadixToggleGroup from "@radix-ui/react-toggle-group";
 import { cn } from "../../lib/cn";
 
-interface ToggleGroupOption {
+export interface ToggleGroupOption {
   value: string;
   label: string;
   disabled?: boolean;

@@ -17,7 +17,7 @@ export function Card({ state = "resting", className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-xl bg-white p-4 shadow-sm transition-colors duration-200",
+        "rounded-xl bg-surface-card p-4 shadow-sm transition-colors duration-200",
         STATE_CLASSES[state],
         className,
       )}

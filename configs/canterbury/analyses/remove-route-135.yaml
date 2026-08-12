@@ -45,4 +45,4 @@ time_windows:
 routing_parameters:
   max_walk_time: 15
   max_time: 240
-  percentiles: [25, 50, 75]
+  percentiles: [10, 50, 90]
