@@ -29,24 +29,21 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   };
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: non-interactive backdrop; Escape-to-close handled by document-level listener
     <div
       ref={backdropRef}
       data-testid="modal-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={handleBackdropClick}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
       role="presentation"
     >
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: non-interactive container; click only distinguishes backdrop-vs-content */}
       <dialog
         open
+        aria-modal="true"
         aria-label={title}
         className="w-full max-w-[420px] rounded-xl bg-surface-card p-6 shadow-xl border-0"
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[15px] font-bold text-ink">{title}</h2>
