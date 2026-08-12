@@ -26,26 +26,37 @@ export function AddressAutocomplete({
   const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
   const [pinDropOpen, setPinDropOpen] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: onSearchSettled is a per-render callback prop; keying the debounce on it too would re-schedule the search on every parent re-render instead of only when the address text itself changes.
   useEffect(() => {
-    if (value.trim().length < 3) {
+    return () => {
+      if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
+  function scheduleSearch(query: string) {
+    if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+    if (query.trim().length < 3) {
       setSuggestions([]);
       setOpen(false);
       return;
     }
-    const timer = setTimeout(() => {
+    debounceTimer.current = setTimeout(() => {
       const current = ++seq.current;
-      fetchSuggestions(value).then((results) => {
+      fetchSuggestions(query).then((results) => {
         if (current !== seq.current) return;
         setSuggestions(results);
         setOpen(results.length > 0);
         onSearchSettled(results.length > 0);
       });
     }, 400);
-    return () => clearTimeout(timer);
-  }, [value]);
+  }
+
+  function handleChange(next: string) {
+    onChange(next);
+    scheduleSearch(next);
+  }
 
   function selectSuggestion(result: GeocodeResult) {
     setOpen(false);
@@ -67,7 +78,7 @@ export function AddressAutocomplete({
           aria-label={label}
           className="pl-8 pr-9"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
         />
         <button
           type="button"

@@ -65,7 +65,7 @@ describe("AddressAutocomplete", () => {
       <AddressAutocomplete
         id="field-1"
         label="Home address"
-        value="123 Riccarton"
+        value="123 Riccar"
         point={null}
         onChange={() => {}}
         onResolve={onResolve}
@@ -97,7 +97,7 @@ describe("AddressAutocomplete", () => {
       <AddressAutocomplete
         id="field-1"
         label="Home address"
-        value="88 Selwyn Street"
+        value="88 Selwyn"
         point={null}
         onChange={() => {}}
         onResolve={() => {}}
