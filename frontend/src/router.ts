@@ -37,8 +37,16 @@ export function onNavigate(handler: (screen: Screen) => void): () => void {
   return () => window.removeEventListener("popstate", listener);
 }
 
+let cachedSearchString = "";
+let cachedSearchParams = new URLSearchParams(cachedSearchString);
+
 export function currentSearch(): URLSearchParams {
-  return new URLSearchParams(window.location.search);
+  const search = window.location.search;
+  if (search !== cachedSearchString) {
+    cachedSearchString = search;
+    cachedSearchParams = new URLSearchParams(search);
+  }
+  return cachedSearchParams;
 }
 
 function subscribe(callback: () => void): () => void {
