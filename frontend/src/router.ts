@@ -1,18 +1,18 @@
-export type Screen = "landing" | "picker" | "location" | "scenario" | "results";
+import { useSyncExternalStore } from "react";
+
+export type Screen = "landing" | "proposal" | "location" | "results";
 
 const PATH_TO_SCREEN: Record<string, Screen> = {
   "/": "landing",
-  "/picker": "picker",
+  "/proposal": "proposal",
   "/location": "location",
-  "/scenario": "scenario",
   "/results": "results",
 };
 
 const SCREEN_TO_PATH: Record<Screen, string> = {
   landing: "/",
-  picker: "/picker",
+  proposal: "/proposal",
   location: "/location",
-  scenario: "/scenario",
   results: "/results",
 };
 
@@ -37,6 +37,26 @@ export function onNavigate(handler: (screen: Screen) => void): () => void {
   return () => window.removeEventListener("popstate", listener);
 }
 
+let cachedSearchString = "";
+let cachedSearchParams = new URLSearchParams(cachedSearchString);
+
 export function currentSearch(): URLSearchParams {
-  return new URLSearchParams(window.location.search);
+  const search = window.location.search;
+  if (search !== cachedSearchString) {
+    cachedSearchString = search;
+    cachedSearchParams = new URLSearchParams(search);
+  }
+  return cachedSearchParams;
+}
+
+function subscribe(callback: () => void): () => void {
+  return onNavigate(callback);
+}
+
+export function useScreen(): Screen {
+  return useSyncExternalStore(subscribe, currentScreen);
+}
+
+export function useSearchParams(): URLSearchParams {
+  return useSyncExternalStore(subscribe, currentSearch);
 }

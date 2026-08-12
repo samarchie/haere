@@ -1,11 +1,10 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
-  seedWizardStateFromPayload,
+  toWizardState,
 } from "./resultsUrl";
-import { loadWizardState } from "./wizardState";
 
 const samplePayload: ResultsPayload = {
   cityId: "canterbury",
@@ -19,14 +18,8 @@ const samplePayload: ResultsPayload = {
 };
 
 describe("resultsUrl", () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  it("seedWizardStateFromPayload saves a wizardState matching the payload", () => {
-    seedWizardStateFromPayload(samplePayload);
-
-    expect(loadWizardState()).toEqual({
+  it("toWizardState maps a payload to a matching WizardState", () => {
+    expect(toWizardState(samplePayload)).toEqual({
       cityId: samplePayload.cityId,
       analysisId: samplePayload.analysisId,
       origin: samplePayload.origin,

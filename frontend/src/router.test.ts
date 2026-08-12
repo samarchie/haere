@@ -1,3 +1,4 @@
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   currentScreen,
@@ -5,6 +6,7 @@ import {
   navigate,
   onNavigate,
   replaceScreen,
+  useScreen,
 } from "./router";
 
 describe("router", () => {
@@ -19,9 +21,8 @@ describe("router", () => {
 
   it("resolves each known path", () => {
     const cases: Array<[string, string]> = [
-      ["/picker", "picker"],
+      ["/proposal", "proposal"],
       ["/location", "location"],
-      ["/scenario", "scenario"],
       ["/results", "results"],
     ];
     for (const [path, screen] of cases) {
@@ -45,9 +46,9 @@ describe("router", () => {
     const handler = vi.fn();
     const unsubscribe = onNavigate(handler);
 
-    navigate("scenario");
+    navigate("proposal");
 
-    expect(handler).toHaveBeenCalledWith("scenario");
+    expect(handler).toHaveBeenCalledWith("proposal");
     unsubscribe();
   });
 
@@ -60,21 +61,34 @@ describe("router", () => {
     expect(handler).toHaveBeenCalledWith("location");
 
     unsubscribe();
-    window.history.pushState(null, "", "/scenario");
+    window.history.pushState(null, "", "/location");
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("replaceScreen replaces the current history entry with the given path and search", () => {
-    navigate("picker");
+    navigate("proposal");
     replaceScreen("results", "?r=abc123");
     expect(window.location.pathname).toBe("/results");
     expect(window.location.search).toBe("?r=abc123");
   });
 
   it("currentSearch reflects the current query string", () => {
-    window.history.replaceState(null, "", "/picker?city=canterbury");
+    window.history.replaceState(null, "", "/proposal?city=canterbury");
     const params = currentSearch();
     expect(params.get("city")).toBe("canterbury");
+  });
+});
+
+describe("useScreen", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("reflects the current screen and updates on navigate", () => {
+    const { result } = renderHook(() => useScreen());
+    expect(result.current).toBe("landing");
+    act(() => navigate("proposal"));
+    expect(result.current).toBe("proposal");
   });
 });
