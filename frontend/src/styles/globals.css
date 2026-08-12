@@ -6,6 +6,8 @@
 
 :root {
   color-scheme: light;
+  --kotare-blue-rgb: 40 125 171;
+  --surface-card: #ffffff;
 }
 
 body {

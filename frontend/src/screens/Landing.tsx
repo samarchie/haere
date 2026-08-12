@@ -31,12 +31,12 @@ export function Landing() {
   const goTo = (screen: Screen) => navigate(screen);
 
   return (
-    <div className="relative mx-auto w-full max-w-[440px] overflow-hidden rounded-2xl border border-kotare-grey bg-white shadow-xl shadow-kotare-blue/10">
+    <div className="relative mx-auto w-full max-w-[440px] overflow-hidden rounded-2xl border border-kotare-grey bg-surface-card shadow-xl shadow-kotare-blue/10">
       <div
         className="relative px-6 pt-10 pb-8 sm:px-9 sm:pt-12 sm:pb-10"
         style={{
           background:
-            "radial-gradient(140% 100% at 10% -25%, rgba(40,125,171,.32), transparent 65%), #ffffff",
+            "radial-gradient(140% 100% at 10% -25%, rgba(var(--kotare-blue-rgb), .32), transparent 65%), var(--surface-card)",
         }}
       >
         <h1 className="mb-3 text-[32px] sm:text-[38px] font-extrabold leading-[1.05] tracking-tight text-ink">
