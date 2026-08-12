@@ -46,4 +46,21 @@ describe("ToggleGroup", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Christchurch" }));
     expect(onValueChange).toHaveBeenCalledWith("christchurch");
   });
+
+  it("calls onValueChange with an empty string when a configured option's value is empty", () => {
+    const onValueChange = vi.fn();
+    render(
+      <ToggleGroup
+        aria-label="City filter"
+        options={[
+          { value: "", label: "All cities" },
+          { value: "christchurch", label: "Christchurch" },
+        ]}
+        value="christchurch"
+        onValueChange={onValueChange}
+      />,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "All cities" }));
+    expect(onValueChange).toHaveBeenCalledWith("");
+  });
 });

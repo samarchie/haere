@@ -25,7 +25,7 @@ export function ToggleGroup({
       type="single"
       value={value ?? undefined}
       onValueChange={(next) => {
-        if (next) onValueChange(next);
+        if (next || options.some((o) => o.value === "")) onValueChange(next);
       }}
       className="inline-flex rounded-md border border-kotare-grey bg-kotare-grey/10 p-0.5"
       {...props}
