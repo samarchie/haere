@@ -22,7 +22,7 @@ function Screens() {
 export function App() {
   return (
     <WizardStateProvider>
-      <main className="min-h-screen bg-surface-ground px-4 py-8 sm:px-6 sm:py-12">
+      <main className="flex min-h-screen items-center justify-center bg-surface-ground px-4 py-8 sm:px-6 sm:py-12">
         <Screens />
       </main>
     </WizardStateProvider>
