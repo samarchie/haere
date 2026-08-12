@@ -79,14 +79,14 @@ export function NetworkBackdrop() {
               id={`route-${route.name}`}
               d={pathData(route.pts)}
               fill="none"
-              stroke="#287DAB"
+              className="stroke-kotare-blue"
               strokeWidth={1.5}
               strokeLinecap="round"
               strokeLinejoin="round"
               opacity={0.12}
             />
             {timing && (
-              <circle r={3} fill="#214d65">
+              <circle r={3} className="fill-kotare-navy">
                 <animateMotion
                   dur={`${18 + (route.pts.length % 7) * 2}s`}
                   repeatCount="indefinite"

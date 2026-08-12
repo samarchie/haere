@@ -1,8 +1,9 @@
-import type {
-  Destination,
-  WizardOrigin,
-  WizardScenario,
-  WizardState,
+import {
+  type Destination,
+  type WizardOrigin,
+  type WizardScenario,
+  type WizardState,
+  isValidOrigin,
 } from "./wizardState";
 
 export interface HistoryEntry {
@@ -34,8 +35,13 @@ function isHistoryEntry(value: unknown): value is HistoryEntry {
     typeof v.cityName === "string" &&
     typeof v.destinationCount === "number" &&
     typeof v.changedCount === "number" &&
-    Array.isArray(v.destinations)
+    Array.isArray(v.destinations) &&
+    isValidOrigin(v.origin)
   );
+}
+
+export function analysisKey(cityId: string, analysisId: string): string {
+  return `${cityId}::${analysisId}`;
 }
 
 export function loadHistory(): HistoryEntry[] {
@@ -79,7 +85,7 @@ export function pruneHistory(
   liveAnalysisIds: Set<string>,
 ): HistoryEntry[] {
   return entries.filter((e) =>
-    liveAnalysisIds.has(`${e.cityId}::${e.analysisId}`),
+    liveAnalysisIds.has(analysisKey(e.cityId, e.analysisId)),
   );
 }
 

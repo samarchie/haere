@@ -1,5 +1,5 @@
 import { History, MapPin } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NetworkBackdrop } from "../components/NetworkBackdrop";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -14,6 +14,7 @@ import { type Screen, navigate } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import {
   type HistoryEntry,
+  analysisKey,
   historyEntryToWizardState,
   loadHistory,
   pruneHistory,
@@ -29,7 +30,7 @@ export function hasResumableProgress(
     state.analysisId === null ||
     state.cityId === null ||
     liveAnalysisIds === null ||
-    liveAnalysisIds.has(`${state.cityId}::${state.analysisId}`);
+    liveAnalysisIds.has(analysisKey(state.cityId, state.analysisId));
 
   if (!chosenAnalysisIsLive) {
     return false;
@@ -54,15 +55,15 @@ export function resumeScreen(
   return "results";
 }
 
-function liveKey(cityId: string, analysisId: string): string {
-  return `${cityId}::${analysisId}`;
-}
-
 export function Landing() {
   const { wizard, setWizard, resetWizard } = useWizardState();
   const [analyses, setAnalyses] = useState<AnalysisSummary[] | null>(null);
-  const [liveAnalysisIds, setLiveAnalysisIds] = useState<Set<string> | null>(
-    null,
+  const liveAnalysisIds = useMemo(
+    () =>
+      analyses === null
+        ? null
+        : new Set(analyses.map((a) => analysisKey(a.cityId, a.analysisId))),
+    [analyses],
   );
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -86,24 +87,21 @@ export function Landing() {
       .then((fetched) => {
         if (cancelled) return;
         const live = new Set(
-          fetched.map((a) => liveKey(a.cityId, a.analysisId)),
+          fetched.map((a) => analysisKey(a.cityId, a.analysisId)),
         );
-        setLiveAnalysisIds(live);
         setAnalyses(fetched);
 
         if (
           wizard.analysisId !== null &&
           wizard.cityId !== null &&
-          !live.has(liveKey(wizard.cityId, wizard.analysisId))
+          !live.has(analysisKey(wizard.cityId, wizard.analysisId))
         ) {
           resetWizard();
         }
 
-        setHistory((current) => {
-          const pruned = pruneHistory(current, live);
-          if (pruned.length !== current.length) saveHistory(pruned);
-          return pruned;
-        });
+        const pruned = pruneHistory(history, live);
+        setHistory(pruned);
+        if (pruned.length !== history.length) saveHistory(pruned);
       })
       .catch(() => {});
     return () => {
@@ -111,15 +109,16 @@ export function Landing() {
     };
   }, []);
 
+  // Clears the pending address-suggestion debounce on unmount so it can't
+  // fire fetchSuggestions/setState after the component is gone.
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
   const resumable = hasResumableProgress(wizard, liveAnalysisIds);
   const resumeTo = resumeScreen(wizard);
-  const proposalTitle =
-    wizard.analysisId !== null
-      ? (analyses?.find(
-          (a) =>
-            a.analysisId === wizard.analysisId && a.cityId === wizard.cityId,
-        )?.title ?? null)
-      : null;
 
   const featuredEntry =
     resumeTo === "results"
@@ -131,6 +130,16 @@ export function Landing() {
         ) ?? null)
       : null;
   const otherEntries = history.filter((h) => h.id !== featuredEntry?.id);
+
+  const proposalTitle =
+    wizard.analysisId !== null
+      ? (analyses?.find(
+          (a) =>
+            a.analysisId === wizard.analysisId && a.cityId === wizard.cityId,
+        )?.title ??
+        featuredEntry?.proposalTitle ??
+        null)
+      : null;
 
   function goTo(screen: Screen) {
     navigate(screen);
@@ -172,7 +181,7 @@ export function Landing() {
   }
 
   async function handleCheck() {
-    if (address.trim().length === 0) return;
+    if (checking || address.trim().length === 0) return;
     setChecking(true);
     setCheckError(false);
     const outcome = await forwardGeocode(address);

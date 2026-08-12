@@ -165,7 +165,7 @@ describe("Landing", () => {
     expect(window.location.pathname).toBe("/location");
   });
 
-  it("shows a finished resume banner and resets progress pointing at a retired proposal", async () => {
+  it("resets progress and shows no banner when the saved proposal has been retired", async () => {
     saveWizardState({
       ...emptyWizardState(),
       cityId: "christchurch",
@@ -184,6 +184,101 @@ describe("Landing", () => {
       screen.queryByText(/continue where you left off/i),
     ).not.toBeInTheDocument();
     expect(screen.getByLabelText(/home address/i)).toBeInTheDocument();
+  });
+
+  it("shows the finished resume banner with the destination/change summary", async () => {
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "1 Main St", lat: -43.5, lng: 172.6 },
+      destinations: [
+        { label: "Work", address: "2 Work St", lat: -43.5, lng: 172.6 },
+      ],
+    });
+    saveHistory([
+      {
+        id: "a",
+        savedAt: "2026-06-03T00:00:00.000Z",
+        cityId: "christchurch",
+        analysisId: "remove-135",
+        proposalTitle: "Remove Route 135",
+        cityName: "Christchurch",
+        origin: { address: "1 Main St", lat: -43.5, lng: 172.6 },
+        destinations: [
+          { label: "Work", address: "2 Work St", lat: -43.5, lng: 172.6 },
+        ],
+        scenario: { calendarType: "Weekday", timeWindow: "AM peak" },
+        destinationCount: 1,
+        changedCount: 1,
+      },
+    ]);
+
+    render(
+      <WizardStateProvider>
+        <Landing />
+      </WizardStateProvider>,
+    );
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    expect(screen.getByText(/your last check/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 destinations · 1 of 1 trips change/i),
+    ).toBeInTheDocument();
+  });
+
+  it("navigates to /proposal when Check succeeds via forwardGeocode", async () => {
+    vi.spyOn(geocode, "forwardGeocode").mockResolvedValue({
+      ok: true,
+      result: { lat: -43.53, lng: 172.62, label: "123 Riccarton Road" },
+    });
+
+    render(
+      <WizardStateProvider>
+        <Landing />
+      </WizardStateProvider>,
+    );
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    const input = screen.getByLabelText(/home address/i);
+    fireEvent.change(input, { target: { value: "123 Riccarton Road" } });
+    const checkButton = screen.getByRole("button", { name: /check/i });
+    await act(async () => {
+      fireEvent.click(checkButton);
+    });
+
+    expect(window.location.pathname).toBe("/proposal");
+  });
+
+  it("shows a check error when forwardGeocode finds no match", async () => {
+    vi.spyOn(geocode, "forwardGeocode").mockResolvedValue({
+      ok: false,
+      reason: "no-match",
+    });
+
+    render(
+      <WizardStateProvider>
+        <Landing />
+      </WizardStateProvider>,
+    );
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    const input = screen.getByLabelText(/home address/i);
+    fireEvent.change(input, { target: { value: "nowhere" } });
+    const checkButton = screen.getByRole("button", { name: /check/i });
+    await act(async () => {
+      fireEvent.click(checkButton);
+    });
+
+    expect(
+      screen.getByText(/no address found — check the spelling/i),
+    ).toBeInTheDocument();
   });
 
   it("shows suggestions after typing and resolves the origin on selection", async () => {
