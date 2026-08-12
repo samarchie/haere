@@ -56,6 +56,12 @@ function serveOutputData(): Plugin {
 
 export default defineConfig({
   plugins: [react(), serveOutputData()],
+  optimizeDeps: {
+    // maplibre-gl loads its own worker as a separate chunk at runtime; Vite's
+    // dependency pre-bundling breaks that reference (404s on
+    // maplibre-gl-worker.mjs), so it's excluded from pre-bundling.
+    exclude: ["maplibre-gl"],
+  },
   test: {
     environment: "jsdom",
     globals: true,

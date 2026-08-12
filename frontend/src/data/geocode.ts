@@ -73,7 +73,7 @@ export async function reverseGeocode(
 ): Promise<string | null> {
   try {
     const response = await fetch(
-      `https://photon.komoot.io/api/?lat=${lat}&lon=${lng}`,
+      `https://photon.komoot.io/reverse/?lat=${lat}&lon=${lng}`,
     );
     if (!response.ok) {
       return null;

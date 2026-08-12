@@ -207,7 +207,7 @@ describe("reverseGeocode", () => {
     await reverseGeocode(-43.53, 172.62);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://photon.komoot.io/api/?lat=-43.53&lon=172.62",
+      "https://photon.komoot.io/reverse/?lat=-43.53&lon=172.62",
     );
   });
 
