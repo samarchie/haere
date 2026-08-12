@@ -45,3 +45,24 @@ export async function forwardGeocode(query: string): Promise<GeocodeOutcome> {
     return { ok: false, reason: "unavailable" };
   }
 }
+
+export async function fetchSuggestions(
+  query: string,
+): Promise<GeocodeResult[]> {
+  try {
+    const response = await fetch(
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
+    );
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = (await response.json()) as PhotonResponse;
+    return data.features.map((feature) => {
+      const [lng, lat] = feature.geometry.coordinates;
+      return { lat, lng, label: labelFor(feature, query) };
+    });
+  } catch {
+    return [];
+  }
+}
