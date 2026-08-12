@@ -10,7 +10,7 @@ import {
   fetchSuggestions,
   forwardGeocode,
 } from "../data/geocode";
-import { type Screen, navigate } from "../router";
+import { navigate } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import {
   type HistoryEntry,
@@ -19,6 +19,7 @@ import {
   loadHistory,
   pruneHistory,
   saveHistory,
+  tripKey,
 } from "../state/resultsHistory";
 import type { WizardState } from "../state/wizardState";
 
@@ -76,6 +77,7 @@ export function Landing() {
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestionsSeq = useRef(0);
 
   // Runs once on mount to reconcile stored progress/history against the
   // live proposal catalogue — wizard/resetWizard are read via closure here
@@ -120,13 +122,17 @@ export function Landing() {
   const resumable = hasResumableProgress(wizard, liveAnalysisIds);
   const resumeTo = resumeScreen(wizard);
 
+  const activeTripKey =
+    wizard.cityId !== null &&
+    wizard.analysisId !== null &&
+    wizard.origin !== null
+      ? tripKey(wizard.cityId, wizard.analysisId, wizard.origin.address)
+      : null;
   const featuredEntry =
-    resumeTo === "results"
+    resumeTo === "results" && activeTripKey !== null
       ? (history.find(
           (h) =>
-            h.cityId === wizard.cityId &&
-            h.analysisId === wizard.analysisId &&
-            h.origin.address === wizard.origin?.address,
+            tripKey(h.cityId, h.analysisId, h.origin.address) === activeTripKey,
         ) ?? null)
       : null;
   const otherEntries = history.filter((h) => h.id !== featuredEntry?.id);
@@ -140,10 +146,6 @@ export function Landing() {
         featuredEntry?.proposalTitle ??
         null)
       : null;
-
-  function goTo(screen: Screen) {
-    navigate(screen);
-  }
 
   function resolveOrigin(result: GeocodeResult) {
     setWizard({
@@ -167,7 +169,9 @@ export function Landing() {
       return;
     }
     debounceTimer.current = setTimeout(() => {
+      const seq = ++suggestionsSeq.current;
       fetchSuggestions(value).then((results) => {
+        if (seq !== suggestionsSeq.current) return;
         setSuggestions(results);
         setSuggestionsOpen(results.length > 0);
       });
@@ -272,7 +276,7 @@ export function Landing() {
                     ? `${wizard.destinations.length} destinations`
                     : `${wizard.destinations.length} of 5 destinations added`}
               </div>
-              <Button className="w-full" onClick={() => goTo(resumeTo)}>
+              <Button className="w-full" onClick={() => navigate(resumeTo)}>
                 Resume
               </Button>
               <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -336,9 +340,18 @@ export function Landing() {
                 </Button>
               </div>
               {checkError && (
-                <p className="mb-3 text-[12px] text-kotare-brown">
-                  No address found — check the spelling.
-                </p>
+                <div className="mb-3">
+                  <p className="mb-1.5 text-[12px] text-kotare-brown">
+                    No address found — check the spelling.
+                  </p>
+                  <button
+                    type="button"
+                    className="sd-focus text-[12px] font-semibold text-kotare-blue hover:text-kotare-navy"
+                    onClick={() => navigate("proposal", "?city=")}
+                  >
+                    Or continue without checking your address →
+                  </button>
+                </div>
               )}
               {otherEntries.length > 0 && (
                 <div className="mb-3">

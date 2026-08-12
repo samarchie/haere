@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
@@ -333,15 +333,22 @@ export function Results() {
     retryCount,
   ]);
 
+  const verdictRows = useMemo(
+    () =>
+      state.status === "ready"
+        ? buildVerdictRows(
+            state.data.payload.destinations,
+            state.data.manifest,
+            state.data.hexIds,
+            state.data.rows,
+          )
+        : [],
+    [state],
+  );
+
   useEffect(() => {
     if (state.status !== "ready") return;
-    const { analysis, manifest, hexIds, payload, rows } = state.data;
-    const verdictRows = buildVerdictRows(
-      payload.destinations,
-      manifest,
-      hexIds,
-      rows,
-    );
+    const { analysis, payload } = state.data;
     const changedCount = verdictRows.filter(
       (row) => row.delta !== null && row.delta !== 0,
     ).length;
@@ -357,7 +364,7 @@ export function Results() {
       destinationCount: payload.destinations.length,
       changedCount,
     });
-  }, [state]);
+  }, [state, verdictRows]);
 
   if (state.status === "loading") {
     return <p className="text-ink-soft">Loading your results…</p>;
@@ -380,13 +387,7 @@ export function Results() {
     );
   }
 
-  const { analysis, manifest, hexIds, payload, rows } = state.data;
-  const verdictRows = buildVerdictRows(
-    payload.destinations,
-    manifest,
-    hexIds,
-    rows,
-  );
+  const { analysis, manifest, payload } = state.data;
   const combos = availableCombos(manifest);
   const calendarTypes = Array.from(new Set(combos.map((c) => c.calendarType)));
   const timeWindows = combos.filter(

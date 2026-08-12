@@ -44,6 +44,14 @@ export function analysisKey(cityId: string, analysisId: string): string {
   return `${cityId}::${analysisId}`;
 }
 
+export function tripKey(
+  cityId: string,
+  analysisId: string,
+  address: string,
+): string {
+  return `${analysisKey(cityId, analysisId)}::${address}`;
+}
+
 export function loadHistory(): HistoryEntry[] {
   const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
   if (raw === null) return [];
@@ -63,8 +71,9 @@ function dedupeKey(e: {
   cityId: string;
   analysisId: string;
   origin: { address: string };
+  scenario: WizardScenario;
 }): string {
-  return `${e.cityId}::${e.analysisId}::${e.origin.address}`;
+  return `${tripKey(e.cityId, e.analysisId, e.origin.address)}::${e.scenario.calendarType}::${e.scenario.timeWindow}`;
 }
 
 export function appendHistoryEntry(

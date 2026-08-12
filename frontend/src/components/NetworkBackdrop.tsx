@@ -54,6 +54,11 @@ function buildMotionTiming(pts: NetworkPoint[]): {
   };
 }
 
+const ROUTE_TIMINGS = ROUTES.map((route) => ({
+  route,
+  timing: buildMotionTiming(route.pts),
+}));
+
 function prefersReducedMotion(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -71,8 +76,8 @@ export function NetworkBackdrop() {
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
     >
-      {ROUTES.map((route) => {
-        const timing = reduceMotion ? null : buildMotionTiming(route.pts);
+      {ROUTE_TIMINGS.map(({ route, timing: routeTiming }) => {
+        const timing = reduceMotion ? null : routeTiming;
         return (
           <g key={route.name}>
             <path
