@@ -374,6 +374,11 @@ export function Location() {
             No matching address found — check the spelling.
           </p>
         )}
+        {!isOrigin && fieldStatusText(row) && (
+          <p className="mt-1 text-[12px] text-ink-soft">
+            {fieldStatusText(row)}
+          </p>
+        )}
       </div>
     );
   }

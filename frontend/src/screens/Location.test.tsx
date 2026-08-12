@@ -316,6 +316,40 @@ describe("Location", () => {
     expect(screen.getByLabelText("Destination 1")).toHaveValue("15 Cashel St");
   });
 
+  it("shows feedback when a resolved destination falls outside the modelled area", async () => {
+    vi.spyOn(hexLookup, "resolveHexRowIndex").mockReturnValue(null);
+    vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([
+      { lat: -43.6, lng: 172.7, label: "Faraway Road, Rural Canterbury" },
+    ]);
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "123 Riccarton Rd", lat: -43.5, lng: 172.6 },
+    });
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Destination 1"), {
+      target: { value: "Faraway Road" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    fireEvent.click(screen.getByText("Faraway Road, Rural Canterbury"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(
+      screen.getByText("That point falls outside the modelled area."),
+    ).toBeInTheDocument();
+  });
+
   it("deleting a destination shows an undo strip that restores it in place", () => {
     saveWizardState({
       ...emptyWizardState(),

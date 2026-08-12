@@ -58,7 +58,13 @@ export function AddressAutocomplete({
     scheduleSearch(next);
   }
 
+  function cancelPendingSearch() {
+    if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+    seq.current++;
+  }
+
   function selectSuggestion(result: GeocodeResult) {
+    cancelPendingSearch();
     setOpen(false);
     onResolve(result);
   }
@@ -107,6 +113,7 @@ export function AddressAutocomplete({
         open={pinDropOpen}
         onClose={() => setPinDropOpen(false)}
         onResolve={(result) => {
+          cancelPendingSearch();
           setPinDropOpen(false);
           onResolve(result);
         }}

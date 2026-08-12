@@ -115,6 +115,50 @@ describe("AddressAutocomplete", () => {
     expect(onSearchSettled).toHaveBeenCalledWith(false);
   });
 
+  it("cancels a pending search when a suggestion is picked, so it can't reopen the dropdown afterward", async () => {
+    vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([
+      { lat: -43.53, lng: 172.62, label: "123 Riccarton Road, Christchurch" },
+    ]);
+    const onResolve = vi.fn();
+
+    render(
+      <AddressAutocomplete
+        id="field-1"
+        label="Home address"
+        value="123 Riccar"
+        point={null}
+        onChange={() => {}}
+        onResolve={onResolve}
+        onSearchSettled={() => {}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "123 Riccarton" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(geocode.fetchSuggestions).toHaveBeenCalledTimes(1);
+
+    // One more keystroke schedules a fresh debounced search...
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "123 Riccarton R" },
+    });
+    // ...but the user picks a suggestion before that timer fires.
+    fireEvent.click(screen.getByText("123 Riccarton Road, Christchurch"));
+    expect(onResolve).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(geocode.fetchSuggestions).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByText("123 Riccarton Road, Christchurch"),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens the pin-drop map from its button", async () => {
     vi.useRealTimers();
     render(
