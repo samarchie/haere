@@ -66,7 +66,7 @@ export function NetworkBackdrop() {
 
   return (
     <svg
-      className="pointer-events-none absolute inset-0 h-full w-full"
+      className="pointer-events-none fixed inset-0 h-full w-full scale-125"
       viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
       preserveAspectRatio="xMidYMid slice"
       aria-hidden="true"
