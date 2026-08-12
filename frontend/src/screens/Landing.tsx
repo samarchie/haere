@@ -82,26 +82,30 @@ export function Landing() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only by design.
   useEffect(() => {
     let cancelled = false;
-    fetchAnalyses().then((fetched) => {
-      if (cancelled) return;
-      const live = new Set(fetched.map((a) => liveKey(a.cityId, a.analysisId)));
-      setLiveAnalysisIds(live);
-      setAnalyses(fetched);
+    fetchAnalyses()
+      .then((fetched) => {
+        if (cancelled) return;
+        const live = new Set(
+          fetched.map((a) => liveKey(a.cityId, a.analysisId)),
+        );
+        setLiveAnalysisIds(live);
+        setAnalyses(fetched);
 
-      if (
-        wizard.analysisId !== null &&
-        wizard.cityId !== null &&
-        !live.has(liveKey(wizard.cityId, wizard.analysisId))
-      ) {
-        resetWizard();
-      }
+        if (
+          wizard.analysisId !== null &&
+          wizard.cityId !== null &&
+          !live.has(liveKey(wizard.cityId, wizard.analysisId))
+        ) {
+          resetWizard();
+        }
 
-      setHistory((current) => {
-        const pruned = pruneHistory(current, live);
-        if (pruned.length !== current.length) saveHistory(pruned);
-        return pruned;
-      });
-    });
+        setHistory((current) => {
+          const pruned = pruneHistory(current, live);
+          if (pruned.length !== current.length) saveHistory(pruned);
+          return pruned;
+        });
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -190,7 +194,7 @@ export function Landing() {
     if (!historyOpen || otherEntries.length === 0) return null;
     return (
       <div className="relative mt-1.5">
-        <div className="absolute left-0 top-0 z-10 w-full overflow-hidden rounded-md border border-kotare-grey bg-surface-card shadow-sm">
+        <div className="absolute left-0 top-0 z-10 max-h-[240px] w-full overflow-y-auto rounded-md border border-kotare-grey bg-surface-card shadow-sm">
           {otherEntries.map((entry) => (
             <button
               key={entry.id}
@@ -215,11 +219,11 @@ export function Landing() {
   }
 
   return (
-    <div className="relative mx-auto w-full max-w-[440px]">
+    <div className="relative mx-auto flex w-full max-w-[920px] items-center justify-center">
       <NetworkBackdrop />
-      <div className="relative z-[1] overflow-hidden rounded-2xl border border-kotare-grey bg-surface-card shadow-xl shadow-kotare-blue/10">
+      <div className="relative z-[1] w-full max-w-[440px] rounded-2xl border border-kotare-grey bg-surface-card shadow-xl shadow-kotare-blue/10">
         <div
-          className="relative px-6 pt-10 pb-8 sm:px-9 sm:pt-12 sm:pb-10"
+          className="relative rounded-t-2xl px-6 pt-10 pb-8 sm:px-9 sm:pt-12 sm:pb-10"
           style={{
             background:
               "radial-gradient(140% 100% at 10% -25%, rgba(var(--kotare-blue-rgb), .32), transparent 65%), var(--surface-card)",
@@ -304,7 +308,7 @@ export function Landing() {
                     }}
                   />
                   {suggestionsOpen && (
-                    <div className="absolute left-0 top-full z-10 mt-1.5 w-full overflow-hidden rounded-md border border-kotare-grey bg-surface-card shadow-sm">
+                    <div className="absolute left-0 top-full z-10 mt-1.5 max-h-[240px] w-full overflow-y-auto rounded-md border border-kotare-grey bg-surface-card shadow-sm">
                       {suggestions.map((s) => (
                         <button
                           key={`${s.lat},${s.lng}`}
@@ -352,7 +356,7 @@ export function Landing() {
           </button>
         </div>
 
-        <div className="flex items-center justify-center gap-5 border-t border-kotare-grey/50 bg-kotare-grey/10 px-6 py-3 sm:px-9">
+        <div className="flex items-center justify-center gap-5 rounded-b-2xl border-t border-kotare-grey/50 bg-kotare-grey/10 px-6 py-3 sm:px-9">
           <button
             type="button"
             className="sd-focus text-[11px] text-ink-soft hover:text-ink"
