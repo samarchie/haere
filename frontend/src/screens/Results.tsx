@@ -25,6 +25,7 @@ import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
+  seedWizardStateFromPayload,
 } from "../state/resultsUrl";
 import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
 import type { Destination } from "../state/wizardState";
@@ -350,6 +351,11 @@ export function Results() {
     defaultForManifest?.calendarType === payload.scenario.calendarType &&
     defaultForManifest?.timeWindow === payload.scenario.timeWindow;
 
+  function backToLocation() {
+    seedWizardStateFromPayload(payload);
+    navigate("location");
+  }
+
   function changeScenario(next: { calendarType: string; timeWindow: string }) {
     const updated = { ...payload, scenario: next };
     setViewScenario(next);
@@ -447,9 +453,14 @@ export function Results() {
         </div>
       )}
 
-      <Button className="mt-4" onClick={shareResults}>
-        Share these results
-      </Button>
+      <div className="mt-4 flex gap-2">
+        <Button variant="outline" onClick={backToLocation}>
+          ← Back
+        </Button>
+        <Button className="flex-1" onClick={shareResults}>
+          Share these results
+        </Button>
+      </div>
     </WizardShell>
   );
 }
