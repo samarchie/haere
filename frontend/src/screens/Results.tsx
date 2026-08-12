@@ -25,7 +25,6 @@ import {
   type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
-  seedWizardStateFromPayload,
 } from "../state/resultsUrl";
 import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
 import type { Destination } from "../state/wizardState";
@@ -352,7 +351,13 @@ export function Results() {
     defaultForManifest?.timeWindow === payload.scenario.timeWindow;
 
   function backToLocation() {
-    seedWizardStateFromPayload(payload);
+    setWizard({
+      cityId: payload.cityId,
+      analysisId: payload.analysisId,
+      origin: payload.origin,
+      destinations: payload.destinations,
+      scenario: payload.scenario,
+    });
     navigate("location");
   }
 

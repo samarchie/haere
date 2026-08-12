@@ -4,8 +4,11 @@ import * as analysisCatalogue from "../data/analysisCatalogue";
 import * as hexLookup from "../data/hexLookup";
 import * as manifestData from "../data/manifest";
 import * as travelTimes from "../data/travelTimes";
+import { useScreen } from "../router";
 import { WizardStateProvider } from "../state/WizardStateContext";
+import { encodeResultsParam } from "../state/resultsUrl";
 import { emptyWizardState, saveWizardState } from "../state/wizardState";
+import { Location } from "./Location";
 import {
   Results,
   deltaFor,
@@ -13,6 +16,11 @@ import {
   formatRange,
   readPercentileMinutes,
 } from "./Results";
+
+function ResultsThenLocation() {
+  const screenName = useScreen();
+  return screenName === "location" ? <Location /> : <Results />;
+}
 
 describe("readPercentileMinutes", () => {
   it("reads a value below the unreachable sentinel", () => {
@@ -148,5 +156,41 @@ describe("Results", () => {
     expect(screen.getByText("After: 20 min")).toBeInTheDocument();
     expect(screen.getByText("No change")).toBeInTheDocument();
     expect(screen.getByText("weekday · pm_peak")).toBeInTheDocument();
+  });
+
+  it("restores wizard state on Back when arriving via a shared results link with no local wizard state", async () => {
+    // Simulate a visitor who opened a shared `?r=` link directly: no wizard
+    // state saved yet, so the in-memory context starts empty.
+    localStorage.clear();
+    const payload = {
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "Origin St", lat: -43.5, lng: 172.6 },
+      destinations: [
+        { label: "Work", address: "Work St", lat: -43.51, lng: 172.61 },
+      ],
+      scenario: { calendarType: "weekday", timeWindow: "am_peak" },
+    };
+    window.history.replaceState(
+      null,
+      "",
+      `/results?r=${encodeResultsParam(payload)}`,
+    );
+
+    render(
+      <WizardStateProvider>
+        <ResultsThenLocation />
+      </WizardStateProvider>,
+    );
+
+    await waitFor(() => screen.getByText("Today: 10 min"));
+
+    fireEvent.click(screen.getByText("← Back"));
+
+    // Location should show the seeded origin, not redirect to /proposal.
+    await waitFor(() =>
+      expect(screen.getByDisplayValue("Origin St")).toBeInTheDocument(),
+    );
+    expect(window.location.pathname).toBe("/location");
   });
 });
