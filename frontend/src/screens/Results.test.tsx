@@ -318,4 +318,49 @@ describe("Results", () => {
       }),
     );
   });
+
+  it("shows a bold consultation banner with a call-to-action button when consultation is open", async () => {
+    vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      analysis: {
+        id: "remove-135",
+        title: "Test proposal",
+        description: "",
+        consultation: {
+          closesAt: "2999-01-01T00:00:00Z",
+          url: "https://example.com/consultation",
+        },
+      },
+      hexagonResolution: 8,
+      hexCount: 1,
+      percentiles: [50],
+      encoding: {
+        dtype: "uint8",
+        bytesPerValue: 1,
+        byteOrder: "little",
+        unreachable: 255,
+      },
+      scenarios: [
+        {
+          calendarType: "weekday",
+          timeWindow: "am_peak",
+          start: "07:00",
+          end: "09:00",
+          variants: {
+            baseline: { "50": "am-baseline.bin" },
+            modified: { "50": "am-modified.bin" },
+          },
+        },
+      ],
+    });
+
+    render(
+      <WizardStateProvider>
+        <Results />
+      </WizardStateProvider>,
+    );
+
+    await waitFor(() => screen.getByText("Consultation open"));
+    const cta = screen.getByRole("link", { name: /have your say/i });
+    expect(cta).toHaveAttribute("href", "https://example.com/consultation");
+  });
 });

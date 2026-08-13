@@ -1,4 +1,4 @@
-import { Repeat } from "lucide-react";
+import { ArrowUpRight, Megaphone, Repeat, Share } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
 import { WizardShell } from "../components/WizardShell";
@@ -573,19 +573,26 @@ export function Results() {
       </div>
 
       {manifest.analysis.consultation?.url && (
-        <div className="mt-4 rounded-lg bg-kotare-navy p-4 text-white">
-          <p className="mb-2 text-[13px] font-semibold">
-            {isConsultationOpen(manifest.analysis.consultation)
-              ? "Consultation open"
-              : "Consultation closed"}
+        <div className="mt-4 rounded-lg bg-kotare-navy p-4 shadow-md shadow-kotare-navy/25">
+          <div className="mb-1 flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-white" />
+            <p className="text-[13px] font-extrabold text-white">
+              {isConsultationOpen(manifest.analysis.consultation)
+                ? "Consultation open"
+                : "Consultation closed"}
+            </p>
+          </div>
+          <p className="mb-3 text-[11.5px] text-white/85">
+            Have your say on this proposal before it's decided.
           </p>
           <a
             href={manifest.analysis.consultation.url}
             target="_blank"
             rel="noreferrer noopener"
-            className="text-[12.5px] underline"
+            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-white text-[12.5px] font-extrabold text-kotare-navy"
           >
-            Have your say ↗
+            Have your say
+            <ArrowUpRight className="h-4 w-4" />
           </a>
         </div>
       )}
@@ -594,8 +601,9 @@ export function Results() {
         <Button variant="outline" onClick={backToLocation}>
           ← Back
         </Button>
-        <Button className="flex-1" onClick={shareResults}>
-          Share these results
+        <Button variant="outline" onClick={shareResults}>
+          <Share className="h-3.5 w-3.5" />
+          Share
         </Button>
       </div>
     </WizardShell>
