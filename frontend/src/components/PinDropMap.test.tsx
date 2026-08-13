@@ -9,6 +9,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as geocode from "../data/geocode";
 import { PinDropMap } from "./PinDropMap";
 
+const { mapInstances } = vi.hoisted(() => ({
+  mapInstances: [] as Array<{ setStyle: (style: unknown) => void }>,
+}));
+
 vi.mock("maplibre-gl", () => {
   class FakeMap {
     private center: { lat: number; lng: number };
@@ -18,8 +22,10 @@ vi.mock("maplibre-gl", () => {
     on = vi.fn();
     once = vi.fn();
     remove = vi.fn();
+    setStyle = vi.fn();
     constructor(options: { center: [number, number] }) {
       this.center = { lng: options.center[0], lat: options.center[1] };
+      mapInstances.push(this);
     }
     getCenter() {
       return this.center;
@@ -27,6 +33,10 @@ vi.mock("maplibre-gl", () => {
   }
   return { MapLibreMap: FakeMap };
 });
+
+function mostRecentMap() {
+  return mapInstances[mapInstances.length - 1];
+}
 
 describe("PinDropMap", () => {
   afterEach(() => {
@@ -236,5 +246,34 @@ describe("PinDropMap", () => {
     );
 
     expect(screen.getByLabelText("Pin address")).toHaveValue("Second Street");
+  });
+
+  it("switches the map style when a basemap button is clicked", () => {
+    render(
+      <PinDropMap
+        open
+        onClose={() => {}}
+        onResolve={() => {}}
+        initialPoint={{ lat: -43.5, lng: 172.6, label: "Start" }}
+      />,
+    );
+
+    const satelliteButton = screen.getByRole("button", { name: "satellite" });
+    fireEvent.click(satelliteButton);
+
+    expect(mostRecentMap().setStyle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: expect.objectContaining({ esri: expect.anything() }),
+      }),
+    );
+    expect(satelliteButton).toHaveClass("bg-kotare-blue");
+
+    const brightButton = screen.getByRole("button", { name: "bright" });
+    fireEvent.click(brightButton);
+
+    expect(mostRecentMap().setStyle).toHaveBeenLastCalledWith(
+      "https://tiles.openfreemap.org/styles/bright",
+    );
+    expect(brightButton).toHaveClass("bg-kotare-blue");
   });
 });
