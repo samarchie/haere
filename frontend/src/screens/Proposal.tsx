@@ -16,14 +16,8 @@ import { useWizardState } from "../state/WizardStateContext";
 import type { WizardState } from "../state/wizardState";
 import { emptyWizardState } from "../state/wizardState";
 
-export function pickerSummaryText(
-  total: number,
-  shown: number,
-  cityName: string | null,
-): string {
-  return cityName
-    ? `${shown} of ${total} interventions · filtered by: ${cityName}`
-    : `${shown} of ${total} interventions`;
+export function pickerSummaryText(total: number, shown: number): string {
+  return `${shown} of ${total} interventions`;
 }
 
 export function bannerTextFor(reason: string | null): string | null {
@@ -44,7 +38,7 @@ export function selectAnalysis(
   if (state.analysisId === analysisId) {
     return state;
   }
-  return { ...emptyWizardState(), cityId, analysisId };
+  return { ...emptyWizardState(), cityId, analysisId, origin: state.origin };
 }
 
 export function Proposal() {
@@ -88,7 +82,6 @@ export function Proposal() {
   const reason = search.get("reason");
   const shown = filterByCity(analyses, cityId);
   const cities = cityOptions(analyses);
-  const cityName = cities.find((c) => c.id === cityId)?.name ?? null;
   const bannerText = bannerTextFor(reason);
 
   return (
@@ -169,7 +162,7 @@ export function Proposal() {
       </div>
 
       <p className="mt-4 text-[12px] text-ink-soft">
-        {pickerSummaryText(analyses.length, shown.length, cityName)}
+        {pickerSummaryText(analyses.length, shown.length)}
       </p>
     </WizardShell>
   );

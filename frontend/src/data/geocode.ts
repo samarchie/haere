@@ -10,7 +10,12 @@ export type GeocodeOutcome =
 
 interface PhotonFeature {
   geometry: { coordinates: [number, number] };
-  properties: { name?: string; street?: string; city?: string };
+  properties: {
+    name?: string;
+    housenumber?: string;
+    street?: string;
+    city?: string;
+  };
 }
 
 interface PhotonResponse {
@@ -18,8 +23,13 @@ interface PhotonResponse {
 }
 
 function labelFor(feature: PhotonFeature, fallbackQuery: string): string {
-  const { name, street, city } = feature.properties;
-  const line = [name, street].filter(Boolean).join(" ");
+  const { name, housenumber, street, city } = feature.properties;
+  // Photon puts the number in `name` for address results (street stays
+  // separate), but in `housenumber` for POI results where `name` is the
+  // POI's title instead — so try both rather than assuming one shape.
+  const line = street
+    ? [housenumber ?? name, street].filter(Boolean).join(" ")
+    : name;
   const parts = [line, city].filter((p) => p && p.length > 0);
   return parts.length > 0 ? parts.join(", ") : fallbackQuery;
 }
@@ -49,20 +59,39 @@ export async function forwardGeocode(query: string): Promise<GeocodeOutcome> {
 export async function fetchSuggestions(
   query: string,
 ): Promise<GeocodeResult[]> {
+  // Unlike forwardGeocode, a fetch failure here isn't swallowed to an empty
+  // array — callers need to tell "no suggestions" apart from "lookup broke"
+  // (see AddressAutocomplete's onSearchSettled).
+  const response = await fetch(
+    `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
+  );
+  if (!response.ok) {
+    throw new Error(`Photon suggest failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as PhotonResponse;
+  return data.features.map((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    return { lat, lng, label: labelFor(feature, query) };
+  });
+}
+
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<string | null> {
   try {
     const response = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
+      `https://photon.komoot.io/reverse/?lat=${lat}&lon=${lng}`,
     );
     if (!response.ok) {
-      return [];
+      return null;
     }
 
     const data = (await response.json()) as PhotonResponse;
-    return data.features.map((feature) => {
-      const [lng, lat] = feature.geometry.coordinates;
-      return { lat, lng, label: labelFor(feature, query) };
-    });
+    const [feature] = data.features;
+    return feature ? labelFor(feature, `${lat}, ${lng}`) : null;
   } catch {
-    return [];
+    return null;
   }
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchSuggestions, forwardGeocode } from "./geocode";
+import { fetchSuggestions, forwardGeocode, reverseGeocode } from "./geocode";
 
 describe("forwardGeocode", () => {
   afterEach(() => {
@@ -149,19 +149,92 @@ describe("fetchSuggestions", () => {
     );
   });
 
-  it("returns an empty array when the response isn't ok", async () => {
+  it("throws when the response isn't ok", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: false, status: 503 }),
     );
-    expect(await fetchSuggestions("anything")).toEqual([]);
+    await expect(fetchSuggestions("anything")).rejects.toThrow();
   });
 
-  it("returns an empty array when fetch throws", async () => {
+  it("propagates the error when fetch throws", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockRejectedValue(new Error("network down")),
     );
-    expect(await fetchSuggestions("anything")).toEqual([]);
+    await expect(fetchSuggestions("anything")).rejects.toThrow("network down");
+  });
+});
+
+describe("reverseGeocode", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns a human label for the coordinate", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            features: [
+              {
+                geometry: { coordinates: [172.62, -43.53] },
+                properties: {
+                  name: "123",
+                  street: "Riccarton Road",
+                  city: "Christchurch",
+                },
+              },
+            ],
+          }),
+      }),
+    );
+
+    expect(await reverseGeocode(-43.53, 172.62)).toBe(
+      "123 Riccarton Road, Christchurch",
+    );
+  });
+
+  it("calls Photon's reverse endpoint with lat/lon", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ features: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await reverseGeocode(-43.53, 172.62);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://photon.komoot.io/reverse/?lat=-43.53&lon=172.62",
+    );
+  });
+
+  it("returns null when there are no features", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ features: [] }),
+      }),
+    );
+    expect(await reverseGeocode(-43.53, 172.62)).toBeNull();
+  });
+
+  it("returns null when the response isn't ok", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+    expect(await reverseGeocode(-43.53, 172.62)).toBeNull();
+  });
+
+  it("returns null when fetch throws", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network down")),
+    );
+    expect(await reverseGeocode(-43.53, 172.62)).toBeNull();
   });
 });

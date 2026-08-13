@@ -6,9 +6,16 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  maxWidthClassName?: string;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  maxWidthClassName = "max-w-[420px]",
+}: ModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,7 +49,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         open
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-[420px] rounded-xl bg-surface-card p-6 shadow-xl border-0"
+        className={`w-full ${maxWidthClassName} rounded-xl bg-surface-card p-6 shadow-xl border-0`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">

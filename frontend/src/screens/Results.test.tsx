@@ -190,7 +190,7 @@ describe("Results", () => {
 
     // Location should show the seeded origin, not redirect to /proposal.
     await waitFor(() =>
-      expect(screen.getByDisplayValue("Origin St")).toBeInTheDocument(),
+      expect(screen.getByText("Origin St")).toBeInTheDocument(),
     );
     expect(window.location.pathname).toBe("/location");
   });
