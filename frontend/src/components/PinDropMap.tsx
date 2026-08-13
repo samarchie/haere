@@ -10,7 +10,28 @@ import { Modal } from "./ui/modal";
 // ponytail: single hardcoded fallback city (Christchurch CBD) — only city
 // shipped today; revisit if a second city's analyses ship.
 const FALLBACK_CENTER: [number, number] = [172.6362, -43.5321];
-const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+
+// ponytail: satellite has no vector style, so it's a plain raster style
+// object pointed at Esri's free World Imagery tiles (no API key needed).
+const BASEMAPS = {
+  bright: "https://tiles.openfreemap.org/styles/bright",
+  positron: "https://tiles.openfreemap.org/styles/positron",
+  satellite: {
+    version: 8 as const,
+    sources: {
+      esri: {
+        type: "raster" as const,
+        tiles: [
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        ],
+        tileSize: 256,
+        attribution: "Esri",
+      },
+    },
+    layers: [{ id: "esri", type: "raster" as const, source: "esri" }],
+  },
+};
+type BasemapKey = keyof typeof BASEMAPS;
 
 interface PinDropMapProps {
   open: boolean;
@@ -31,6 +52,7 @@ export function PinDropMap({
   const [confirming, setConfirming] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
+  const [basemap, setBasemap] = useState<BasemapKey>("bright");
 
   // PinDropMap stays mounted (just hidden) between opens, so the address
   // field needs to resync to whatever point the field being edited holds
@@ -51,7 +73,7 @@ export function PinDropMap({
       : FALLBACK_CENTER;
     const map = new MapLibreMap({
       container: containerRef.current,
-      style: STYLE_URL,
+      style: BASEMAPS[basemap],
       center,
       zoom: 16,
     });
@@ -75,6 +97,10 @@ export function PinDropMap({
       mapRef.current = null;
     };
   }, [open]);
+
+  useEffect(() => {
+    mapRef.current?.setStyle(BASEMAPS[basemap]);
+  }, [basemap]);
 
   if (!open) return null;
 
@@ -140,6 +166,22 @@ export function PinDropMap({
             {locateError}
           </p>
         )}
+        <div className="absolute right-2 top-2 z-10 flex overflow-hidden rounded-md border border-kotare-grey bg-surface-card shadow-sm">
+          {(Object.keys(BASEMAPS) as BasemapKey[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              className={`sd-focus px-2 py-1 text-[10.5px] font-medium capitalize ${
+                basemap === key
+                  ? "bg-kotare-blue text-white"
+                  : "text-ink hover:bg-kotare-grey/10"
+              }`}
+              onClick={() => setBasemap(key)}
+            >
+              {key}
+            </button>
+          ))}
+        </div>
         <MapPin className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-[90%] text-kotare-blue" />
       </div>
       <div className="mt-3 flex items-center gap-2">
