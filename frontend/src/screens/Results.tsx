@@ -1,3 +1,4 @@
+import { Repeat } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
 import { WizardShell } from "../components/WizardShell";
@@ -388,12 +389,13 @@ export function Results() {
     [state],
   );
 
+  const changedCount = verdictRows.filter(
+    (row) => row.delta !== null && row.delta !== 0,
+  ).length;
+
   useEffect(() => {
     if (state.status !== "ready") return;
     const { analysis, manifest, payload } = state.data;
-    const changedCount = verdictRows.filter(
-      (row) => row.delta !== null && row.delta !== 0,
-    ).length;
 
     appendHistoryEntry({
       cityId: payload.cityId,
@@ -406,7 +408,7 @@ export function Results() {
       destinationCount: payload.destinations.length,
       changedCount,
     });
-  }, [state, verdictRows]);
+  }, [state, changedCount]);
 
   if (state.status === "loading") {
     return <p className="text-ink-soft">Loading your results…</p>;
@@ -454,12 +456,34 @@ export function Results() {
 
   return (
     <WizardShell step={3} title="Your results">
-      <details className="mb-4 rounded-md border border-kotare-grey p-3 text-[12px] text-ink-soft">
-        <summary className="cursor-pointer font-mono">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="truncate text-[11.5px] font-semibold text-ink-soft">
+          <span className="text-ink-faint">
+            {state.data.analysis?.cityName ?? payload.cityId} ·{" "}
+          </span>
+          {manifest.analysis.title}
+        </div>
+        <button
+          type="button"
+          disabled
+          className="inline-flex flex-shrink-0 items-center gap-1 text-[10.5px] font-bold text-kotare-blue disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Repeat className="h-3 w-3" />
+          Switch proposal
+        </button>
+      </div>
+
+      <h3 className="mb-3 text-[13.5px] font-bold text-ink">
+        {changedCount} of {verdictRows.length} of your trips change under this
+        proposal.
+      </h3>
+
+      <div className="mb-3 border-b border-kotare-grey/50 pb-3">
+        <span className="font-mono text-[10.5px] text-ink-soft">
           {payload.scenario.calendarType} · {payload.scenario.timeWindow}
           {isDefaultScenario ? " (default)" : ""}
-        </summary>
-        <div className="mt-3 flex flex-col gap-2">
+        </span>
+        <div className="mt-2 flex flex-col gap-2">
           <ToggleGroup
             aria-label="Day type"
             value={payload.scenario.calendarType}
@@ -491,7 +515,17 @@ export function Results() {
             }))}
           />
         </div>
-      </details>
+        {isDefaultScenario && (
+          <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
+            Defaulted to a typical weekday morning commute — change either if
+            that's not you.
+          </p>
+        )}
+        <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
+          Each trip is checked many times, not once — hollow dot is today's
+          typical trip, solid is after.
+        </p>
+      </div>
 
       <div className="flex flex-col divide-y divide-kotare-grey/60">
         {(() => {

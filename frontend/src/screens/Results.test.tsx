@@ -233,6 +233,17 @@ describe("Results", () => {
     expect(
       screen.getByText(/weekday · am_peak \(default\)/),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, node) => node?.textContent === "christchurch · Test proposal",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("1 of 1 of your trips change under this proposal."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /switch proposal/i }),
+    ).toBeDisabled();
 
     fireEvent.click(screen.getByText("pm_peak"));
 
