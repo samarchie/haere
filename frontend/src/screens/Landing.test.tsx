@@ -127,10 +127,6 @@ describe("Landing", () => {
         cityId: "christchurch",
         cityName: "Christchurch",
         analysisId: "remove-135",
-        title: "Remove Route 135",
-        description: "",
-        consultationUrl: null,
-        consultationStatus: null,
       },
     ]);
     vi.spyOn(hexLookup, "matchingCityIds").mockResolvedValue(

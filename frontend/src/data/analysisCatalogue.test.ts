@@ -52,10 +52,6 @@ describe("fetchAnalyses", () => {
       cityId: "canterbury",
       cityName: "Canterbury",
       analysisId: "remove-route-135",
-      title: "Remove Route 135",
-      description: "Models the proposed removal of Route 135.",
-      consultationUrl: "https://example.org/consultation",
-      consultationStatus: "open",
     });
   });
 });
@@ -66,19 +62,11 @@ describe("filterByCity", () => {
       cityId: "canterbury",
       cityName: "Canterbury",
       analysisId: "a",
-      title: "A",
-      description: "",
-      consultationUrl: null,
-      consultationStatus: null,
     },
     {
       cityId: "second-city",
       cityName: "Second City",
       analysisId: "b",
-      title: "B",
-      description: "",
-      consultationUrl: null,
-      consultationStatus: null,
     },
   ];
 
@@ -98,19 +86,11 @@ describe("cityOptions", () => {
         cityId: "canterbury",
         cityName: "Canterbury",
         analysisId: "a",
-        title: "A",
-        description: "",
-        consultationUrl: null,
-        consultationStatus: null,
       },
       {
         cityId: "canterbury",
         cityName: "Canterbury",
         analysisId: "b",
-        title: "B",
-        description: "",
-        consultationUrl: null,
-        consultationStatus: null,
       },
     ];
 

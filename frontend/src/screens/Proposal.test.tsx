@@ -1,11 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as analysisCatalogue from "../data/analysisCatalogue";
+import * as manifestData from "../data/manifest";
 import { WizardStateProvider } from "../state/WizardStateContext";
 import { emptyWizardState } from "../state/wizardState";
 import {
   Proposal,
   bannerTextFor,
+  formatConsultationClose,
+  isConsultationOpen,
   pickerSummaryText,
   selectAnalysis,
 } from "./Proposal";
@@ -28,6 +31,40 @@ describe("bannerTextFor", () => {
   it("explains an outside-area redirect", () => {
     expect(bannerTextFor("outside-area")).toMatch(
       /isn't inside any modelled area/,
+    );
+  });
+});
+
+describe("isConsultationOpen", () => {
+  const now = new Date("2026-06-01T00:00:00Z");
+
+  it("is false when there is no consultation", () => {
+    expect(isConsultationOpen(null, now)).toBe(false);
+  });
+
+  it("is true when the close date is in the future", () => {
+    expect(
+      isConsultationOpen(
+        { closesAt: "2026-06-24T23:59:00+12:00", url: "https://x" },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("is false when the close date has passed", () => {
+    expect(
+      isConsultationOpen(
+        { closesAt: "2026-01-01T00:00:00+12:00", url: "https://x" },
+        now,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("formatConsultationClose", () => {
+  it("formats a closing date for display", () => {
+    expect(formatConsultationClose("2026-06-24T23:59:00+12:00")).toBe(
+      "24 Jun 2026",
     );
   });
 });
@@ -63,12 +100,16 @@ describe("Proposal", () => {
         cityId: "christchurch",
         cityName: "Christchurch",
         analysisId: "remove-135",
-        title: "Remove Route 135",
-        description: "Route 135 is discontinued.",
-        consultationUrl: null,
-        consultationStatus: "open",
       },
     ]);
+    vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      analysis: {
+        id: "remove-135",
+        title: "Remove Route 135",
+        description: "Route 135 is discontinued.",
+        consultation: null,
+      },
+    } as manifestData.Manifest);
   });
 
   afterEach(() => vi.restoreAllMocks());

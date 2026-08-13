@@ -11,7 +11,7 @@ const TOTAL_STEPS = 3;
 
 export function WizardShell({ step, title, children }: WizardShellProps) {
   return (
-    <div className="mx-auto w-full max-w-[460px] rounded-xl border border-kotare-grey bg-surface-card p-5 shadow-sm">
+    <div className="mx-auto w-full max-w-[460px] rounded-xl border border-kotare-grey bg-surface-card p-5 shadow-sm sm:max-w-[640px] lg:max-w-[840px]">
       <div data-testid="wizard-progress" className="flex gap-1.5 mb-3">
         {Array.from({ length: TOTAL_STEPS }, (_, i) => (
           <div

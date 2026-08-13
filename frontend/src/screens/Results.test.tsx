@@ -92,6 +92,12 @@ describe("Results", () => {
     });
 
     vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      analysis: {
+        id: "remove-135",
+        title: "Test proposal",
+        description: "",
+        consultation: null,
+      },
       hexagonResolution: 8,
       hexCount: 1,
       percentiles: [50],
@@ -211,7 +217,7 @@ describe("Results", () => {
       expect.objectContaining({
         destinationCount: 1,
         changedCount: 1,
-        proposalTitle: "remove-135",
+        proposalTitle: "Test proposal",
         cityName: "christchurch",
       }),
     );

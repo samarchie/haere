@@ -1,4 +1,3 @@
-import { cn } from "./lib/cn";
 import { useScreen } from "./router";
 import { Landing } from "./screens/Landing";
 import { Location } from "./screens/Location";
@@ -21,15 +20,9 @@ function Screens() {
 }
 
 export function App() {
-  const screen = useScreen();
   return (
     <WizardStateProvider>
-      <main
-        className={cn(
-          "min-h-screen bg-surface-ground px-4 py-8 sm:px-6 sm:py-12",
-          screen === "landing" && "flex items-center justify-center",
-        )}
-      >
+      <main className="flex min-h-screen items-center justify-center bg-surface-ground px-4 py-8 sm:px-6 sm:py-12">
         <Screens />
       </main>
     </WizardStateProvider>

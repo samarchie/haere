@@ -162,7 +162,7 @@ export function PinDropMap({
           {locating ? "Locating…" : "Locate me"}
         </button>
         {locateError && (
-          <p className="absolute left-2 top-9 z-10 max-w-[75%] rounded-md bg-surface-card px-2 py-1 text-[10px] leading-snug text-kotare-brown shadow-sm">
+          <p className="absolute left-2 top-9 z-10 max-w-[75%] rounded-md bg-surface-card px-2 py-1 text-[12px] leading-snug text-kotare-brown shadow-sm">
             {locateError}
           </p>
         )}

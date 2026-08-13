@@ -95,7 +95,7 @@ export function AddressAutocomplete({
     <div className="relative" ref={rootRef}>
       <label
         htmlFor={id}
-        className="mb-1 block text-[10px] font-medium text-ink-soft"
+        className="mb-1 block text-[12px] font-medium text-ink-soft"
       >
         {label}
       </label>

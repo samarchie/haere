@@ -124,14 +124,7 @@ export function Landing() {
   const otherEntries = history.filter((h) => h.id !== featuredEntry?.id);
 
   const proposalTitle =
-    wizard.analysisId !== null
-      ? (analyses?.find(
-          (a) =>
-            a.analysisId === wizard.analysisId && a.cityId === wizard.cityId,
-        )?.title ??
-        featuredEntry?.proposalTitle ??
-        null)
-      : null;
+    wizard.analysisId !== null ? (featuredEntry?.proposalTitle ?? null) : null;
 
   async function resolveOrigin(result: GeocodeResult) {
     setWizard({
