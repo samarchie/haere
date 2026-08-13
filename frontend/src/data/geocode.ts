@@ -10,7 +10,12 @@ export type GeocodeOutcome =
 
 interface PhotonFeature {
   geometry: { coordinates: [number, number] };
-  properties: { name?: string; street?: string; city?: string };
+  properties: {
+    name?: string;
+    housenumber?: string;
+    street?: string;
+    city?: string;
+  };
 }
 
 interface PhotonResponse {
@@ -18,8 +23,13 @@ interface PhotonResponse {
 }
 
 function labelFor(feature: PhotonFeature, fallbackQuery: string): string {
-  const { name, street, city } = feature.properties;
-  const line = [name, street].filter(Boolean).join(" ");
+  const { name, housenumber, street, city } = feature.properties;
+  // Photon puts the number in `name` for address results (street stays
+  // separate), but in `housenumber` for POI results where `name` is the
+  // POI's title instead — so try both rather than assuming one shape.
+  const line = street
+    ? [housenumber ?? name, street].filter(Boolean).join(" ")
+    : name;
   const parts = [line, city].filter((p) => p && p.length > 0);
   return parts.length > 0 ? parts.join(", ") : fallbackQuery;
 }

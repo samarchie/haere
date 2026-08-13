@@ -48,9 +48,23 @@ export function PinDropMap({
       container: containerRef.current,
       style: STYLE_URL,
       center,
-      zoom: 14,
+      zoom: 16,
     });
     mapRef.current = map;
+
+    // ponytail: no debounce on moveend (already a discrete drag-end event,
+    // not a keystroke stream) — just guard against a stale response landing
+    // after a newer move.
+    let requestId = 0;
+    const updateAddress = async () => {
+      const id = ++requestId;
+      const { lat, lng } = map.getCenter();
+      const label = await reverseGeocode(lat, lng);
+      if (id === requestId && label) setAddressText(label);
+    };
+    map.on("moveend", updateAddress);
+    map.once("load", updateAddress);
+
     return () => {
       map.remove();
       mapRef.current = null;
@@ -80,14 +94,19 @@ export function PinDropMap({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Drop a pin">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Drop a pin"
+      maxWidthClassName="max-w-[420px] sm:max-w-[640px] lg:max-w-[840px]"
+    >
       <Input
         aria-label="Pin address"
         className="mb-2"
         value={addressText}
         onChange={(e) => setAddressText(e.target.value)}
       />
-      <div className="relative h-[220px] overflow-hidden rounded-lg">
+      <div className="relative h-[220px] overflow-hidden rounded-lg sm:h-[400px] lg:h-[520px]">
         <div ref={containerRef} className="absolute inset-0" />
         <button
           type="button"
