@@ -33,9 +33,9 @@ import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
 import type { Destination } from "../state/wizardState";
 
 export interface PercentileMinutes {
-  p25: number | null;
-  p50: number | null;
-  p75: number | null;
+  low: number | null;
+  mid: number | null;
+  high: number | null;
 }
 
 export function readPercentileMinutes(
@@ -43,6 +43,7 @@ export function readPercentileMinutes(
   colIndex: number,
   bytesPerValue: number,
   unreachable: number,
+  percentiles: number[],
 ): PercentileMinutes {
   const read = (p: number): number | null => {
     const row = rows[p];
@@ -52,15 +53,15 @@ export function readPercentileMinutes(
       unreachable,
     ).minutes;
   };
-  return { p25: read(25), p50: read(50), p75: read(75) };
-}
-
-export function formatRange(minutes: PercentileMinutes): string {
-  if (minutes.p50 === null) return "—";
-  if (minutes.p25 !== null && minutes.p75 !== null) {
-    return `${minutes.p25}–${minutes.p75} min (typically ${minutes.p50})`;
+  const sorted = [...percentiles].sort((a, b) => a - b);
+  const midPercentile = sorted.reduce((closest, p) =>
+    Math.abs(p - 50) < Math.abs(closest - 50) ? p : closest,
+  );
+  const mid = read(midPercentile);
+  if (sorted.length < 2) {
+    return { low: null, mid, high: null };
   }
-  return `${minutes.p50} min`;
+  return { low: read(sorted[0]), mid, high: read(sorted[sorted.length - 1]) };
 }
 
 export function deltaFor(
@@ -68,8 +69,8 @@ export function deltaFor(
   modified: PercentileMinutes,
 ): number | null {
   return computeDeltaMinutes(
-    { minutes: baseline.p50 },
-    { minutes: modified.p50 },
+    { minutes: baseline.mid },
+    { minutes: modified.mid },
   );
 }
 
@@ -79,9 +80,9 @@ export function formatDelta(
   modified: PercentileMinutes,
 ): { text: string; tone: "better" | "worse" | "none" } {
   if (delta === null) {
-    if (baseline.p50 !== null && modified.p50 === null)
+    if (baseline.mid !== null && modified.mid === null)
       return { text: "No longer reachable", tone: "worse" };
-    if (baseline.p50 === null && modified.p50 !== null)
+    if (baseline.mid === null && modified.mid !== null)
       return { text: "Newly reachable", tone: "better" };
     return { text: "No route today or after", tone: "none" };
   }
@@ -157,7 +158,7 @@ function buildVerdictRows(
       manifest.hexagonResolution,
       hexIds,
     );
-    const unreachable: PercentileMinutes = { p25: null, p50: null, p75: null };
+    const unreachable: PercentileMinutes = { low: null, mid: null, high: null };
     const colInRange =
       colIndex !== null && colIndex >= 0 && colIndex < manifest.hexCount;
     const baseline = !colInRange
@@ -167,6 +168,7 @@ function buildVerdictRows(
           colIndex,
           manifest.encoding.bytesPerValue,
           manifest.encoding.unreachable,
+          manifest.percentiles,
         );
     const modified = !colInRange
       ? unreachable
@@ -175,6 +177,7 @@ function buildVerdictRows(
           colIndex,
           manifest.encoding.bytesPerValue,
           manifest.encoding.unreachable,
+          manifest.percentiles,
         );
     return {
       destination,

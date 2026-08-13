@@ -14,7 +14,6 @@ import {
   Results,
   deltaFor,
   formatDelta,
-  formatRange,
   readPercentileMinutes,
 } from "./Results";
 
@@ -24,31 +23,39 @@ function ResultsThenLocation() {
 }
 
 describe("readPercentileMinutes", () => {
-  it("reads a value below the unreachable sentinel", () => {
+  it("returns only mid when the manifest exposes a single percentile", () => {
     const row = new Uint8Array([10]);
-    const minutes = readPercentileMinutes({ 50: row }, 0, 1, 255);
-    expect(minutes).toEqual({ p25: null, p50: 10, p75: null });
-  });
-});
-
-describe("formatRange", () => {
-  it("shows a dash when unreachable", () => {
-    expect(formatRange({ p25: null, p50: null, p75: null })).toBe("—");
+    const minutes = readPercentileMinutes({ 50: row }, 0, 1, 255, [50]);
+    expect(minutes).toEqual({ low: null, mid: 10, high: null });
   });
 
-  it("shows a typical-time range when percentiles are available", () => {
-    expect(formatRange({ p25: 10, p50: 15, p75: 20 })).toBe(
-      "10–20 min (typically 15)",
-    );
+  it("derives low/mid/high from an arbitrary percentile set", () => {
+    const rows = {
+      10: new Uint8Array([8]),
+      50: new Uint8Array([15]),
+      90: new Uint8Array([30]),
+    };
+    const minutes = readPercentileMinutes(rows, 0, 1, 255, [10, 50, 90]);
+    expect(minutes).toEqual({ low: 8, mid: 15, high: 30 });
+  });
+
+  it("works with a percentile set that doesn't include 50 exactly", () => {
+    const rows = {
+      25: new Uint8Array([9]),
+      55: new Uint8Array([16]),
+      75: new Uint8Array([22]),
+    };
+    const minutes = readPercentileMinutes(rows, 0, 1, 255, [25, 55, 75]);
+    expect(minutes).toEqual({ low: 9, mid: 16, high: 22 });
   });
 });
 
 describe("deltaFor", () => {
-  it("computes the p50 delta", () => {
+  it("computes the mid delta", () => {
     expect(
       deltaFor(
-        { p25: null, p50: 10, p75: null },
-        { p25: null, p50: 15, p75: null },
+        { low: null, mid: 10, high: null },
+        { low: null, mid: 15, high: null },
       ),
     ).toBe(5);
   });
@@ -59,8 +66,8 @@ describe("formatDelta", () => {
     expect(
       formatDelta(
         null,
-        { p25: null, p50: 10, p75: null },
-        { p25: null, p50: null, p75: null },
+        { low: null, mid: 10, high: null },
+        { low: null, mid: null, high: null },
       ),
     ).toEqual({ text: "No longer reachable", tone: "worse" });
   });
@@ -69,8 +76,8 @@ describe("formatDelta", () => {
     expect(
       formatDelta(
         -5,
-        { p25: null, p50: 20, p75: null },
-        { p25: null, p50: 15, p75: null },
+        { low: null, mid: 20, high: null },
+        { low: null, mid: 15, high: null },
       ),
     ).toEqual({ text: "-5 min · better", tone: "better" });
   });
