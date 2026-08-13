@@ -6,7 +6,7 @@ import { WizardStateProvider } from "../state/WizardStateContext";
 import { emptyWizardState } from "../state/wizardState";
 import {
   Proposal,
-  bannerTextFor,
+  bannerFor,
   formatConsultationClose,
   pickerSummaryText,
   selectAnalysis,
@@ -22,14 +22,20 @@ describe("pickerSummaryText", () => {
   });
 });
 
-describe("bannerTextFor", () => {
+describe("bannerFor", () => {
   it("returns null for no reason", () => {
-    expect(bannerTextFor(null)).toBeNull();
+    expect(bannerFor(null, null)).toBeNull();
   });
 
   it("explains an outside-area redirect", () => {
-    expect(bannerTextFor("outside-area")).toMatch(
-      /isn't inside any modelled area/,
+    expect(bannerFor("outside-area", null)?.title).toMatch(
+      /isn't in a studied area/,
+    );
+  });
+
+  it("names the matched city for a multi-match redirect", () => {
+    expect(bannerFor("multi-match", "Christchurch")?.subtitle).toBe(
+      "Showing every Christchurch proposal — pick the one you meant.",
     );
   });
 });

@@ -1,3 +1,4 @@
+import { AlertCircle, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
@@ -72,12 +73,28 @@ export function pickerSummaryText(total: number, shown: number): string {
   return `${shown} of ${total} interventions`;
 }
 
-export function bannerTextFor(reason: string | null): string | null {
+interface RedirectBanner {
+  title: string;
+  subtitle: string;
+}
+
+export function bannerFor(
+  reason: string | null,
+  cityName: string | null,
+): RedirectBanner | null {
   if (reason === "outside-area") {
-    return "The address you entered isn't inside any modelled area yet. Here are the interventions we do have.";
+    return {
+      title: "That address isn't in a studied area yet",
+      subtitle: "Showing every proposal so far — pick the one you meant.",
+    };
   }
   if (reason === "multi-match") {
-    return "That address falls inside more than one intervention in this city — pick the one you meant.";
+    return {
+      title: "That address falls inside more than one proposal",
+      subtitle: cityName
+        ? `Showing every ${cityName} proposal — pick the one you meant.`
+        : "Pick the one you meant.",
+    };
   }
   return null;
 }
@@ -141,6 +158,7 @@ export function Proposal() {
   const [retryCount, setRetryCount] = useState(0);
   const cardsContainerRef = useRef<HTMLDivElement>(null);
   const [cardsMinHeight, setCardsMinHeight] = useState(0);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // retryCount isn't read in the body — it exists only to force a re-run
   // when the user clicks Retry.
@@ -183,7 +201,8 @@ export function Proposal() {
   const reason = search.get("reason");
   const shown = filterByCity(cards, cityId);
   const cities = cityOptions(cards);
-  const bannerText = bannerTextFor(reason);
+  const cityName = cities.find((c) => c.id === cityId)?.name ?? null;
+  const banner = bannerDismissed ? null : bannerFor(reason, cityName);
 
   return (
     <WizardShell step={1} title="Choose a proposal">
@@ -194,7 +213,27 @@ export function Proposal() {
             : `${failedCount} interventions couldn't be loaded and aren't shown below.`}
         </Alert>
       )}
-      {bannerText && <Alert className="mb-4">{bannerText}</Alert>}
+      {banner && (
+        <div className="mb-4 flex items-start gap-2 rounded-md border border-kotare-grey bg-kotare-grey/10 p-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-ink-soft" />
+          <div className="flex-1">
+            <div className="mb-0.5 text-[12px] font-bold text-ink">
+              {banner.title}
+            </div>
+            <div className="text-[11px] leading-snug text-ink-soft">
+              {banner.subtitle}
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            className="sd-focus flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-ink-soft hover:bg-kotare-grey/25"
+            onClick={() => setBannerDismissed(true)}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       <ToggleGroup
         aria-label="Filter by city"
