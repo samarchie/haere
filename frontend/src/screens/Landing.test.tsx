@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as analysisCatalogue from "../data/analysisCatalogue";
 import * as geocode from "../data/geocode";
+import * as hexLookup from "../data/hexLookup";
 import { navigate } from "../router";
 import { WizardStateProvider } from "../state/WizardStateContext";
 import { saveHistory } from "../state/resultsHistory";
@@ -119,6 +120,9 @@ describe("Landing", () => {
         consultationStatus: null,
       },
     ]);
+    vi.spyOn(hexLookup, "matchingCityIds").mockResolvedValue(
+      new Set(["christchurch"]),
+    );
   });
 
   afterEach(() => {
@@ -252,6 +256,63 @@ describe("Landing", () => {
     });
 
     expect(window.location.pathname).toBe("/proposal");
+    expect(window.location.search).toBe("?city=christchurch");
+  });
+
+  it("shows the whole wall, unfiltered, when the address matches proposals in more than one city", async () => {
+    vi.spyOn(geocode, "forwardGeocode").mockResolvedValue({
+      ok: true,
+      result: { lat: -43.53, lng: 172.62, label: "123 Riccarton Road" },
+    });
+    vi.spyOn(hexLookup, "matchingCityIds").mockResolvedValue(
+      new Set(["christchurch", "wellington"]),
+    );
+
+    render(
+      <WizardStateProvider>
+        <Landing />
+      </WizardStateProvider>,
+    );
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    const input = screen.getByLabelText(/home address/i);
+    fireEvent.change(input, { target: { value: "123 Riccarton Road" } });
+    const checkButton = screen.getByRole("button", { name: /check/i });
+    await act(async () => {
+      fireEvent.click(checkButton);
+    });
+
+    expect(window.location.pathname).toBe("/proposal");
+    expect(window.location.search).toBe("");
+  });
+
+  it("routes to the wall with reason=outside-area when the address matches no proposal anywhere", async () => {
+    vi.spyOn(geocode, "forwardGeocode").mockResolvedValue({
+      ok: true,
+      result: { lat: -90, lng: 0, label: "South Pole" },
+    });
+    vi.spyOn(hexLookup, "matchingCityIds").mockResolvedValue(new Set());
+
+    render(
+      <WizardStateProvider>
+        <Landing />
+      </WizardStateProvider>,
+    );
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    const input = screen.getByLabelText(/home address/i);
+    fireEvent.change(input, { target: { value: "South Pole" } });
+    const checkButton = screen.getByRole("button", { name: /check/i });
+    await act(async () => {
+      fireEvent.click(checkButton);
+    });
+
+    expect(window.location.pathname).toBe("/proposal");
+    expect(window.location.search).toBe("?city=&reason=outside-area");
   });
 
   it("shows a check error when forwardGeocode finds no match", async () => {
@@ -302,7 +363,9 @@ describe("Landing", () => {
     });
 
     const suggestion = screen.getByText("123 Riccarton Road, Christchurch");
-    fireEvent.click(suggestion);
+    await act(async () => {
+      fireEvent.click(suggestion);
+    });
 
     expect(window.location.pathname).toBe("/proposal");
   });

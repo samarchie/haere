@@ -1,6 +1,7 @@
 import { latLngToCell } from "h3-js";
 import { DATA_BASE_URL } from "../config";
 import { fetchJson } from "./fetchJson";
+import { fetchManifest } from "./manifest";
 
 export function binarySearch(
   sortedIds: string[],
@@ -41,4 +42,33 @@ export async function fetchHexIds(
   return fetchJson<string[]>(
     `${DATA_BASE_URL}/${cityId}/${analysisId}/hexes.json`,
   );
+}
+
+export async function pointFallsInAnalysis(
+  lat: number,
+  lng: number,
+  cityId: string,
+  analysisId: string,
+): Promise<boolean> {
+  const [manifest, hexIds] = await Promise.all([
+    fetchManifest(cityId, analysisId),
+    fetchHexIds(cityId, analysisId),
+  ]);
+  return (
+    resolveHexRowIndex(lat, lng, manifest.hexagonResolution, hexIds) !== null
+  );
+}
+
+export async function matchingCityIds(
+  lat: number,
+  lng: number,
+  analyses: Array<{ cityId: string; analysisId: string }>,
+): Promise<Set<string>> {
+  const hits = await Promise.all(
+    analyses.map(async (a) => ({
+      cityId: a.cityId,
+      matches: await pointFallsInAnalysis(lat, lng, a.cityId, a.analysisId),
+    })),
+  );
+  return new Set(hits.filter((h) => h.matches).map((h) => h.cityId));
 }

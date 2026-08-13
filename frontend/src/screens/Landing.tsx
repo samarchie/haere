@@ -10,6 +10,7 @@ import {
   fetchSuggestions,
   forwardGeocode,
 } from "../data/geocode";
+import { matchingCityIds } from "../data/hexLookup";
 import { navigate } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import {
@@ -147,12 +148,30 @@ export function Landing() {
         null)
       : null;
 
-  function resolveOrigin(result: GeocodeResult) {
+  async function resolveOrigin(result: GeocodeResult) {
     setWizard({
       ...wizard,
       origin: { address: result.label, lat: result.lat, lng: result.lng },
     });
-    navigate("proposal");
+    // No proposal is chosen yet, so this checks every proposal in every
+    // city — a wider net than the wizard's own city-scoped sibling check
+    // (Location.tsx's resolveOriginRouting). analyses === null means the
+    // catalogue hasn't loaded yet; fail open rather than block on it.
+    if (analyses === null) {
+      navigate("proposal");
+      return;
+    }
+    const cities = await matchingCityIds(result.lat, result.lng, analyses);
+    if (cities.size === 0) {
+      navigate("proposal", "?city=&reason=outside-area");
+    } else if (cities.size === 1) {
+      const [cityId] = cities;
+      navigate("proposal", `?city=${encodeURIComponent(cityId)}`);
+    } else {
+      // Matches proposals in more than one city — too ambiguous to filter
+      // to just one, so show the whole wall same as an unresolved address.
+      navigate("proposal");
+    }
   }
 
   function selectSuggestion(result: GeocodeResult) {
@@ -189,12 +208,13 @@ export function Landing() {
     setChecking(true);
     setCheckError(false);
     const outcome = await forwardGeocode(address);
-    setChecking(false);
     if (!outcome.ok) {
+      setChecking(false);
       setCheckError(true);
       return;
     }
-    resolveOrigin(outcome.result);
+    await resolveOrigin(outcome.result);
+    setChecking(false);
   }
 
   function resumeToHistoryEntry(entry: HistoryEntry) {

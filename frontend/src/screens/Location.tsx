@@ -5,7 +5,11 @@ import { WizardShell } from "../components/WizardShell";
 import { Button } from "../components/ui/button";
 import { fetchAnalyses, filterByCity } from "../data/analysisCatalogue";
 import type { GeocodeResult } from "../data/geocode";
-import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
+import {
+  fetchHexIds,
+  pointFallsInAnalysis,
+  resolveHexRowIndex,
+} from "../data/hexLookup";
 import { type Manifest, fetchManifest } from "../data/manifest";
 import { navigate, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
@@ -80,26 +84,25 @@ export async function resolveOriginRouting(
   );
 
   const siblingMatches = await Promise.all(
-    siblings.map(async (sibling) => {
-      const [siblingHexIds, siblingManifest] = await Promise.all([
-        fetchHexIds(sibling.cityId, sibling.analysisId),
-        fetchManifest(sibling.cityId, sibling.analysisId),
-      ]);
-      return (
-        resolveHexRowIndex(
-          point.lat,
-          point.lng,
-          siblingManifest.hexagonResolution,
-          siblingHexIds,
-        ) !== null
-      );
-    }),
+    siblings.map((sibling) =>
+      pointFallsInAnalysis(
+        point.lat,
+        point.lng,
+        sibling.cityId,
+        sibling.analysisId,
+      ),
+    ),
   );
 
+  // Multi-match narrows the wall to the visitor's own city, since another
+  // proposal there actually covers them. A true outside-area clears the
+  // city filter instead — narrowing it would hide every other city's
+  // proposals from a visitor who isn't covered by any of them.
   const reason = siblingMatches.some(Boolean) ? "multi-match" : "outside-area";
+  const cityParam = reason === "multi-match" ? cityId : "";
   return {
     type: "reroute",
-    search: `?city=${encodeURIComponent(cityId)}&reason=${reason}`,
+    search: `?city=${encodeURIComponent(cityParam)}&reason=${reason}`,
   };
 }
 

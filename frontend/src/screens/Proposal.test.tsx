@@ -12,13 +12,11 @@ import {
 
 describe("pickerSummaryText", () => {
   it("reports totals without a city filter", () => {
-    expect(pickerSummaryText(3, 3, null)).toBe("3 of 3 interventions");
+    expect(pickerSummaryText(3, 3)).toBe("3 of 3 interventions");
   });
 
   it("names the city when filtered", () => {
-    expect(pickerSummaryText(3, 1, "Christchurch")).toBe(
-      "1 of 3 interventions · filtered by: Christchurch",
-    );
+    expect(pickerSummaryText(3, 1)).toBe("1 of 3 interventions");
   });
 });
 
@@ -35,7 +33,7 @@ describe("bannerTextFor", () => {
 });
 
 describe("selectAnalysis", () => {
-  it("resets the wizard when switching to a different analysis", () => {
+  it("resets the wizard when switching to a different analysis, keeping the origin", () => {
     const state = {
       ...emptyWizardState(),
       analysisId: "remove-135",
@@ -46,6 +44,7 @@ describe("selectAnalysis", () => {
       ...emptyWizardState(),
       cityId: "christchurch",
       analysisId: "network-review",
+      origin: { address: "x", lat: 1, lng: 1 },
     });
   });
 

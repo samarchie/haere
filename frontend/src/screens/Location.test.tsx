@@ -128,39 +128,13 @@ describe("resolveOriginRouting", () => {
     expect(result).toEqual({ type: "in-area" });
   });
 
-  it("reroutes with reason=multi-match when a sibling analysis in the city matches", async () => {
-    vi.spyOn(hexLookup, "resolveHexRowIndex")
-      .mockReturnValueOnce(null)
-      .mockReturnValueOnce(0);
-    vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([
-      makeAnalysis({ analysisId: "remove-135" }),
-      makeAnalysis({ analysisId: "add-route-99" }),
-    ]);
-    vi.spyOn(hexLookup, "fetchHexIds").mockResolvedValue(["c"]);
-    vi.spyOn(manifestData, "fetchManifest").mockResolvedValue(baseManifest);
-
-    const result = await resolveOriginRouting(
-      point,
-      "christchurch",
-      "remove-135",
-      baseManifest,
-      ["a", "b"],
-    );
-
-    expect(result.type).toBe("reroute");
-    expect((result as { type: "reroute"; search: string }).search).toContain(
-      "reason=multi-match",
-    );
-  });
-
-  it("reroutes with reason=outside-area when no analysis in the city matches", async () => {
+  it("reroutes with reason=multi-match, filtered to the city, when a sibling analysis in the city matches", async () => {
     vi.spyOn(hexLookup, "resolveHexRowIndex").mockReturnValue(null);
     vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([
       makeAnalysis({ analysisId: "remove-135" }),
       makeAnalysis({ analysisId: "add-route-99" }),
     ]);
-    vi.spyOn(hexLookup, "fetchHexIds").mockResolvedValue(["c"]);
-    vi.spyOn(manifestData, "fetchManifest").mockResolvedValue(baseManifest);
+    vi.spyOn(hexLookup, "pointFallsInAnalysis").mockResolvedValue(true);
 
     const result = await resolveOriginRouting(
       point,
@@ -171,9 +145,31 @@ describe("resolveOriginRouting", () => {
     );
 
     expect(result.type).toBe("reroute");
-    expect((result as { type: "reroute"; search: string }).search).toContain(
-      "reason=outside-area",
+    const search = (result as { type: "reroute"; search: string }).search;
+    expect(search).toContain("reason=multi-match");
+    expect(search).toContain("city=christchurch");
+  });
+
+  it("reroutes with reason=outside-area, city filter cleared, when no analysis in the city matches", async () => {
+    vi.spyOn(hexLookup, "resolveHexRowIndex").mockReturnValue(null);
+    vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([
+      makeAnalysis({ analysisId: "remove-135" }),
+      makeAnalysis({ analysisId: "add-route-99" }),
+    ]);
+    vi.spyOn(hexLookup, "pointFallsInAnalysis").mockResolvedValue(false);
+
+    const result = await resolveOriginRouting(
+      point,
+      "christchurch",
+      "remove-135",
+      baseManifest,
+      ["a", "b"],
     );
+
+    expect(result.type).toBe("reroute");
+    const search = (result as { type: "reroute"; search: string }).search;
+    expect(search).toContain("reason=outside-area");
+    expect(search).toBe("?city=&reason=outside-area");
   });
 });
 
