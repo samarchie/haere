@@ -28,12 +28,23 @@ export function AddressAutocomplete({
   const [pinDropOpen, setPinDropOpen] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const listboxId = `${id}-suggestions`;
 
   useEffect(() => {
     return () => {
       if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
 
   function scheduleSearch(query: string) {
     if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
@@ -70,7 +81,7 @@ export function AddressAutocomplete({
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <label
         htmlFor={id}
         className="mb-1 block text-[10px] font-medium text-ink-soft"
@@ -82,9 +93,14 @@ export function AddressAutocomplete({
         <Input
           id={id}
           aria-label={label}
+          aria-expanded={open}
+          aria-controls={listboxId}
           className="pl-8 pr-9"
           value={value}
           onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
         />
         <button
           type="button"
@@ -96,7 +112,10 @@ export function AddressAutocomplete({
         </button>
       </div>
       {open && (
-        <div className="absolute left-0 top-full z-10 mt-1.5 w-full max-h-[240px] overflow-y-auto rounded-md border border-kotare-grey bg-surface-card shadow-sm">
+        <div
+          id={listboxId}
+          className="absolute left-0 top-full z-10 mt-1.5 w-full max-h-[240px] overflow-y-auto rounded-md border border-kotare-grey bg-surface-card shadow-sm"
+        >
           {suggestions.map((s) => (
             <button
               key={`${s.lat},${s.lng}`}

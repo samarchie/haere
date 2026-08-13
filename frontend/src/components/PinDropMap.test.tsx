@@ -112,4 +112,44 @@ describe("PinDropMap", () => {
     await waitFor(() => expect(onResolve).toHaveBeenCalled());
     expect(geocode.reverseGeocode).toHaveBeenCalledWith(-43.6, 172.7);
   });
+
+  it("resyncs the address field to the current point each time it reopens", () => {
+    const { rerender } = render(
+      <PinDropMap
+        open={false}
+        onClose={() => {}}
+        onResolve={() => {}}
+        initialPoint={{ lat: -43.5, lng: 172.6, label: "First Street" }}
+      />,
+    );
+
+    rerender(
+      <PinDropMap
+        open
+        onClose={() => {}}
+        onResolve={() => {}}
+        initialPoint={{ lat: -43.5, lng: 172.6, label: "First Street" }}
+      />,
+    );
+    expect(screen.getByLabelText("Pin address")).toHaveValue("First Street");
+
+    rerender(
+      <PinDropMap
+        open={false}
+        onClose={() => {}}
+        onResolve={() => {}}
+        initialPoint={{ lat: -43.6, lng: 172.7, label: "Second Street" }}
+      />,
+    );
+    rerender(
+      <PinDropMap
+        open
+        onClose={() => {}}
+        onResolve={() => {}}
+        initialPoint={{ lat: -43.6, lng: 172.7, label: "Second Street" }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Pin address")).toHaveValue("Second Street");
+  });
 });

@@ -179,4 +179,77 @@ describe("AddressAutocomplete", () => {
       expect(screen.getByLabelText("Pin address")).toBeInTheDocument(),
     );
   });
+
+  it("closes the dropdown when clicking outside", async () => {
+    vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([
+      { lat: -43.53, lng: 172.62, label: "123 Riccarton Road, Christchurch" },
+    ]);
+
+    render(
+      <div>
+        <AddressAutocomplete
+          id="field-1"
+          label="Home address"
+          value="123 Riccar"
+          point={null}
+          onChange={() => {}}
+          onResolve={() => {}}
+          onSearchSettled={() => {}}
+        />
+        <button type="button">Elsewhere</button>
+      </div>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "123 Riccarton" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(
+      screen.getByText("123 Riccarton Road, Christchurch"),
+    ).toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByText("Elsewhere"));
+
+    expect(
+      screen.queryByText("123 Riccarton Road, Christchurch"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes the dropdown on Escape", async () => {
+    vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([
+      { lat: -43.53, lng: 172.62, label: "123 Riccarton Road, Christchurch" },
+    ]);
+
+    render(
+      <AddressAutocomplete
+        id="field-1"
+        label="Home address"
+        value="123 Riccar"
+        point={null}
+        onChange={() => {}}
+        onResolve={() => {}}
+        onSearchSettled={() => {}}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "123 Riccarton" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(
+      screen.getByText("123 Riccarton Road, Christchurch"),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByLabelText("Home address"), {
+      key: "Escape",
+    });
+
+    expect(
+      screen.queryByText("123 Riccarton Road, Christchurch"),
+    ).not.toBeInTheDocument();
+  });
 });

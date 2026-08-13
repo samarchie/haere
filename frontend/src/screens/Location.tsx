@@ -164,21 +164,25 @@ export function Location() {
         .map((d, i) => ({ ...d, label: `Destination ${i + 1}` }))
         .filter(
           (d): d is FieldRow & { point: GeocodeResult; label: string } =>
-            d.status === "resolved" && d.point !== null,
+            d.status !== "outside-area" && d.point !== null,
         )
         .map((d) => ({
           label: d.label,
-          address: d.address,
+          address: d.point.label,
           lat: d.point.lat,
           lng: d.point.lng,
         }));
 
       setWizard({
         ...wizard,
+        // Keyed on point rather than status === "resolved" so a row
+        // mid-edit (status "idle") still persists its last-resolved point —
+        // clicking the edit pencil shouldn't wipe a value that hasn't
+        // actually changed yet.
         origin:
-          origin.status === "resolved" && origin.point
+          origin.point !== null
             ? {
-                address: origin.address,
+                address: origin.point.label,
                 lat: origin.point.lat,
                 lng: origin.point.lng,
               }
@@ -405,8 +409,12 @@ export function Location() {
 
           {destinations.map((d, i) =>
             d.status === "resolved"
-              ? renderSummaryRow(d, `Destination ${i + 1}`, () =>
-                  handleDelete(d, i + 1),
+              ? renderSummaryRow(
+                  d,
+                  `Destination ${i + 1}`,
+                  destinations.length > 1
+                    ? () => handleDelete(d, i + 1)
+                    : undefined,
                 )
               : renderEditingRow(d, `Destination ${i + 1}`, false),
           )}
@@ -430,9 +438,13 @@ export function Location() {
             <button
               type="button"
               className="sd-focus mb-1 mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-kotare-grey text-[12px] font-medium text-ink-soft hover:border-kotare-blue/50 hover:text-kotare-blue"
-              onClick={() =>
-                setRows((current) => [...current, emptyFieldRow()])
-              }
+              onClick={() => {
+                // Adding a row changes what "restore at this index" means,
+                // and stacking a second pending undo isn't supported — an
+                // in-flight undo is dropped rather than left to go stale.
+                setJustRemoved(null);
+                setRows((current) => [...current, emptyFieldRow()]);
+              }}
             >
               <Plus className="h-3.5 w-3.5" />
               Add another destination

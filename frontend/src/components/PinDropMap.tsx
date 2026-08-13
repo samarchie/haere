@@ -30,6 +30,14 @@ export function PinDropMap({
   const [addressText, setAddressText] = useState(initialPoint?.label ?? "");
   const [confirming, setConfirming] = useState(false);
 
+  // PinDropMap stays mounted (just hidden) between opens, so the address
+  // field needs to resync to whatever point the field being edited holds
+  // each time the modal reopens — otherwise it's stuck showing whatever
+  // initialPoint was in effect the first time this component ever mounted.
+  useEffect(() => {
+    if (open) setAddressText(initialPoint?.label ?? "");
+  }, [open, initialPoint]);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: initialPoint only seeds the map's starting center; re-running this effect on every keystroke elsewhere would tear the map down.
   useEffect(() => {
     if (!open || !containerRef.current) return;

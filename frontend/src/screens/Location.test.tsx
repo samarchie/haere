@@ -8,7 +8,11 @@ import * as hexLookup from "../data/hexLookup";
 import type { Manifest } from "../data/manifest";
 import * as manifestData from "../data/manifest";
 import { WizardStateProvider } from "../state/WizardStateContext";
-import { emptyWizardState, saveWizardState } from "../state/wizardState";
+import {
+  emptyWizardState,
+  loadWizardState,
+  saveWizardState,
+} from "../state/wizardState";
 import {
   Location,
   canAddDestination,
@@ -314,6 +318,109 @@ describe("Location", () => {
     fireEvent.click(screen.getByLabelText("Edit Destination 1"));
 
     expect(screen.getByLabelText("Destination 1")).toHaveValue("15 Cashel St");
+  });
+
+  it("keeps the persisted origin when the edit pencil is clicked but no new address is chosen", async () => {
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "123 Riccarton Rd", lat: -43.5, lng: 172.6 },
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "15 Cashel St",
+          lat: -43.53,
+          lng: 172.63,
+        },
+      ],
+    });
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText("Edit Home address"));
+    // Destinations disappear while the origin is mid-edit — that's expected,
+    // not the bug under test; what matters is what gets persisted below.
+    expect(screen.queryByText("Destinations")).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(loadWizardState()?.origin).toEqual({
+      address: "123 Riccarton Rd",
+      lat: -43.5,
+      lng: 172.6,
+    });
+  });
+
+  it("does not offer to delete the only destination", () => {
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "123 Riccarton Rd", lat: -43.5, lng: 172.6 },
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "15 Cashel St",
+          lat: -43.53,
+          lng: 172.63,
+        },
+      ],
+    });
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    expect(
+      screen.queryByLabelText("Delete Destination 1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("drops a pending undo strip when another destination is added", () => {
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "123 Riccarton Rd", lat: -43.5, lng: 172.6 },
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "15 Cashel St",
+          lat: -43.53,
+          lng: 172.63,
+        },
+        {
+          label: "Destination 2",
+          address: "88 Riccarton Rd",
+          lat: -43.54,
+          lng: 172.6,
+        },
+      ],
+    });
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    fireEvent.click(screen.getByLabelText("Delete Destination 1"));
+    expect(screen.getByText("Destination removed")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Add another destination/ }),
+    );
+
+    expect(screen.queryByText("Destination removed")).not.toBeInTheDocument();
   });
 
   it("shows feedback when a resolved destination falls outside the modelled area", async () => {
