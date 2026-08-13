@@ -65,7 +65,7 @@ describe("emptyFieldRow", () => {
       address: "",
       status: "idle",
       point: null,
-      noResults: false,
+      searchIssue: "none",
     });
   });
 });
@@ -257,7 +257,7 @@ describe("Location", () => {
     expect(window.location.pathname).toBe("/proposal");
   });
 
-  it("shows the no-study-area notice when resolving the origin fails to look up area data", async () => {
+  it("shows an unavailable notice, not the no-study-area one, when resolving the origin fails to look up area data", async () => {
     vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([
       { lat: -43.53, lng: 172.62, label: "123 Riccarton Road, Christchurch" },
     ]);
@@ -283,8 +283,81 @@ describe("Location", () => {
     });
 
     expect(
-      screen.getByText("No study area covers this address yet"),
+      screen.getByText(
+        "Address lookup is unavailable right now — try again shortly.",
+      ),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No study area covers this address yet"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("ignores a slower resolve response for an origin address the user has since replaced", async () => {
+    vi.spyOn(geocode, "fetchSuggestions")
+      .mockResolvedValueOnce([
+        { lat: -43.6, lng: 172.7, label: "Old Address, Rural Canterbury" },
+      ])
+      .mockResolvedValueOnce([
+        { lat: -43.5, lng: 172.6, label: "New Address, Christchurch" },
+      ]);
+
+    // The old address resolves as outside the current analysis, which sends
+    // it down the slower sibling-routing path (gated on fetchAnalyses); the
+    // new address resolves in-area, finishing with no further awaits.
+    let releaseSiblingCheck: () => void = () => {};
+    const siblingCheckGate = new Promise<void>((resolve) => {
+      releaseSiblingCheck = resolve;
+    });
+    vi.spyOn(hexLookup, "resolveHexRowIndex")
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(0);
+    vi.spyOn(analysisCatalogue, "fetchAnalyses").mockImplementation(
+      async () => {
+        await siblingCheckGate;
+        return [];
+      },
+    );
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "Old Address" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    fireEvent.click(screen.getByText("Old Address, Rural Canterbury"));
+    // Old Address's chain is now blocked on the gate above.
+
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "New Address" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    fireEvent.click(screen.getByText("New Address, Christchurch"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText("New Address, Christchurch")).toBeInTheDocument();
+
+    // Let the stale Old Address chain finish. It must not clobber the row
+    // or navigate away based on an address the user no longer has selected.
+    await act(async () => {
+      releaseSiblingCheck();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(screen.getByText("New Address, Christchurch")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Old Address, Rural Canterbury"),
+    ).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe("/location");
   });
 
   it("clicking edit reverts a resolved destination to editing mode", async () => {
@@ -492,5 +565,55 @@ describe("Location", () => {
     expect(screen.queryByText("Destination removed")).not.toBeInTheDocument();
     expect(screen.getByText("15 Cashel St")).toBeInTheDocument();
     expect(screen.getByText("2 of 5 destinations")).toBeInTheDocument();
+  });
+
+  it("keeps both pending removals when two destinations are deleted before undoing either", () => {
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "123 Riccarton Rd", lat: -43.5, lng: 172.6 },
+      destinations: [
+        {
+          label: "Destination 1",
+          address: "15 Cashel St",
+          lat: -43.53,
+          lng: 172.63,
+        },
+        {
+          label: "Destination 2",
+          address: "88 Riccarton Rd",
+          lat: -43.54,
+          lng: 172.6,
+        },
+        {
+          label: "Destination 3",
+          address: "1 Colombo St",
+          lat: -43.55,
+          lng: 172.61,
+        },
+      ],
+    });
+
+    render(
+      <WizardStateProvider>
+        <Location />
+      </WizardStateProvider>,
+    );
+
+    // Each click removes whatever is currently "Destination 1": first
+    // 15 Cashel St, then 88 Riccarton Rd (shifted up into that slot).
+    fireEvent.click(screen.getByLabelText("Delete Destination 1"));
+    fireEvent.click(screen.getByLabelText("Delete Destination 1"));
+
+    expect(screen.getAllByText("Destination removed")).toHaveLength(2);
+    expect(screen.queryByText("15 Cashel St")).not.toBeInTheDocument();
+    expect(screen.queryByText("88 Riccarton Rd")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByText("Undo")[0]);
+
+    expect(screen.getAllByText("Destination removed")).toHaveLength(1);
+    expect(screen.getByText("15 Cashel St")).toBeInTheDocument();
+    expect(screen.queryByText("88 Riccarton Rd")).not.toBeInTheDocument();
   });
 });

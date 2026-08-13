@@ -82,7 +82,6 @@ export function Proposal() {
   const reason = search.get("reason");
   const shown = filterByCity(analyses, cityId);
   const cities = cityOptions(analyses);
-  const cityName = cities.find((c) => c.id === cityId)?.name ?? null;
   const bannerText = bannerTextFor(reason);
 
   return (

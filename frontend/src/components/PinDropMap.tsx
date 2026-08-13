@@ -1,4 +1,4 @@
-import { LocateFixed, MapPin } from "lucide-react";
+import { Loader2, LocateFixed, MapPin } from "lucide-react";
 import { MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
@@ -29,13 +29,18 @@ export function PinDropMap({
   const mapRef = useRef<MapLibreMap | null>(null);
   const [addressText, setAddressText] = useState(initialPoint?.label ?? "");
   const [confirming, setConfirming] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState<string | null>(null);
 
   // PinDropMap stays mounted (just hidden) between opens, so the address
   // field needs to resync to whatever point the field being edited holds
   // each time the modal reopens — otherwise it's stuck showing whatever
   // initialPoint was in effect the first time this component ever mounted.
   useEffect(() => {
-    if (open) setAddressText(initialPoint?.label ?? "");
+    if (open) {
+      setAddressText(initialPoint?.label ?? "");
+      setLocateError(null);
+    }
   }, [open, initialPoint]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: initialPoint only seeds the map's starting center; re-running this effect on every keystroke elsewhere would tear the map down.
@@ -74,11 +79,26 @@ export function PinDropMap({
   if (!open) return null;
 
   function locateMe() {
-    navigator.geolocation?.getCurrentPosition((position) => {
-      mapRef.current?.flyTo({
-        center: [position.coords.longitude, position.coords.latitude],
-      });
-    });
+    if (!navigator.geolocation) {
+      setLocateError("Location isn't available in this browser.");
+      return;
+    }
+    setLocateError(null);
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        mapRef.current?.flyTo({
+          center: [position.coords.longitude, position.coords.latitude],
+        });
+      },
+      () => {
+        setLocating(false);
+        setLocateError(
+          "Couldn't get your location — check permissions and try again.",
+        );
+      },
+    );
   }
 
   async function useThisLocation() {
@@ -100,31 +120,45 @@ export function PinDropMap({
       title="Drop a pin"
       maxWidthClassName="max-w-[420px] sm:max-w-[640px] lg:max-w-[840px]"
     >
-      <Input
-        aria-label="Pin address"
-        className="mb-2"
-        value={addressText}
-        onChange={(e) => setAddressText(e.target.value)}
-      />
       <div className="relative h-[220px] overflow-hidden rounded-lg sm:h-[400px] lg:h-[520px]">
         <div ref={containerRef} className="absolute inset-0" />
         <button
           type="button"
-          className="sd-focus absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md border border-kotare-grey bg-surface-card px-2 py-1 text-[10.5px] font-medium text-ink shadow-sm"
+          className="sd-focus absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md border border-kotare-grey bg-surface-card px-2 py-1 text-[10.5px] font-medium text-ink shadow-sm disabled:opacity-70"
           onClick={locateMe}
+          disabled={locating}
         >
-          <LocateFixed className="h-3 w-3 text-kotare-blue" />
-          Locate me
+          {locating ? (
+            <Loader2 className="h-3 w-3 animate-spin text-kotare-blue" />
+          ) : (
+            <LocateFixed className="h-3 w-3 text-kotare-blue" />
+          )}
+          {locating ? "Locating…" : "Locate me"}
         </button>
+        {locateError && (
+          <p className="absolute left-2 top-9 z-10 max-w-[75%] rounded-md bg-surface-card px-2 py-1 text-[10px] leading-snug text-kotare-brown shadow-sm">
+            {locateError}
+          </p>
+        )}
         <MapPin className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-[90%] text-kotare-blue" />
       </div>
-      <Button
-        className="mt-3 w-full"
-        onClick={useThisLocation}
-        disabled={confirming}
-      >
-        Use this location
-      </Button>
+      <div className="mt-3 flex items-center gap-2">
+        <Input
+          aria-label="Pin address"
+          className="min-w-0 flex-1 cursor-default bg-kotare-grey/10"
+          value={addressText}
+          readOnly
+          tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
+        />
+        <Button
+          className="shrink-0"
+          onClick={useThisLocation}
+          disabled={confirming}
+        >
+          Use this location
+        </Button>
+      </div>
     </Modal>
   );
 }

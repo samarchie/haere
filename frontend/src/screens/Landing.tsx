@@ -1,15 +1,11 @@
 import { History, MapPin } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { NetworkBackdrop } from "../components/NetworkBackdrop";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import { Modal } from "../components/ui/modal";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
-import {
-  type GeocodeResult,
-  fetchSuggestions,
-  forwardGeocode,
-} from "../data/geocode";
+import { type GeocodeResult, forwardGeocode } from "../data/geocode";
 import { matchingCityIds } from "../data/hexLookup";
 import { navigate } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
@@ -73,12 +69,9 @@ export function Landing() {
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const [address, setAddress] = useState("");
-  const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [point, setPoint] = useState<GeocodeResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState(false);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const suggestionsSeq = useRef(0);
 
   // Runs once on mount to reconcile stored progress/history against the
   // live proposal catalogue — wizard/resetWizard are read via closure here
@@ -109,14 +102,6 @@ export function Landing() {
       .catch(() => {});
     return () => {
       cancelled = true;
-    };
-  }, []);
-
-  // Clears the pending address-suggestion debounce on unmount so it can't
-  // fire fetchSuggestions/setState after the component is gone.
-  useEffect(() => {
-    return () => {
-      if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
     };
   }, []);
 
@@ -161,46 +146,35 @@ export function Landing() {
       navigate("proposal");
       return;
     }
-    const cities = await matchingCityIds(result.lat, result.lng, analyses);
-    if (cities.size === 0) {
-      navigate("proposal", "?city=&reason=outside-area");
-    } else if (cities.size === 1) {
-      const [cityId] = cities;
-      navigate("proposal", `?city=${encodeURIComponent(cityId)}`);
-    } else {
-      // Matches proposals in more than one city — too ambiguous to filter
-      // to just one, so show the whole wall same as an unresolved address.
+    try {
+      const cities = await matchingCityIds(result.lat, result.lng, analyses);
+      if (cities.size === 0) {
+        navigate("proposal", "?city=&reason=outside-area");
+      } else if (cities.size === 1) {
+        const [cityId] = cities;
+        navigate("proposal", `?city=${encodeURIComponent(cityId)}`);
+      } else {
+        // Matches proposals in more than one city — too ambiguous to filter
+        // to just one, so show the whole wall same as an unresolved address.
+        navigate("proposal");
+      }
+    } catch {
+      // The area lookup failed (network blip) after the address itself
+      // resolved fine — fail open to the unfiltered wall rather than get
+      // stuck, same as the analyses === null case above.
       navigate("proposal");
     }
   }
 
-  function selectSuggestion(result: GeocodeResult) {
-    setSuggestionsOpen(false);
+  function handleResolve(result: GeocodeResult) {
+    setPoint(result);
     setAddress(result.label);
     resolveOrigin(result);
-  }
-
-  function scheduleSuggestions(value: string) {
-    if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
-    if (value.trim().length < 3) {
-      setSuggestions([]);
-      setSuggestionsOpen(false);
-      return;
-    }
-    debounceTimer.current = setTimeout(() => {
-      const seq = ++suggestionsSeq.current;
-      fetchSuggestions(value).then((results) => {
-        if (seq !== suggestionsSeq.current) return;
-        setSuggestions(results);
-        setSuggestionsOpen(results.length > 0);
-      });
-    }, 400);
   }
 
   function handleAddressChange(value: string) {
     setAddress(value);
     setCheckError(false);
-    scheduleSuggestions(value);
   }
 
   async function handleCheck() {
@@ -327,33 +301,20 @@ export function Landing() {
             </div>
           ) : (
             <>
-              <div className="mb-3 flex items-stretch gap-2">
-                <div className="relative min-w-0 flex-1">
-                  <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-                  <Input
-                    aria-label="Home address"
-                    className="pl-9 pr-3"
-                    placeholder="Enter your home address"
+              <div className="mb-3 flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <AddressAutocomplete
+                    id="home-address"
+                    label="Home address"
                     value={address}
-                    onChange={(e) => handleAddressChange(e.target.value)}
+                    point={point}
+                    onChange={handleAddressChange}
+                    onResolve={handleResolve}
+                    onSearchSettled={() => {}}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleCheck();
                     }}
                   />
-                  {suggestionsOpen && (
-                    <div className="absolute left-0 top-full z-10 mt-1.5 max-h-[240px] w-full overflow-y-auto rounded-md border border-kotare-grey bg-surface-card shadow-sm">
-                      {suggestions.map((s) => (
-                        <button
-                          key={`${s.lat},${s.lng}`}
-                          type="button"
-                          className="sd-focus block w-full border-b border-kotare-grey/50 px-3 py-2 text-left text-[12.5px] last:border-b-0 hover:bg-kotare-blue/[0.06]"
-                          onClick={() => selectSuggestion(s)}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <Button onClick={handleCheck} disabled={checking}>
                   Check

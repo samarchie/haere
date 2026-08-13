@@ -82,7 +82,7 @@ describe("AddressAutocomplete", () => {
       await vi.advanceTimersByTimeAsync(500);
     });
 
-    expect(onSearchSettled).toHaveBeenCalledWith(true);
+    expect(onSearchSettled).toHaveBeenCalledWith("found");
     fireEvent.click(screen.getByText("123 Riccarton Road, Christchurch"));
     expect(onResolve).toHaveBeenCalledWith({
       lat: -43.53,
@@ -91,7 +91,7 @@ describe("AddressAutocomplete", () => {
     });
   });
 
-  it("reports settled(false) when no suggestions come back", async () => {
+  it("reports settled('empty') when no suggestions come back", async () => {
     vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([]);
     const onSearchSettled = vi.fn();
 
@@ -114,7 +114,35 @@ describe("AddressAutocomplete", () => {
       await vi.advanceTimersByTimeAsync(500);
     });
 
-    expect(onSearchSettled).toHaveBeenCalledWith(false);
+    expect(onSearchSettled).toHaveBeenCalledWith("empty");
+  });
+
+  it("reports settled('unavailable') when the search itself fails", async () => {
+    vi.spyOn(geocode, "fetchSuggestions").mockRejectedValue(
+      new Error("network down"),
+    );
+    const onSearchSettled = vi.fn();
+
+    render(
+      <AddressAutocomplete
+        id="field-1"
+        label="Home address"
+        value="88 Selwyn"
+        point={null}
+        onChange={() => {}}
+        onResolve={() => {}}
+        onSearchSettled={onSearchSettled}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "88 Selwyn Street" },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(onSearchSettled).toHaveBeenCalledWith("unavailable");
   });
 
   it("cancels a pending search when a suggestion is picked, so it can't reopen the dropdown afterward", async () => {
@@ -250,6 +278,41 @@ describe("AddressAutocomplete", () => {
       key: "Escape",
     });
 
+    expect(
+      screen.queryByText("123 Riccarton Road, Christchurch"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Escape cancels the pending search so it can't reopen the dropdown once it resolves", async () => {
+    vi.spyOn(geocode, "fetchSuggestions").mockResolvedValue([
+      { lat: -43.53, lng: 172.62, label: "123 Riccarton Road, Christchurch" },
+    ]);
+
+    render(
+      <AddressAutocomplete
+        id="field-1"
+        label="Home address"
+        value="123 Riccar"
+        point={null}
+        onChange={() => {}}
+        onResolve={() => {}}
+        onSearchSettled={() => {}}
+      />,
+    );
+
+    // Type, then dismiss with Escape before the 400ms debounce fires.
+    fireEvent.change(screen.getByLabelText("Home address"), {
+      target: { value: "123 Riccarton" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Home address"), {
+      key: "Escape",
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(geocode.fetchSuggestions).not.toHaveBeenCalled();
     expect(
       screen.queryByText("123 Riccarton Road, Christchurch"),
     ).not.toBeInTheDocument();

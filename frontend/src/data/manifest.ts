@@ -50,7 +50,26 @@ interface RawManifest {
   scenarios: RawScenario[];
 }
 
+// Manifests are static per deploy, so callers that check the same
+// city/analysis repeatedly (e.g. matchingCityIds across every proposal) share
+// one in-flight/resolved fetch instead of re-downloading it each time.
+const manifestCache = new Map<string, Promise<Manifest>>();
+
 export async function fetchManifest(
+  cityId: string,
+  analysisId: string,
+): Promise<Manifest> {
+  const key = `${cityId}/${analysisId}`;
+  let cached = manifestCache.get(key);
+  if (!cached) {
+    cached = fetchManifestUncached(cityId, analysisId);
+    cached.catch(() => manifestCache.delete(key));
+    manifestCache.set(key, cached);
+  }
+  return cached;
+}
+
+async function fetchManifestUncached(
   cityId: string,
   analysisId: string,
 ): Promise<Manifest> {

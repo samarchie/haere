@@ -35,13 +35,24 @@ export function resolveHexRowIndex(
   return binarySearch(sortedHexIds, cellId);
 }
 
+// Hex lists are static per deploy, mirroring the cache in manifest.ts's
+// fetchManifest — see that comment for why this matters for matchingCityIds.
+const hexIdsCache = new Map<string, Promise<string[]>>();
+
 export async function fetchHexIds(
   cityId: string,
   analysisId: string,
 ): Promise<string[]> {
-  return fetchJson<string[]>(
-    `${DATA_BASE_URL}/${cityId}/${analysisId}/hexes.json`,
-  );
+  const key = `${cityId}/${analysisId}`;
+  let cached = hexIdsCache.get(key);
+  if (!cached) {
+    cached = fetchJson<string[]>(
+      `${DATA_BASE_URL}/${cityId}/${analysisId}/hexes.json`,
+    );
+    cached.catch(() => hexIdsCache.delete(key));
+    hexIdsCache.set(key, cached);
+  }
+  return cached;
 }
 
 export async function pointFallsInAnalysis(

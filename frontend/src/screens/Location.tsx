@@ -17,12 +17,19 @@ import { requireCityAndAnalysis } from "../state/wizardState";
 
 export type FieldStatus = "idle" | "resolved" | "outside-area";
 
+// "unavailable" covers both a failed address search and a failed area
+// lookup after a search succeeded — either way, the app couldn't tell
+// whether the address is really outside the modelled area, so it shouldn't
+// say so. Kept distinct from "no-match" (a completed search, genuinely
+// no results) so the two aren't shown as the same message.
+export type SearchIssue = "none" | "no-match" | "unavailable";
+
 export interface FieldRow {
   id: number;
   address: string;
   status: FieldStatus;
   point: GeocodeResult | null;
-  noResults: boolean;
+  searchIssue: SearchIssue;
 }
 
 let nextRowId = 0;
@@ -33,7 +40,7 @@ export function emptyFieldRow(): FieldRow {
     address: "",
     status: "idle",
     point: null,
-    noResults: false,
+    searchIssue: "none",
   };
 }
 
@@ -122,7 +129,7 @@ export function Location() {
             lng: wizard.origin.lng,
             label: wizard.origin.address,
           },
-          noResults: false,
+          searchIssue: "none",
         }
       : emptyFieldRow();
     const destinationRows: FieldRow[] = wizard.destinations.map((d) => ({
@@ -130,7 +137,7 @@ export function Location() {
       address: d.address,
       status: "resolved" as const,
       point: { lat: d.lat, lng: d.lng, label: d.address },
-      noResults: false,
+      searchIssue: "none",
     }));
     if (
       search.get("addDestination") === "1" &&
@@ -144,15 +151,18 @@ export function Location() {
     ];
   });
   const [origin, ...destinations] = rows;
-  const [justRemoved, setJustRemoved] = useState<{
-    row: FieldRow;
-    index: number;
-  } | null>(null);
+  const [removedStack, setRemovedStack] = useState<
+    { row: FieldRow; index: number }[]
+  >([]);
 
   const areaDataRef = useRef<Promise<{
     manifest: Manifest;
     hexIds: string[];
   }> | null>(null);
+  // Guards against a stale handleResolve response (from an address picked
+  // earlier, still resolving) overwriting a row that's since been resolved
+  // again with a different address.
+  const resolveSeqRef = useRef(new Map<number, number>());
 
   useEffect(() => {
     if (!ids) {
@@ -227,15 +237,20 @@ export function Location() {
     result: GeocodeResult,
     isOrigin: boolean,
   ) {
+    const seq = (resolveSeqRef.current.get(rowId) ?? 0) + 1;
+    resolveSeqRef.current.set(rowId, seq);
+    const isStale = () => resolveSeqRef.current.get(rowId) !== seq;
+
     updateRow(rowId, (row) => ({
       ...row,
       address: result.label,
       point: result,
-      noResults: false,
+      searchIssue: "none",
     }));
 
     try {
       const { manifest, hexIds } = await ensureAreaData();
+      if (isStale()) return;
 
       if (isOrigin) {
         const routing = await resolveOriginRouting(
@@ -245,6 +260,7 @@ export function Location() {
           manifest,
           hexIds,
         );
+        if (isStale()) return;
         if (routing.type === "reroute") {
           navigate("proposal", routing.search);
           return;
@@ -264,12 +280,17 @@ export function Location() {
         status: rowIndex === null ? "outside-area" : "resolved",
       }));
     } catch {
-      updateRow(rowId, (row) => ({ ...row, noResults: true }));
+      if (isStale()) return;
+      updateRow(rowId, (row) => ({ ...row, searchIssue: "unavailable" }));
     }
   }
 
   function handleAddressChange(rowId: number, value: string) {
-    updateRow(rowId, (row) => ({ ...row, address: value, noResults: false }));
+    updateRow(rowId, (row) => ({
+      ...row,
+      address: value,
+      searchIssue: "none",
+    }));
   }
 
   function handleEdit(rowId: number) {
@@ -278,18 +299,18 @@ export function Location() {
 
   function handleDelete(row: FieldRow, index: number) {
     setRows((current) => current.filter((r) => r.id !== row.id));
-    setJustRemoved({ row, index });
+    setRemovedStack((current) => [...current, { row, index }]);
   }
 
-  function handleUndo() {
-    if (!justRemoved) return;
-    const { row, index } = justRemoved;
+  function handleUndo(rowId: number) {
+    const entry = removedStack.find(({ row }) => row.id === rowId);
+    if (!entry) return;
     setRows((current) => {
       const next = [...current];
-      next.splice(index, 0, row);
+      next.splice(entry.index, 0, entry.row);
       return next;
     });
-    setJustRemoved(null);
+    setRemovedStack((current) => current.filter(({ row }) => row.id !== rowId));
   }
 
   function renderSummaryRow(
@@ -348,11 +369,19 @@ export function Location() {
           point={row.point}
           onChange={(value) => handleAddressChange(row.id, value)}
           onResolve={(result) => handleResolve(row.id, result, isOrigin)}
-          onSearchSettled={(found) =>
-            updateRow(row.id, (r) => ({ ...r, noResults: !found }))
+          onSearchSettled={(outcome) =>
+            updateRow(row.id, (r) => ({
+              ...r,
+              searchIssue:
+                outcome === "found"
+                  ? "none"
+                  : outcome === "empty"
+                    ? "no-match"
+                    : "unavailable",
+            }))
           }
         />
-        {isOrigin && row.noResults && (
+        {isOrigin && row.searchIssue === "no-match" && (
           <div className="mt-2 rounded-md border border-kotare-grey bg-kotare-grey/10 p-3">
             <div className="flex items-start gap-2">
               <AlertCircle className="mt-0.5 h-4 w-4 text-ink-soft" />
@@ -362,8 +391,8 @@ export function Location() {
                 </div>
                 <div className="text-[11px] leading-snug text-ink-soft">
                   {row.address} sits outside every network change modelled so
-                  far — this can happen with a typo, an address outside the
-                  studied area, or a temporary lookup issue.
+                  far — this can happen with a typo or an address outside the
+                  studied area.
                 </div>
               </div>
             </div>
@@ -376,9 +405,19 @@ export function Location() {
             </button>
           </div>
         )}
-        {!isOrigin && row.noResults && (
+        {isOrigin && row.searchIssue === "unavailable" && (
+          <p className="mt-2 text-[12px] text-ink-soft">
+            Address lookup is unavailable right now — try again shortly.
+          </p>
+        )}
+        {!isOrigin && row.searchIssue === "no-match" && (
           <p className="mt-1 text-[12px] text-ink-soft">
             No matching address found — check the spelling.
+          </p>
+        )}
+        {!isOrigin && row.searchIssue === "unavailable" && (
+          <p className="mt-1 text-[12px] text-ink-soft">
+            Address lookup is unavailable right now — try again shortly.
           </p>
         )}
         {!isOrigin && fieldStatusText(row) && (
@@ -422,30 +461,33 @@ export function Location() {
               : renderEditingRow(d, `Destination ${i + 1}`, false),
           )}
 
-          {justRemoved && (
-            <div className="mb-1 mt-1 flex items-center justify-between rounded-md border border-kotare-grey bg-kotare-grey/15 px-3 py-2">
+          {removedStack.map(({ row }) => (
+            <div
+              key={row.id}
+              className="mb-1 mt-1 flex items-center justify-between rounded-md border border-kotare-grey bg-kotare-grey/15 px-3 py-2"
+            >
               <span className="text-[11.5px] text-ink-soft">
                 Destination removed
               </span>
               <button
                 type="button"
                 className="sd-focus text-[11.5px] font-bold text-kotare-blue"
-                onClick={handleUndo}
+                onClick={() => handleUndo(row.id)}
               >
                 Undo
               </button>
             </div>
-          )}
+          ))}
 
           {canAddDestination(destinations) && (
             <button
               type="button"
               className="sd-focus mb-1 mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-kotare-grey text-[12px] font-medium text-ink-soft hover:border-kotare-blue/50 hover:text-kotare-blue"
               onClick={() => {
-                // Adding a row changes what "restore at this index" means,
-                // and stacking a second pending undo isn't supported — an
-                // in-flight undo is dropped rather than left to go stale.
-                setJustRemoved(null);
+                // Adding a row changes what "restore at this index" means
+                // for every pending removal, so in-flight undos are dropped
+                // rather than left to restore into the wrong position.
+                setRemovedStack([]);
                 setRows((current) => [...current, emptyFieldRow()]);
               }}
             >

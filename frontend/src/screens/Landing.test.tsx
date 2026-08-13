@@ -9,6 +9,19 @@ import { saveHistory } from "../state/resultsHistory";
 import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import { Landing, hasResumableProgress, resumeScreen } from "./Landing";
 
+vi.mock("maplibre-gl", () => {
+  class FakeMap {
+    flyTo = vi.fn();
+    on = vi.fn();
+    once = vi.fn();
+    remove = vi.fn();
+    getCenter() {
+      return { lat: -43.5, lng: 172.6 };
+    }
+  }
+  return { MapLibreMap: FakeMap };
+});
+
 describe("hasResumableProgress", () => {
   it("is false for an empty wizard state", () => {
     expect(hasResumableProgress(emptyWizardState(), null)).toBe(false);

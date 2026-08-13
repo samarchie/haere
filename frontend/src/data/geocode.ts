@@ -59,22 +59,21 @@ export async function forwardGeocode(query: string): Promise<GeocodeOutcome> {
 export async function fetchSuggestions(
   query: string,
 ): Promise<GeocodeResult[]> {
-  try {
-    const response = await fetch(
-      `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
-    );
-    if (!response.ok) {
-      return [];
-    }
-
-    const data = (await response.json()) as PhotonResponse;
-    return data.features.map((feature) => {
-      const [lng, lat] = feature.geometry.coordinates;
-      return { lat, lng, label: labelFor(feature, query) };
-    });
-  } catch {
-    return [];
+  // Unlike forwardGeocode, a fetch failure here isn't swallowed to an empty
+  // array — callers need to tell "no suggestions" apart from "lookup broke"
+  // (see AddressAutocomplete's onSearchSettled).
+  const response = await fetch(
+    `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
+  );
+  if (!response.ok) {
+    throw new Error(`Photon suggest failed: ${response.status}`);
   }
+
+  const data = (await response.json()) as PhotonResponse;
+  return data.features.map((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    return { lat, lng, label: labelFor(feature, query) };
+  });
 }
 
 export async function reverseGeocode(

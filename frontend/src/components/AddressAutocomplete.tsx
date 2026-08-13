@@ -1,8 +1,10 @@
 import { MapPin, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { type GeocodeResult, fetchSuggestions } from "../data/geocode";
 import { PinDropMap } from "./PinDropMap";
 import { Input } from "./ui/input";
+
+export type SearchSettledOutcome = "found" | "empty" | "unavailable";
 
 interface AddressAutocompleteProps {
   id: string;
@@ -11,7 +13,8 @@ interface AddressAutocompleteProps {
   point: GeocodeResult | null;
   onChange: (value: string) => void;
   onResolve: (result: GeocodeResult) => void;
-  onSearchSettled: (found: boolean) => void;
+  onSearchSettled: (outcome: SearchSettledOutcome) => void;
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
 }
 
 export function AddressAutocomplete({
@@ -22,6 +25,7 @@ export function AddressAutocomplete({
   onChange,
   onResolve,
   onSearchSettled,
+  onKeyDown,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -55,12 +59,19 @@ export function AddressAutocomplete({
     }
     debounceTimer.current = setTimeout(() => {
       const current = ++seq.current;
-      fetchSuggestions(query).then((results) => {
-        if (current !== seq.current) return;
-        setSuggestions(results);
-        setOpen(results.length > 0);
-        onSearchSettled(results.length > 0);
-      });
+      fetchSuggestions(query)
+        .then((results) => {
+          if (current !== seq.current) return;
+          setSuggestions(results);
+          setOpen(results.length > 0);
+          onSearchSettled(results.length > 0 ? "found" : "empty");
+        })
+        .catch(() => {
+          if (current !== seq.current) return;
+          setSuggestions([]);
+          setOpen(false);
+          onSearchSettled("unavailable");
+        });
     }, 400);
   }
 
@@ -99,7 +110,11 @@ export function AddressAutocomplete({
           value={value}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") {
+              cancelPendingSearch();
+              setOpen(false);
+            }
+            onKeyDown?.(e);
           }}
         />
         <button

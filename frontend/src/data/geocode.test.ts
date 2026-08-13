@@ -149,20 +149,20 @@ describe("fetchSuggestions", () => {
     );
   });
 
-  it("returns an empty array when the response isn't ok", async () => {
+  it("throws when the response isn't ok", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: false, status: 503 }),
     );
-    expect(await fetchSuggestions("anything")).toEqual([]);
+    await expect(fetchSuggestions("anything")).rejects.toThrow();
   });
 
-  it("returns an empty array when fetch throws", async () => {
+  it("propagates the error when fetch throws", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockRejectedValue(new Error("network down")),
     );
-    expect(await fetchSuggestions("anything")).toEqual([]);
+    await expect(fetchSuggestions("anything")).rejects.toThrow("network down");
   });
 });
 
