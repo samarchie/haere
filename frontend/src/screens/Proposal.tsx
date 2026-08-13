@@ -12,7 +12,11 @@ import {
   filterByCity,
 } from "../data/analysisCatalogue";
 import type { AnalysisSummary } from "../data/analysisCatalogue";
-import { type Consultation, fetchManifest } from "../data/manifest";
+import {
+  type Consultation,
+  fetchManifest,
+  isConsultationOpen,
+} from "../data/manifest";
 import { renderMarkdownLite, stripMarkdownLite } from "../lib/markdownLite";
 import { navigate, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
@@ -25,7 +29,12 @@ export interface ProposalCard extends AnalysisSummary {
   consultation: Consultation | null;
 }
 
-async function loadProposalCards(): Promise<ProposalCard[]> {
+interface ProposalCardsResult {
+  cards: ProposalCard[];
+  failedCount: number;
+}
+
+async function loadProposalCards(): Promise<ProposalCardsResult> {
   const analyses = await fetchAnalyses();
   const results = await Promise.allSettled(
     analyses.map(async (a) => {
@@ -38,19 +47,13 @@ async function loadProposalCards(): Promise<ProposalCard[]> {
       };
     }),
   );
-  return results
+  const cards = results
     .filter(
       (r): r is PromiseFulfilledResult<ProposalCard> =>
         r.status === "fulfilled",
     )
     .map((r) => r.value);
-}
-
-export function isConsultationOpen(
-  consultation: Consultation | null,
-  now: Date = new Date(),
-): boolean {
-  return consultation !== null && new Date(consultation.closesAt) > now;
+  return { cards, failedCount: results.length - cards.length };
 }
 
 export function formatConsultationClose(closesAt: string): string {
@@ -133,7 +136,7 @@ export function selectAnalysis(
 export function Proposal() {
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
-  const [cards, setCards] = useState<ProposalCard[] | null>(null);
+  const [result, setResult] = useState<ProposalCardsResult | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const cardsContainerRef = useRef<HTMLDivElement>(null);
@@ -145,7 +148,7 @@ export function Proposal() {
   useEffect(() => {
     setLoadError(false);
     loadProposalCards()
-      .then(setCards)
+      .then(setResult)
       .catch(() => setLoadError(true));
   }, [retryCount]);
 
@@ -170,10 +173,11 @@ export function Proposal() {
     );
   }
 
-  if (!cards) {
+  if (!result) {
     return <p className="text-ink-soft">Loading interventions…</p>;
   }
 
+  const { cards, failedCount } = result;
   const rawCity = search.get("city");
   const cityId = rawCity === null ? wizard.cityId : rawCity || null;
   const reason = search.get("reason");
@@ -183,6 +187,13 @@ export function Proposal() {
 
   return (
     <WizardShell step={1} title="Choose a proposal">
+      {failedCount > 0 && (
+        <Alert className="mb-4">
+          {failedCount === 1
+            ? "1 intervention couldn't be loaded and isn't shown below."
+            : `${failedCount} interventions couldn't be loaded and aren't shown below.`}
+        </Alert>
+      )}
       {bannerText && <Alert className="mb-4">{bannerText}</Alert>}
 
       <ToggleGroup
@@ -254,7 +265,7 @@ export function Proposal() {
       </div>
 
       <p className="mt-4 text-[12px] text-ink-soft">
-        {pickerSummaryText(cards.length, shown.length)}
+        {pickerSummaryText(cards.length + failedCount, shown.length)}
       </p>
     </WizardShell>
   );

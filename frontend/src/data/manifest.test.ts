@@ -4,6 +4,7 @@ import {
   type Scenario,
   fetchManifest,
   findScenario,
+  isConsultationOpen,
   isScenarioComplete,
 } from "./manifest";
 
@@ -136,6 +137,32 @@ describe("isScenarioComplete", () => {
     };
 
     expect(isScenarioComplete(partial, [25, 50, 75])).toBe(false);
+  });
+});
+
+describe("isConsultationOpen", () => {
+  const now = new Date("2026-06-01T00:00:00Z");
+
+  it("is false when there is no consultation", () => {
+    expect(isConsultationOpen(null, now)).toBe(false);
+  });
+
+  it("is true when the close date is in the future", () => {
+    expect(
+      isConsultationOpen(
+        { closesAt: "2026-06-24T23:59:00+12:00", url: "https://x" },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("is false when the close date has passed", () => {
+    expect(
+      isConsultationOpen(
+        { closesAt: "2026-01-01T00:00:00+12:00", url: "https://x" },
+        now,
+      ),
+    ).toBe(false);
   });
 });
 

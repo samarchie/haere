@@ -1,10 +1,9 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "../../lib/cn";
 
-export type BadgeTone = "navy" | "blue" | "teal" | "brown" | "grey";
+export type BadgeTone = "blue" | "teal" | "brown" | "grey";
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  navy: "bg-kotare-navy text-white",
   blue: "bg-kotare-blue text-white",
   teal: "bg-kotare-teal text-white",
   brown: "bg-kotare-brown text-white",

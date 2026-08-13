@@ -8,7 +8,6 @@ import {
   Proposal,
   bannerTextFor,
   formatConsultationClose,
-  isConsultationOpen,
   pickerSummaryText,
   selectAnalysis,
 } from "./Proposal";
@@ -32,32 +31,6 @@ describe("bannerTextFor", () => {
     expect(bannerTextFor("outside-area")).toMatch(
       /isn't inside any modelled area/,
     );
-  });
-});
-
-describe("isConsultationOpen", () => {
-  const now = new Date("2026-06-01T00:00:00Z");
-
-  it("is false when there is no consultation", () => {
-    expect(isConsultationOpen(null, now)).toBe(false);
-  });
-
-  it("is true when the close date is in the future", () => {
-    expect(
-      isConsultationOpen(
-        { closesAt: "2026-06-24T23:59:00+12:00", url: "https://x" },
-        now,
-      ),
-    ).toBe(true);
-  });
-
-  it("is false when the close date has passed", () => {
-    expect(
-      isConsultationOpen(
-        { closesAt: "2026-01-01T00:00:00+12:00", url: "https://x" },
-        now,
-      ),
-    ).toBe(false);
   });
 });
 

@@ -127,6 +127,13 @@ async function fetchManifestUncached(
   };
 }
 
+export function isConsultationOpen(
+  consultation: Consultation | null,
+  now: Date = new Date(),
+): boolean {
+  return consultation !== null && new Date(consultation.closesAt) > now;
+}
+
 export function isScenarioComplete(
   scenario: Scenario,
   percentiles: number[],

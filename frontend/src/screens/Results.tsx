@@ -12,6 +12,7 @@ import {
   type Scenario,
   fetchManifest,
   findScenario,
+  isConsultationOpen,
 } from "../data/manifest";
 import {
   computeDeltaMinutes,
@@ -30,7 +31,6 @@ import {
 } from "../state/resultsUrl";
 import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
 import type { Destination } from "../state/wizardState";
-import { isConsultationOpen } from "./Proposal";
 
 export interface PercentileMinutes {
   p25: number | null;
