@@ -12,7 +12,9 @@ import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import { Location } from "./Location";
 import {
   Results,
+  computeAxisMaxMinutes,
   deltaFor,
+  formatArrow,
   formatDelta,
   readPercentileMinutes,
 } from "./Results";
@@ -80,6 +82,70 @@ describe("formatDelta", () => {
         { low: null, mid: 15, high: null },
       ),
     ).toEqual({ text: "-5 min · better", tone: "better" });
+  });
+});
+
+describe("formatArrow", () => {
+  it("describes an unreachable-both-ways destination", () => {
+    expect(
+      formatArrow(
+        { low: null, mid: null, high: null },
+        { low: null, mid: null, high: null },
+      ),
+    ).toBe("No transit route reaches this destination, before or after.");
+  });
+
+  it("formats a today-to-after sentence with ranges", () => {
+    expect(
+      formatArrow(
+        { low: 18, mid: 22, high: 25 },
+        { low: 34, mid: 41, high: 46 },
+      ),
+    ).toBe("22 min today (usually 18–25) → 41 min after (usually 34–46).");
+  });
+
+  it("falls back to a bare number when low/high are missing (e.g. a proposal with only one percentile)", () => {
+    expect(
+      formatArrow(
+        { low: null, mid: 22, high: null },
+        { low: null, mid: 41, high: null },
+      ),
+    ).toBe("22 min today → 41 min after.");
+  });
+});
+
+describe("computeAxisMaxMinutes", () => {
+  it("floors at 10 when every trip is very short", () => {
+    expect(
+      computeAxisMaxMinutes([
+        { low: null, mid: 3, high: null },
+        { low: null, mid: 4, high: null },
+      ]),
+    ).toBe(10);
+  });
+
+  it("rounds the largest mid value up to the nearest 10", () => {
+    expect(
+      computeAxisMaxMinutes([
+        { low: null, mid: 22, high: null },
+        { low: null, mid: 41, high: null },
+      ]),
+    ).toBe(50);
+  });
+
+  it("ignores unreachable (null) values", () => {
+    expect(
+      computeAxisMaxMinutes([
+        { low: null, mid: null, high: null },
+        { low: null, mid: 17, high: null },
+      ]),
+    ).toBe(20);
+  });
+
+  it("falls back to 10 when nothing is reachable", () => {
+    expect(computeAxisMaxMinutes([{ low: null, mid: null, high: null }])).toBe(
+      10,
+    );
   });
 });
 
@@ -158,16 +224,24 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() => screen.getByText("Today: 10 min"));
-    expect(screen.getByText("After: 15 min")).toBeInTheDocument();
+    await waitFor(() =>
+      screen.getByText("10 min today → 15 min after.", { exact: false }),
+    );
+    // baseline/modified mid values are 10 and 15 here, so the shared axis
+    // rounds the larger one (15) up to the nearest 10 → 20, not a hardcoded 50.
+    expect(screen.getByText("20 min")).toBeInTheDocument();
     expect(
       screen.getByText(/weekday · am_peak \(default\)/),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("pm_peak"));
 
-    await waitFor(() => screen.getByText("Today: 20 min"));
-    expect(screen.getByText("After: 20 min")).toBeInTheDocument();
+    await waitFor(() =>
+      screen.getByText("20 min today → 20 min after.", { exact: false }),
+    );
+    // Both sides are 20 here too, so the axis stays at 20 — proving it's
+    // recomputed per render, not left over from the previous scenario.
+    expect(screen.getByText("20 min")).toBeInTheDocument();
     expect(screen.getByText("No change")).toBeInTheDocument();
     expect(screen.getByText("weekday · pm_peak")).toBeInTheDocument();
   });
@@ -197,7 +271,9 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() => screen.getByText("Today: 10 min"));
+    await waitFor(() =>
+      screen.getByText("10 min today → 15 min after.", { exact: false }),
+    );
 
     fireEvent.click(screen.getByText("← Back"));
 
@@ -217,7 +293,9 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() => screen.getByText("Today: 10 min"));
+    await waitFor(() =>
+      screen.getByText("10 min today → 15 min after.", { exact: false }),
+    );
 
     await waitFor(() => expect(appendSpy).toHaveBeenCalledOnce());
     expect(appendSpy).toHaveBeenCalledWith(

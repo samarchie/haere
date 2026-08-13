@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
@@ -74,6 +75,27 @@ export function deltaFor(
   );
 }
 
+function formatSide(
+  minutes: PercentileMinutes,
+  whenLabel: "today" | "after",
+): string {
+  if (minutes.mid === null) return `not reachable ${whenLabel}`;
+  if (minutes.low !== null && minutes.high !== null) {
+    return `${minutes.mid} min ${whenLabel} (usually ${minutes.low}–${minutes.high})`;
+  }
+  return `${minutes.mid} min ${whenLabel}`;
+}
+
+export function formatArrow(
+  baseline: PercentileMinutes,
+  modified: PercentileMinutes,
+): string {
+  if (baseline.mid === null && modified.mid === null) {
+    return "No transit route reaches this destination, before or after.";
+  }
+  return `${formatSide(baseline, "today")} → ${formatSide(modified, "after")}.`;
+}
+
 export function formatDelta(
   delta: number | null,
   baseline: PercentileMinutes,
@@ -96,6 +118,22 @@ const TONE_TO_BADGE: Record<"better" | "worse" | "none", BadgeTone> = {
   better: "teal",
   worse: "brown",
   none: "grey",
+};
+
+export function computeAxisMaxMinutes(
+  percentileSets: PercentileMinutes[],
+): number {
+  const values = percentileSets
+    .map((p) => p.mid)
+    .filter((m): m is number => m !== null);
+  if (values.length === 0) return 10;
+  return Math.max(10, Math.ceil(Math.max(...values) / 10) * 10);
+}
+
+const TONE_TO_DUMBBELL: Record<"better" | "worse" | "none", DumbbellTone> = {
+  better: "better",
+  worse: "worse",
+  none: "none",
 };
 
 interface VerdictRow {
@@ -455,29 +493,49 @@ export function Results() {
         </div>
       </details>
 
-      <div className="flex flex-col gap-3">
-        {verdictRows.map(({ destination, baseline, modified, delta }) => {
-          const { text, tone } = formatDelta(delta, baseline, modified);
-          return (
-            <div
-              key={destination.label}
-              className="rounded-lg border border-kotare-grey p-4"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <strong className="text-[14px] text-ink">
-                  {destination.label}
-                </strong>
-                <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
-              </div>
-              <p className="text-[12.5px] text-ink-soft">
-                Today: {formatRange(baseline)}
-              </p>
-              <p className="text-[12.5px] text-ink-soft">
-                After: {formatRange(modified)}
-              </p>
-            </div>
+      <div className="flex flex-col divide-y divide-kotare-grey/60">
+        {(() => {
+          const axisMaxMinutes = computeAxisMaxMinutes(
+            verdictRows.flatMap(({ baseline, modified }) => [
+              baseline,
+              modified,
+            ]),
           );
-        })}
+          return verdictRows.map(
+            ({ destination, baseline, modified, delta }, index) => {
+              const { text, tone } = formatDelta(delta, baseline, modified);
+              const hasChart = baseline.mid !== null && modified.mid !== null;
+              return (
+                <div key={destination.label} className="py-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <strong className="text-[13.5px] font-bold text-ink">
+                      {destination.label}
+                    </strong>
+                    <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
+                  </div>
+                  <p className="mb-2 text-[11.5px] leading-snug text-ink-soft">
+                    {formatArrow(baseline, modified)}
+                  </p>
+                  {hasChart ? (
+                    <DumbbellChart
+                      todayMinutes={baseline.mid as number}
+                      afterMinutes={modified.mid as number}
+                      axisMaxMinutes={axisMaxMinutes}
+                      tone={TONE_TO_DUMBBELL[tone]}
+                      staggerIndex={index}
+                    />
+                  ) : (
+                    <div className="flex h-4 items-center justify-center rounded-full border border-dashed border-ink-faint/60">
+                      <span className="whitespace-nowrap bg-surface-card px-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
+                        no route found
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          );
+        })()}
       </div>
 
       {manifest.analysis.consultation?.url && (
