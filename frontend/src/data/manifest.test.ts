@@ -4,6 +4,7 @@ import {
   type Scenario,
   fetchManifest,
   findScenario,
+  isConsultationOpen,
   isScenarioComplete,
 } from "./manifest";
 
@@ -15,6 +16,10 @@ const rawManifestFixture = {
     title: "Remove Route 135",
     description: "...",
     sources: [],
+    consultation: {
+      closes_at: "2026-06-24T23:59:00+12:00",
+      url: "https://haveyoursay.ecan.govt.nz/metroreview44-135",
+    },
   },
   hexagon_resolution: 9,
   hex_count: 3559,
@@ -78,6 +83,15 @@ describe("fetchManifest", () => {
       "/data/canterbury/remove-route-135/manifest.json",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+    expect(manifest.analysis).toEqual({
+      id: "remove-route-135",
+      title: "Remove Route 135",
+      description: "...",
+      consultation: {
+        closesAt: "2026-06-24T23:59:00+12:00",
+        url: "https://haveyoursay.ecan.govt.nz/metroreview44-135",
+      },
+    });
     expect(manifest.hexagonResolution).toBe(9);
     expect(manifest.hexCount).toBe(3559);
     expect(manifest.encoding).toEqual({
@@ -123,6 +137,32 @@ describe("isScenarioComplete", () => {
     };
 
     expect(isScenarioComplete(partial, [25, 50, 75])).toBe(false);
+  });
+});
+
+describe("isConsultationOpen", () => {
+  const now = new Date("2026-06-01T00:00:00Z");
+
+  it("is false when there is no consultation", () => {
+    expect(isConsultationOpen(null, now)).toBe(false);
+  });
+
+  it("is true when the close date is in the future", () => {
+    expect(
+      isConsultationOpen(
+        { closesAt: "2026-06-24T23:59:00+12:00", url: "https://x" },
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("is false when the close date has passed", () => {
+    expect(
+      isConsultationOpen(
+        { closesAt: "2026-01-01T00:00:00+12:00", url: "https://x" },
+        now,
+      ),
+    ).toBe(false);
   });
 });
 

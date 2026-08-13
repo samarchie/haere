@@ -25,7 +25,12 @@ export function ToggleGroup({
       type="single"
       value={value ?? undefined}
       onValueChange={(next) => {
-        if (next || options.some((o) => o.value === "")) onValueChange(next);
+        // Radix reserves "" internally to mean "nothing selected", so a
+        // single-select group can never land on an item whose own value is
+        // "" — callers needing an "all" option must give it a real value.
+        // Deselect events (next === "") are the item-already-on click and
+        // are ignored: this group always has exactly one active option.
+        if (next) onValueChange(next);
       }}
       className="inline-flex rounded-md border border-kotare-grey bg-kotare-grey/10 p-0.5"
       {...props}

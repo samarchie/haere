@@ -332,7 +332,7 @@ export function Location() {
             {row.address}
           </div>
           {statusText && (
-            <p className="mt-0.5 text-[11px] text-ink-soft">{statusText}</p>
+            <p className="mt-0.5 text-[12px] text-ink-soft">{statusText}</p>
           )}
         </div>
         <div className="flex shrink-0 gap-1">
@@ -389,7 +389,7 @@ export function Location() {
                 <div className="mb-0.5 text-[12px] font-bold text-ink">
                   No study area covers this address yet
                 </div>
-                <div className="text-[11px] leading-snug text-ink-soft">
+                <div className="text-[12px] leading-snug text-ink-soft">
                   {row.address} sits outside every network change modelled so
                   far — this can happen with a typo or an address outside the
                   studied area.

@@ -15,12 +15,20 @@ class DataSource(BaseModel):
     published: date | None = None
 
 
+class Consultation(BaseModel):
+    """A public consultation this analysis models, if any."""
+
+    closes_at: datetime
+    url: HttpUrl
+
+
 class ScenarioMetadata(BaseModel):
     """Frontend-facing description of an intervention scenario."""
 
     title: str
     description: str
     sources: list[DataSource] = Field(default_factory=list)
+    consultation: Consultation | None = None
 
 
 class CalendarType(BaseModel):

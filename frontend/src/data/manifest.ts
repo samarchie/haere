@@ -8,6 +8,18 @@ export interface EncodingInfo {
   unreachable: number;
 }
 
+export interface Consultation {
+  closesAt: string;
+  url: string;
+}
+
+export interface AnalysisInfo {
+  id: string;
+  title: string;
+  description: string;
+  consultation: Consultation | null;
+}
+
 export interface ScenarioVariants {
   baseline?: Record<string, string>;
   modified?: Record<string, string>;
@@ -22,6 +34,7 @@ export interface Scenario {
 }
 
 export interface Manifest {
+  analysis: AnalysisInfo;
   hexagonResolution: number;
   hexCount: number;
   percentiles: number[];
@@ -38,6 +51,12 @@ interface RawScenario {
 }
 
 interface RawManifest {
+  analysis: {
+    id: string;
+    title: string;
+    description: string;
+    consultation: { closes_at: string; url: string } | null;
+  };
   hexagon_resolution: number;
   hex_count: number;
   percentiles: number[];
@@ -78,6 +97,17 @@ async function fetchManifestUncached(
   );
 
   return {
+    analysis: {
+      id: raw.analysis.id,
+      title: raw.analysis.title,
+      description: raw.analysis.description,
+      consultation: raw.analysis.consultation
+        ? {
+            closesAt: raw.analysis.consultation.closes_at,
+            url: raw.analysis.consultation.url,
+          }
+        : null,
+    },
     hexagonResolution: raw.hexagon_resolution,
     hexCount: raw.hex_count,
     percentiles: raw.percentiles,
@@ -95,6 +125,13 @@ async function fetchManifestUncached(
       variants: s.variants,
     })),
   };
+}
+
+export function isConsultationOpen(
+  consultation: Consultation | null,
+  now: Date = new Date(),
+): boolean {
+  return consultation !== null && new Date(consultation.closesAt) > now;
 }
 
 export function isScenarioComplete(

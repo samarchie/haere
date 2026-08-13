@@ -3,12 +3,25 @@ id: remove-route-135
 
 metadata:
   title: "Remove Route 135"
-  description: >
-    Models the proposed removal of Route 135 entirely, as part of
-    Environment Canterbury's Metro Review 44/135 consultation.
+  description: |
+    Environment Canterbury proposed removing Route 135 (New Brighton to
+    The Palms) as part of the Metro Review 44/135 consultation, alongside
+    changes to Route 44. Route 135 is one of Metro's lowest-used services
+    and currently serves Burwood Hospital, Taiora QEII, and two high
+    schools. Removing it would free up funding to extend Route 44 to
+    Marshland Road and Prestons, cut the Ravensdale Rise loop, add layover
+    time for reliability, and increase weekend frequency. Passengers on
+    Route 135 would need to use Routes 60, 80, 7, or school services 666,
+    668, and 669 instead. Feedback closed on 24 June 2026; a council
+    report is due in August 2026, with a final decision expected late 2026.
+
+    ![Existing network map](images/existing-network-map.jpg) ![Proposed network map](images/proposed-network-map.jpg)
   sources:
     - name: "Environment Canterbury GTFS"
       published: "2026-06-01"
+  consultation:
+    closes_at: "2026-06-24T23:59:00+12:00"
+    url: "https://haveyoursay.ecan.govt.nz/metroreview44-135"
 
 # Assess any area that is less than 20 minutes walking from a bus stop
 travel_time_boundary: 

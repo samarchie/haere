@@ -3,6 +3,12 @@ import type { Manifest } from "../data/manifest";
 import { availableCombos, defaultScenario } from "./scenarioDefaults";
 
 const manifest: Manifest = {
+  analysis: {
+    id: "remove-135",
+    title: "Test proposal",
+    description: "",
+    consultation: null,
+  },
   hexagonResolution: 8,
   hexCount: 10,
   percentiles: [25, 50, 75],

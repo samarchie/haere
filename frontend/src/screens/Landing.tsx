@@ -7,6 +7,7 @@ import { Modal } from "../components/ui/modal";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
 import { type GeocodeResult, forwardGeocode } from "../data/geocode";
 import { matchingCityIds } from "../data/hexLookup";
+import { fetchManifest } from "../data/manifest";
 import { navigate } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import {
@@ -123,15 +124,35 @@ export function Landing() {
       : null;
   const otherEntries = history.filter((h) => h.id !== featuredEntry?.id);
 
+  const [inProgressTitle, setInProgressTitle] = useState<string | null>(null);
+  // Fetches only the one manifest for the proposal the user already chose,
+  // so the resume banner can show its real title instead of a placeholder.
+  useEffect(() => {
+    if (
+      resumeTo !== "location" ||
+      wizard.cityId === null ||
+      wizard.analysisId === null
+    ) {
+      setInProgressTitle(null);
+      return;
+    }
+    let cancelled = false;
+    fetchManifest(wizard.cityId, wizard.analysisId)
+      .then((manifest) => {
+        if (!cancelled) setInProgressTitle(manifest.analysis.title);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeTo, wizard.cityId, wizard.analysisId]);
+
   const proposalTitle =
-    wizard.analysisId !== null
-      ? (analyses?.find(
-          (a) =>
-            a.analysisId === wizard.analysisId && a.cityId === wizard.cityId,
-        )?.title ??
-        featuredEntry?.proposalTitle ??
-        null)
-      : null;
+    wizard.analysisId === null
+      ? null
+      : resumeTo === "results"
+        ? (featuredEntry?.proposalTitle ?? null)
+        : inProgressTitle;
 
   async function resolveOrigin(result: GeocodeResult) {
     setWizard({

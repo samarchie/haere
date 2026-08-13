@@ -5,20 +5,12 @@ export interface AnalysisSummary {
   cityId: string;
   cityName: string;
   analysisId: string;
-  title: string;
-  description: string;
-  consultationUrl: string | null;
-  consultationStatus: "open" | "closed" | null;
 }
 
 interface RawAnalysisSummary {
   city_id: string;
   city_name: string;
   analysis_id: string;
-  title: string;
-  description: string;
-  consultation_url: string | null;
-  consultation_status: "open" | "closed" | null;
 }
 
 export async function fetchAnalyses(): Promise<AnalysisSummary[]> {
@@ -30,17 +22,13 @@ export async function fetchAnalyses(): Promise<AnalysisSummary[]> {
     cityId: a.city_id,
     cityName: a.city_name,
     analysisId: a.analysis_id,
-    title: a.title,
-    description: a.description,
-    consultationUrl: a.consultation_url,
-    consultationStatus: a.consultation_status,
   }));
 }
 
-export function filterByCity(
-  analyses: AnalysisSummary[],
+export function filterByCity<T extends AnalysisSummary>(
+  analyses: T[],
   cityId: string | null,
-): AnalysisSummary[] {
+): T[] {
   if (cityId === null) {
     return analyses;
   }

@@ -34,6 +34,12 @@ vi.mock("maplibre-gl", () => {
 });
 
 const baseManifest: Manifest = {
+  analysis: {
+    id: "remove-135",
+    title: "Test proposal",
+    description: "",
+    consultation: null,
+  },
   hexagonResolution: 8,
   hexCount: 10,
   percentiles: [25, 50, 75],
@@ -51,10 +57,6 @@ function makeAnalysis(overrides: Partial<AnalysisSummary>): AnalysisSummary {
     cityId: "christchurch",
     cityName: "Christchurch",
     analysisId: "remove-135",
-    title: "Test proposal",
-    description: "",
-    consultationUrl: null,
-    consultationStatus: null,
     ...overrides,
   };
 }

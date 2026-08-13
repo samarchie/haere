@@ -186,6 +186,11 @@ def new_manifest(
             "sources": [
                 source.model_dump(mode="json") for source in analysis.metadata.sources
             ],
+            "consultation": (
+                analysis.metadata.consultation.model_dump(mode="json")
+                if analysis.metadata.consultation
+                else None
+            ),
         },
         "hexagon_resolution": city.hexagon_resolution,
         "hex_count": len(hex_ids),

@@ -12,6 +12,7 @@ import {
   type Scenario,
   fetchManifest,
   findScenario,
+  isConsultationOpen,
 } from "../data/manifest";
 import {
   computeDeltaMinutes,
@@ -348,7 +349,7 @@ export function Results() {
 
   useEffect(() => {
     if (state.status !== "ready") return;
-    const { analysis, payload } = state.data;
+    const { analysis, manifest, payload } = state.data;
     const changedCount = verdictRows.filter(
       (row) => row.delta !== null && row.delta !== 0,
     ).length;
@@ -356,7 +357,7 @@ export function Results() {
     appendHistoryEntry({
       cityId: payload.cityId,
       analysisId: payload.analysisId,
-      proposalTitle: analysis?.title ?? payload.analysisId,
+      proposalTitle: manifest.analysis.title,
       cityName: analysis?.cityName ?? payload.cityId,
       origin: payload.origin,
       destinations: payload.destinations,
@@ -387,7 +388,7 @@ export function Results() {
     );
   }
 
-  const { analysis, manifest, payload } = state.data;
+  const { manifest, payload } = state.data;
   const combos = availableCombos(manifest);
   const calendarTypes = Array.from(new Set(combos.map((c) => c.calendarType)));
   const timeWindows = combos.filter(
@@ -476,15 +477,15 @@ export function Results() {
         })}
       </div>
 
-      {analysis?.consultationUrl && (
+      {manifest.analysis.consultation?.url && (
         <div className="mt-4 rounded-lg bg-kotare-navy p-4 text-white">
           <p className="mb-2 text-[13px] font-semibold">
-            {analysis.consultationStatus === "closed"
-              ? "Consultation closed"
-              : "Consultation open"}
+            {isConsultationOpen(manifest.analysis.consultation)
+              ? "Consultation open"
+              : "Consultation closed"}
           </p>
           <a
-            href={analysis.consultationUrl}
+            href={manifest.analysis.consultation.url}
             target="_blank"
             rel="noreferrer noopener"
             className="text-[12.5px] underline"
