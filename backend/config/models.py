@@ -28,7 +28,7 @@ class ScenarioMetadata(BaseModel):
     title: str
     description: str
     sources: list[DataSource] = Field(default_factory=list)
-    consultation: Consultation
+    consultation: Consultation | None = None
 
 
 class CalendarType(BaseModel):

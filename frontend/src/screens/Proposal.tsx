@@ -27,7 +27,7 @@ export interface ProposalCard extends AnalysisSummary {
 
 async function loadProposalCards(): Promise<ProposalCard[]> {
   const analyses = await fetchAnalyses();
-  return Promise.all(
+  const results = await Promise.allSettled(
     analyses.map(async (a) => {
       const { analysis } = await fetchManifest(a.cityId, a.analysisId);
       return {
@@ -38,6 +38,12 @@ async function loadProposalCards(): Promise<ProposalCard[]> {
       };
     }),
   );
+  return results
+    .filter(
+      (r): r is PromiseFulfilledResult<ProposalCard> =>
+        r.status === "fulfilled",
+    )
+    .map((r) => r.value);
 }
 
 export function isConsultationOpen(
@@ -207,17 +213,15 @@ export function Proposal() {
               <span className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
                 {a.cityName}
               </span>
-              {a.consultation?.closesAt &&
-                isConsultationOpen(a.consultation) && (
+              {a.consultation &&
+                (isConsultationOpen(a.consultation) ? (
                   <Badge tone="blue">
                     Consultation closes{" "}
                     {formatConsultationClose(a.consultation.closesAt)}
                   </Badge>
-                )}
-              {a.consultation?.closesAt &&
-                !isConsultationOpen(a.consultation) && (
+                ) : (
                   <Badge tone="blue">Consultation closed</Badge>
-                )}
+                ))}
             </div>
             <h4 className="mb-1.5 text-[15px] font-bold text-ink">{a.title}</h4>
             <ProposalDescription
