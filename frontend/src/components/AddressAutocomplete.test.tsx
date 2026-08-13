@@ -12,6 +12,8 @@ import { AddressAutocomplete } from "./AddressAutocomplete";
 vi.mock("maplibre-gl", () => {
   class FakeMap {
     flyTo = vi.fn();
+    on = vi.fn();
+    once = vi.fn();
     remove = vi.fn();
     getCenter() {
       return { lat: -43.5, lng: 172.6 };

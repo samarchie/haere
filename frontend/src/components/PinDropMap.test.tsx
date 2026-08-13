@@ -9,6 +9,8 @@ vi.mock("maplibre-gl", () => {
     flyTo = vi.fn((opts: { center: [number, number] }) => {
       this.center = { lng: opts.center[0], lat: opts.center[1] };
     });
+    on = vi.fn();
+    once = vi.fn();
     remove = vi.fn();
     constructor(options: { center: [number, number] }) {
       this.center = { lng: options.center[0], lat: options.center[1] };
