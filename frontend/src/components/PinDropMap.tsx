@@ -182,7 +182,12 @@ export function PinDropMap({
             </button>
           ))}
         </div>
-        <MapPin className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-[90%] text-kotare-blue" />
+        <MapPin
+          className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-9 w-9 -translate-x-1/2 -translate-y-[90%] text-kotare-navy"
+          fill="currentColor"
+          stroke="white"
+          strokeWidth={1.5}
+        />
       </div>
       <div className="mt-3 flex items-center gap-2">
         <Input
