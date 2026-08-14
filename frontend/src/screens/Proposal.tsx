@@ -1,4 +1,10 @@
-import { AlertCircle, ChevronLeft, Repeat, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUpRight,
+  ChevronLeft,
+  Repeat,
+  X,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
@@ -19,6 +25,7 @@ import {
   isConsultationOpen,
 } from "../data/manifest";
 import { renderMarkdownLite, stripMarkdownLite } from "../lib/markdownLite";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import type { WizardState } from "../state/wizardState";
@@ -165,6 +172,13 @@ export function switchAnalysis(
 }
 
 export function Proposal() {
+  useDocumentHead({
+    title: "Choose a proposal",
+    description:
+      "Pick which proposed transport network change to check against your own trips.",
+    path: "/proposal",
+    noindex: true,
+  });
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
   const [result, setResult] = useState<ProposalCardsResult | null>(null);
@@ -206,7 +220,31 @@ export function Proposal() {
   }
 
   if (!result) {
-    return <p className="text-ink-soft">Loading interventions…</p>;
+    return (
+      <WizardShell step={1} title="Choose a proposal">
+        <div className="animate-pulse">
+          <div className="flex gap-1.5 rounded-lg bg-kotare-grey/20 p-1">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-7 w-24 rounded-md bg-kotare-grey/60" />
+            ))}
+          </div>
+          <div className="mt-5 flex flex-col gap-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-kotare-grey/50 p-4"
+              >
+                <div className="mb-2 h-2.5 w-20 rounded bg-kotare-grey/60" />
+                <div className="mb-1.5 h-4 w-2/3 rounded bg-kotare-grey/60" />
+                <div className="mb-1 h-2.5 w-full rounded bg-kotare-grey/40" />
+                <div className="mb-3 h-2.5 w-4/5 rounded bg-kotare-grey/40" />
+                <div className="h-11 w-full rounded-lg bg-kotare-grey/60" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </WizardShell>
+    );
   }
 
   const { cards, failedCount } = result;
@@ -381,6 +419,7 @@ export function Proposal() {
                       className="sd-focus flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border-2 border-kotare-blue text-[12.5px] font-bold text-kotare-blue hover:bg-kotare-blue/[0.06]"
                     >
                       Learn more
+                      <ArrowUpRight className="h-3.5 w-3.5" />
                     </a>
                   )}
                 </div>
@@ -390,9 +429,18 @@ export function Proposal() {
         })}
       </div>
 
-      <p className="mt-4 text-[12px] text-ink-soft">
+      <p className="mt-4 font-mono text-[11px] text-ink-soft">
         {pickerSummaryText(cards.length + failedCount, shown.length)}
       </p>
+
+      <Button
+        variant="outline"
+        className="mt-4"
+        onClick={() => navigate("landing")}
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Back
+      </Button>
     </WizardShell>
   );
 }

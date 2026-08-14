@@ -1,7 +1,10 @@
 import {
+  AlertCircle,
   ArrowUpRight,
   ChevronDown,
+  ChevronLeft,
   Megaphone,
+  RefreshCw,
   Repeat,
   Share,
 } from "lucide-react";
@@ -28,6 +31,7 @@ import {
   readValueAt,
   toVerdictValue,
 } from "../data/travelTimes";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, replaceScreen, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import { appendHistoryEntry } from "../state/resultsHistory";
@@ -278,6 +282,13 @@ interface LoadedData {
 }
 
 export function Results() {
+  useDocumentHead({
+    title: "Your results",
+    description:
+      "See haere's modelled estimate of how your trips change under this proposal.",
+    path: "/results",
+    noindex: true,
+  });
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
   const [state, setState] = useState<
@@ -458,23 +469,72 @@ export function Results() {
   }, [state, changedCount]);
 
   if (state.status === "loading") {
-    return <p className="text-ink-soft">Loading your results…</p>;
+    return (
+      <WizardShell step={3} title="Your results">
+        <div className="animate-pulse">
+          <div className="mb-1 h-2.5 w-28 rounded bg-kotare-grey/60" />
+          <div className="mb-1 h-4 w-48 rounded bg-kotare-grey/60" />
+          <div className="mb-4 h-7 w-full max-w-sm rounded bg-kotare-grey/60" />
+
+          <div className="mb-4 border-b border-kotare-grey/50 pb-4">
+            <div className="mb-3">
+              <div className="mb-1 h-2.5 w-20 rounded bg-kotare-grey/60" />
+              <div className="mb-1.5 h-2 w-56 rounded bg-kotare-grey/40" />
+              <div className="h-7 w-40 rounded-full bg-kotare-grey/60" />
+            </div>
+            <div>
+              <div className="mb-1 h-2.5 w-24 rounded bg-kotare-grey/60" />
+              <div className="mb-1.5 h-2 w-64 rounded bg-kotare-grey/40" />
+              <div className="h-7 w-52 rounded-full bg-kotare-grey/60" />
+            </div>
+          </div>
+
+          <div className="mb-2 h-2.5 w-20 rounded bg-kotare-grey/60" />
+          <div className="flex flex-col divide-y divide-kotare-grey/60">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="py-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="h-3.5 w-32 rounded bg-kotare-grey/60" />
+                  <div className="h-5 w-20 rounded-full bg-kotare-grey/60" />
+                </div>
+                <div className="h-4 w-full rounded-full bg-kotare-grey/40" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </WizardShell>
+    );
   }
   if (state.status === "error") {
     return (
-      <Alert>
-        Couldn't load your results. Try again shortly.
-        <Button
-          className="mt-3"
-          variant="outline"
-          onClick={() => {
-            setState({ status: "loading" });
-            setRetryCount((n) => n + 1);
-          }}
-        >
-          Retry
-        </Button>
-      </Alert>
+      <WizardShell step={3} title="Your results">
+        <Alert>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-ink-soft" />
+              <div>
+                <p className="mb-1 text-[13px] font-bold text-ink">
+                  Couldn't load your results
+                </p>
+                <p className="text-[11.5px] leading-snug text-ink-faint">
+                  Try again shortly — this is usually temporary.
+                </p>
+              </div>
+            </div>
+            <Button
+              className="flex-shrink-0"
+              variant="outline"
+              onClick={() => {
+                setState({ status: "loading" });
+                setRetryCount((n) => n + 1);
+              }}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          </div>
+        </Alert>
+      </WizardShell>
     );
   }
 
@@ -510,9 +570,9 @@ export function Results() {
         {manifest.analysis.title}
       </p>
 
-      <h3 className="mb-4 text-[22px] sm:text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink">
+      <h2 className="mb-4 text-[22px] sm:text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink">
         {formatHeadline(changedCount, verdictRows.length)}
-      </h3>
+      </h2>
 
       <div className="mb-4 border-b border-kotare-grey/50 pb-4">
         <div className="flex flex-col items-start gap-3">
@@ -700,7 +760,8 @@ export function Results() {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="outline" onClick={backToLocation}>
-          ← Back
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Back
         </Button>
         <Button
           variant="outline"

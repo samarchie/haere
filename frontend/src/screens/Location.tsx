@@ -1,4 +1,11 @@
-import { AlertCircle, Pencil, Plus, X } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Plus,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { WizardShell } from "../components/WizardShell";
@@ -12,6 +19,7 @@ import {
   resolveHexRowIndex,
 } from "../data/hexLookup";
 import { type Manifest, fetchManifest } from "../data/manifest";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import { requireCityAndAnalysis } from "../state/wizardState";
@@ -117,6 +125,13 @@ export async function resolveOriginRouting(
 }
 
 export function Location() {
+  useDocumentHead({
+    title: "Add your addresses",
+    description:
+      "Add the addresses you travel between to see how this proposal changes your trips.",
+    path: "/location",
+    noindex: true,
+  });
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
   const ids = requireCityAndAnalysis(wizard);
@@ -429,7 +444,8 @@ export function Location() {
               className="sd-focus mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-kotare-navy text-[11.5px] font-bold text-white"
               onClick={() => navigate("proposal", "?city=")}
             >
-              View all proposals →
+              View all proposals
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
@@ -524,21 +540,23 @@ export function Location() {
             </button>
           )}
 
-          <p className="mb-4 font-mono text-[11px] text-ink-soft">
+          <p className="mb-4 mt-3 font-mono text-[11px] text-ink-soft">
             {destinations.length} of 5 destinations
           </p>
         </>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex justify-between gap-2">
         <Button variant="outline" onClick={() => navigate("proposal")}>
-          ← Back
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Back
         </Button>
         <Button
           disabled={!continueEnabled}
           onClick={() => continueEnabled && navigate("results")}
         >
-          Continue →
+          Continue
+          <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>
     </WizardShell>

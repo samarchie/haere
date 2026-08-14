@@ -236,9 +236,9 @@ describe("Landing", () => {
       await vi.runOnlyPendingTimersAsync();
     });
 
-    expect(screen.getByText(/your last check/i)).toBeInTheDocument();
+    expect(screen.getByText(/your last result/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/1 destinations · 1 of 1 trips change/i),
+      screen.getByText(/1 Main St · 1 of 1 trips change/i),
     ).toBeInTheDocument();
   });
 
@@ -408,7 +408,7 @@ describe("Landing", () => {
     });
 
     fireEvent.click(screen.getByText(/see your other previous results/i));
-    fireEvent.click(screen.getByText(/remove route 135 — christchurch/i));
+    fireEvent.click(screen.getByText(/remove route 135 · 1 main st/i));
 
     expect(window.location.pathname).toBe("/results");
   });

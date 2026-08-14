@@ -255,7 +255,7 @@ describe("Location", () => {
       screen.getByText("No study area covers this address yet"),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("View all proposals →"));
+    fireEvent.click(screen.getByText("View all proposals"));
     expect(window.location.pathname).toBe("/proposal");
   });
 

@@ -41,9 +41,9 @@ export function WizardShell({
         </>
       )}
       <div className="mt-0.5 mb-4 flex items-center justify-between gap-2">
-        <h2 className="text-[16px] font-bold tracking-tight text-ink">
+        <h1 className="text-[16px] font-bold tracking-tight text-ink">
           {title}
-        </h2>
+        </h1>
         {headerAction}
       </div>
       {children}

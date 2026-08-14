@@ -25,3 +25,31 @@ body {
   outline: none;
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgb(var(--kotare-blue-rgb) / 0.55);
 }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+::view-transition-old(root) {
+  animation-name: haere-screen-out;
+}
+
+::view-transition-new(root) {
+  animation-name: haere-screen-in;
+}
+
+@keyframes haere-screen-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes haere-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

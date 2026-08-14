@@ -337,7 +337,7 @@ describe("Results", () => {
 
     await waitFor(() => screen.getByText("Work"));
 
-    fireEvent.click(screen.getByText("← Back"));
+    fireEvent.click(screen.getByText("Back"));
 
     // Location should show the seeded origin, not redirect to /proposal.
     await waitFor(() =>
