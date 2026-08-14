@@ -2,6 +2,7 @@ import {
   AlertCircle,
   ArrowUpRight,
   ChevronDown,
+  ChevronLeft,
   Megaphone,
   RefreshCw,
   Repeat,
@@ -462,7 +463,37 @@ export function Results() {
   if (state.status === "loading") {
     return (
       <WizardShell step={3} title="Your results">
-        <p className="text-ink-soft">Loading your results…</p>
+        <div className="animate-pulse">
+          <div className="mb-1 h-2.5 w-28 rounded bg-kotare-grey/60" />
+          <div className="mb-1 h-4 w-48 rounded bg-kotare-grey/60" />
+          <div className="mb-4 h-7 w-full max-w-sm rounded bg-kotare-grey/60" />
+
+          <div className="mb-4 border-b border-kotare-grey/50 pb-4">
+            <div className="mb-3">
+              <div className="mb-1 h-2.5 w-20 rounded bg-kotare-grey/60" />
+              <div className="mb-1.5 h-2 w-56 rounded bg-kotare-grey/40" />
+              <div className="h-7 w-40 rounded-full bg-kotare-grey/60" />
+            </div>
+            <div>
+              <div className="mb-1 h-2.5 w-24 rounded bg-kotare-grey/60" />
+              <div className="mb-1.5 h-2 w-64 rounded bg-kotare-grey/40" />
+              <div className="h-7 w-52 rounded-full bg-kotare-grey/60" />
+            </div>
+          </div>
+
+          <div className="mb-2 h-2.5 w-20 rounded bg-kotare-grey/60" />
+          <div className="flex flex-col divide-y divide-kotare-grey/60">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="py-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="h-3.5 w-32 rounded bg-kotare-grey/60" />
+                  <div className="h-5 w-20 rounded-full bg-kotare-grey/60" />
+                </div>
+                <div className="h-4 w-full rounded-full bg-kotare-grey/40" />
+              </div>
+            ))}
+          </div>
+        </div>
       </WizardShell>
     );
   }
@@ -721,7 +752,8 @@ export function Results() {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="outline" onClick={backToLocation}>
-          ← Back
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Back
         </Button>
         <Button
           variant="outline"

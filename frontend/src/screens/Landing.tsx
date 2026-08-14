@@ -1,4 +1,4 @@
-import { History, MapPin } from "lucide-react";
+import { ChevronRight, History, MapPin } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { NetworkBackdrop } from "../components/NetworkBackdrop";
@@ -348,10 +348,11 @@ export function Landing() {
                   </p>
                   <button
                     type="button"
-                    className="sd-focus text-[12px] font-semibold text-kotare-blue hover:text-kotare-navy"
+                    className="sd-focus inline-flex items-center gap-1 text-[12px] font-semibold text-kotare-blue hover:text-kotare-navy"
                     onClick={() => navigate("proposal", "?city=")}
                   >
-                    Or continue without checking your address →
+                    Or continue without checking your address
+                    <ChevronRight className="h-3 w-3" />
                   </button>
                 </div>
               )}
@@ -373,10 +374,11 @@ export function Landing() {
 
           <button
             type="button"
-            className="sd-focus mt-4 block text-[12.5px] font-semibold text-kotare-blue hover:text-kotare-navy"
+            className="sd-focus mt-4 inline-flex items-center gap-1 text-[12.5px] font-semibold text-kotare-blue hover:text-kotare-navy"
             onClick={() => navigate("proposal", "?city=")}
           >
-            View proposed changes →
+            View proposed changes
+            <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
 

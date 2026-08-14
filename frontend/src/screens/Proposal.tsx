@@ -1,4 +1,10 @@
-import { AlertCircle, ChevronLeft, Repeat, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUpRight,
+  ChevronLeft,
+  Repeat,
+  X,
+} from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
@@ -381,6 +387,7 @@ export function Proposal() {
                       className="sd-focus flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border-2 border-kotare-blue text-[12.5px] font-bold text-kotare-blue hover:bg-kotare-blue/[0.06]"
                     >
                       Learn more
+                      <ArrowUpRight className="h-3.5 w-3.5" />
                     </a>
                   )}
                 </div>

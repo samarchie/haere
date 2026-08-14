@@ -1,4 +1,11 @@
-import { AlertCircle, Pencil, Plus, X } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Plus,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { WizardShell } from "../components/WizardShell";
@@ -429,7 +436,8 @@ export function Location() {
               className="sd-focus mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-kotare-navy text-[11.5px] font-bold text-white"
               onClick={() => navigate("proposal", "?city=")}
             >
-              View all proposals →
+              View all proposals
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
@@ -532,13 +540,15 @@ export function Location() {
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={() => navigate("proposal")}>
-          ← Back
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Back
         </Button>
         <Button
           disabled={!continueEnabled}
           onClick={() => continueEnabled && navigate("results")}
         >
-          Continue →
+          Continue
+          <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>
     </WizardShell>
