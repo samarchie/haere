@@ -78,6 +78,24 @@ describe("router", () => {
     const params = currentSearch();
     expect(params.get("city")).toBe("canterbury");
   });
+
+  it("navigate still updates the URL and notifies subscribers when startViewTransition is supported", () => {
+    const doc = document as Document & {
+      startViewTransition?: (callback: () => void) => void;
+    };
+    doc.startViewTransition = (callback) => callback();
+
+    const handler = vi.fn();
+    const unsubscribe = onNavigate(handler);
+    navigate("results", "?r=abc123");
+
+    expect(window.location.pathname).toBe("/results");
+    expect(window.location.search).toBe("?r=abc123");
+    expect(handler).toHaveBeenCalledWith("results");
+
+    unsubscribe();
+    doc.startViewTransition = undefined;
+  });
 });
 
 describe("useScreen", () => {

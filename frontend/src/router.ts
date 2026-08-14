@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 
 export type Screen = "landing" | "proposal" | "location" | "results";
 
@@ -20,10 +21,24 @@ export function currentScreen(): Screen {
   return PATH_TO_SCREEN[window.location.pathname] ?? "landing";
 }
 
-export function navigate(screen: Screen, search = ""): void {
-  const path = SCREEN_TO_PATH[screen] + search;
+function goTo(path: string): void {
   window.history.pushState(null, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+export function navigate(screen: Screen, search = ""): void {
+  const path = SCREEN_TO_PATH[screen] + search;
+  const doc = document as Document & {
+    startViewTransition?: (callback: () => void) => void;
+  };
+  const reduceMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+  if (!doc.startViewTransition || reduceMotion) {
+    goTo(path);
+    return;
+  }
+  doc.startViewTransition(() => flushSync(() => goTo(path)));
 }
 
 export function replaceScreen(screen: Screen, search = ""): void {
