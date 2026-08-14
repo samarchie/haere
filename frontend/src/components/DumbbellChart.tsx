@@ -75,7 +75,6 @@ export function DumbbellChart({
           style={{
             left: animateIn ? afterLeft : todayLeft,
             transitionDelay: `${300 + staggerIndex * 200}ms`,
-            ["--dumbbell-to" as string]: afterLeft,
           }}
         />
       </div>
