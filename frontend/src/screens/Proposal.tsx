@@ -400,6 +400,15 @@ export function Proposal() {
       <p className="mt-4 text-[12px] text-ink-soft">
         {pickerSummaryText(cards.length + failedCount, shown.length)}
       </p>
+
+      <Button
+        variant="outline"
+        className="mt-4"
+        onClick={() => navigate("landing")}
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Back
+      </Button>
     </WizardShell>
   );
 }
