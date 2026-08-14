@@ -1,7 +1,9 @@
 import {
+  AlertCircle,
   ArrowUpRight,
   ChevronDown,
   Megaphone,
+  RefreshCw,
   Repeat,
   Share,
 } from "lucide-react";
@@ -458,23 +460,42 @@ export function Results() {
   }, [state, changedCount]);
 
   if (state.status === "loading") {
-    return <p className="text-ink-soft">Loading your results…</p>;
+    return (
+      <WizardShell step={3} title="Your results">
+        <p className="text-ink-soft">Loading your results…</p>
+      </WizardShell>
+    );
   }
   if (state.status === "error") {
     return (
-      <Alert>
-        Couldn't load your results. Try again shortly.
-        <Button
-          className="mt-3"
-          variant="outline"
-          onClick={() => {
-            setState({ status: "loading" });
-            setRetryCount((n) => n + 1);
-          }}
-        >
-          Retry
-        </Button>
-      </Alert>
+      <WizardShell step={3} title="Your results">
+        <Alert>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-ink-soft" />
+              <div>
+                <p className="mb-1 text-[13px] font-bold text-ink">
+                  Couldn't load your results
+                </p>
+                <p className="text-[11.5px] leading-snug text-ink-faint">
+                  Try again shortly — this is usually temporary.
+                </p>
+              </div>
+            </div>
+            <Button
+              className="flex-shrink-0"
+              variant="outline"
+              onClick={() => {
+                setState({ status: "loading" });
+                setRetryCount((n) => n + 1);
+              }}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          </div>
+        </Alert>
+      </WizardShell>
     );
   }
 
