@@ -40,7 +40,11 @@ export function navigate(screen: Screen, search = ""): void {
   const reduceMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)",
   ).matches;
-  if (!doc.startViewTransition || reduceMotion) {
+  // A same-screen navigation (e.g. the Proposal city filter) only changes
+  // search params in place — animating a full-page view transition for that
+  // cross-fades the whole snapshot and reads as a jump, not a smooth resize.
+  const sameScreen = screen === currentScreen();
+  if (sameScreen || !doc.startViewTransition || reduceMotion) {
     goTo(path);
     return;
   }

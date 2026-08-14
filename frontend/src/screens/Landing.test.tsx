@@ -236,9 +236,9 @@ describe("Landing", () => {
       await vi.runOnlyPendingTimersAsync();
     });
 
-    expect(screen.getByText(/your last check/i)).toBeInTheDocument();
+    expect(screen.getByText(/your last result/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/1 destinations · 1 of 1 trips change/i),
+      screen.getByText(/1 Main St · 1 of 1 trips change/i),
     ).toBeInTheDocument();
   });
 

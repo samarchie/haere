@@ -540,13 +540,13 @@ export function Location() {
             </button>
           )}
 
-          <p className="mb-4 font-mono text-[11px] text-ink-soft">
+          <p className="mb-4 mt-3 font-mono text-[11px] text-ink-soft">
             {destinations.length} of 5 destinations
           </p>
         </>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex justify-between gap-2">
         <Button variant="outline" onClick={() => navigate("proposal")}>
           <ChevronLeft className="h-3.5 w-3.5" />
           Back

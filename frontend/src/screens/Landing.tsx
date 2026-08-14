@@ -1,5 +1,5 @@
 import { ChevronRight, History, MapPin } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { NetworkBackdrop } from "../components/NetworkBackdrop";
 import { Button } from "../components/ui/button";
@@ -73,6 +73,7 @@ export function Landing() {
   );
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [historyOpen, setHistoryOpen] = useState(false);
+  const historyRef = useRef<HTMLDivElement | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
@@ -112,6 +113,17 @@ export function Landing() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (!historyRef.current?.contains(e.target as Node)) {
+        setHistoryOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [historyOpen]);
 
   const resumable = hasResumableProgress(wizard, liveAnalysisIds);
   const resumeTo = resumeScreen(wizard);
@@ -228,27 +240,25 @@ export function Landing() {
   function historyPopover() {
     if (!historyOpen || otherEntries.length === 0) return null;
     return (
-      <div className="relative mt-1.5">
-        <div className="absolute left-0 top-0 z-10 max-h-[240px] w-full overflow-y-auto rounded-md border border-kotare-grey bg-surface-card shadow-sm">
-          {otherEntries.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              className="sd-focus w-full border-b border-kotare-grey/50 px-3 py-2 text-left last:border-b-0 hover:bg-kotare-blue/[0.06]"
-              onClick={() => resumeToHistoryEntry(entry)}
-            >
-              <div className="text-[12px] font-semibold text-ink">
-                {entry.proposalTitle} — {entry.cityName}
-              </div>
-              <div className="font-mono text-[10px] text-ink-soft">
-                {new Date(entry.savedAt).toLocaleDateString()} ·{" "}
-                {entry.changedCount === 0
-                  ? "no change"
-                  : `${entry.changedCount} of ${entry.destinationCount} trips change`}
-              </div>
-            </button>
-          ))}
-        </div>
+      <div className="absolute left-0 top-full z-10 mt-1.5 max-h-[240px] w-full overflow-y-auto rounded-md border border-kotare-grey bg-surface-card shadow-sm">
+        {otherEntries.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className="sd-focus w-full border-b border-kotare-grey/50 px-3 py-2 text-left last:border-b-0 hover:bg-kotare-blue/[0.06]"
+            onClick={() => resumeToHistoryEntry(entry)}
+          >
+            <div className="text-[12px] font-semibold text-ink">
+              {entry.proposalTitle} — {entry.cityName}
+            </div>
+            <div className="font-mono text-[10px] text-ink-soft">
+              {new Date(entry.savedAt).toLocaleDateString()} ·{" "}
+              {entry.changedCount === 0
+                ? "no change"
+                : `${entry.changedCount} of ${entry.destinationCount} trips change`}
+            </div>
+          </button>
+        ))}
       </div>
     );
   }
@@ -284,48 +294,56 @@ export function Landing() {
                 )}
                 <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-kotare-navy">
                   {resumeTo === "results"
-                    ? "Your last check"
+                    ? "Your last result"
                     : "Continue where you left off"}
                 </span>
               </div>
-              <div className="mb-0.5 text-[13.5px] font-bold text-ink">
-                {proposalTitle ?? "Choosing a proposal"}
-              </div>
-              <div className="mb-3 text-[12px] text-ink-soft">
-                {resumeTo === "results" && featuredEntry
-                  ? `${featuredEntry.destinationCount} destinations · ${featuredEntry.changedCount} of ${featuredEntry.destinationCount} trips change`
-                  : resumeTo === "results"
-                    ? `${wizard.destinations.length} destinations`
-                    : `${wizard.destinations.length} of 5 destinations added`}
+              <div className="mb-3 text-[13.5px] text-ink">
+                <span className="font-bold">
+                  {proposalTitle ?? "Choosing a proposal"}
+                </span>
+                <span className="text-ink-soft">
+                  {" "}
+                  ·{" "}
+                  {resumeTo === "results" && featuredEntry
+                    ? `${featuredEntry.origin.address} · ${featuredEntry.changedCount} of ${featuredEntry.destinationCount} trips change`
+                    : resumeTo === "results" && wizard.origin?.address
+                      ? `${wizard.origin.address} · ${wizard.destinations.length} destinations`
+                      : resumeTo === "results"
+                        ? `${wizard.destinations.length} destinations`
+                        : `${wizard.destinations.length} of 5 destinations added`}
+                </span>
               </div>
               <Button className="w-full" onClick={() => navigate(resumeTo)}>
-                Resume
+                Resume <ChevronRight className="h-4 w-4" />
               </Button>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  className="sd-focus text-[12px] font-medium text-ink-soft hover:text-ink"
-                  onClick={resetWizard}
-                >
-                  Start over
-                </button>
-                {otherEntries.length > 0 && (
-                  <>
-                    <span aria-hidden="true" className="text-kotare-grey">
-                      ·
-                    </span>
-                    <button
-                      type="button"
-                      className="sd-focus text-[12px] font-semibold text-kotare-blue hover:text-kotare-navy"
-                      aria-expanded={historyOpen}
-                      onClick={() => setHistoryOpen((open) => !open)}
-                    >
-                      See your other previous results
-                    </button>
-                  </>
-                )}
+              <div className="relative" ref={historyRef}>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="sd-focus text-[12px] font-semibold text-kotare-blue hover:text-kotare-navy"
+                    onClick={resetWizard}
+                  >
+                    Start over
+                  </button>
+                  {otherEntries.length > 0 && (
+                    <>
+                      <span aria-hidden="true" className="text-kotare-grey">
+                        ·
+                      </span>
+                      <button
+                        type="button"
+                        className="sd-focus text-[12px] font-semibold text-kotare-blue hover:text-kotare-navy"
+                        aria-expanded={historyOpen}
+                        onClick={() => setHistoryOpen((open) => !open)}
+                      >
+                        See other results
+                      </button>
+                    </>
+                  )}
+                </div>
+                {historyPopover()}
               </div>
-              {historyPopover()}
             </div>
           ) : (
             <>
@@ -364,7 +382,7 @@ export function Landing() {
                 </div>
               )}
               {otherEntries.length > 0 && (
-                <div className="mb-3">
+                <div className="relative mb-3" ref={historyRef}>
                   <button
                     type="button"
                     className="sd-focus text-[12px] font-semibold text-kotare-blue hover:text-kotare-navy"
