@@ -66,14 +66,20 @@ export function readPercentileMinutes(
   return { low: read(sorted[0]), mid, high: read(sorted[sorted.length - 1]) };
 }
 
+// r5py routing noise can shift a trip by 1-2 min with no real-world cause;
+// treat anything that small as no change rather than a false positive.
+const NOISE_THRESHOLD_MINUTES = 2;
+
 export function deltaFor(
   baseline: PercentileMinutes,
   modified: PercentileMinutes,
 ): number | null {
-  return computeDeltaMinutes(
+  const delta = computeDeltaMinutes(
     { minutes: baseline.mid },
     { minutes: modified.mid },
   );
+  if (delta !== null && Math.abs(delta) <= NOISE_THRESHOLD_MINUTES) return 0;
+  return delta;
 }
 
 function formatSide(
@@ -482,45 +488,59 @@ export function Results() {
       </h3>
 
       <div className="mb-3 border-b border-kotare-grey/50 pb-3">
-        <div className="flex flex-col gap-2">
-          <ToggleGroup
-            aria-label="Day type"
-            value={payload.scenario.calendarType}
-            onValueChange={(calendarType) => {
-              const firstForType = combos.find(
-                (c) => c.calendarType === calendarType && c.complete,
-              );
-              if (firstForType)
+        <div className="flex flex-col items-start gap-3">
+          <div>
+            <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">
+              Day type
+            </div>
+            <p className="mb-1.5 text-[10.5px] leading-snug text-ink-faint">
+              Which kind of day to compare trips on.
+            </p>
+            <ToggleGroup
+              aria-label="Day type"
+              value={payload.scenario.calendarType}
+              onValueChange={(calendarType) => {
+                const firstForType = combos.find(
+                  (c) => c.calendarType === calendarType && c.complete,
+                );
+                if (firstForType)
+                  changeScenario({
+                    calendarType,
+                    timeWindow: firstForType.timeWindow,
+                  });
+              }}
+              options={calendarTypes.map((c) => ({
+                value: c.calendarType,
+                label: c.calendarTypeLabel,
+              }))}
+            />
+          </div>
+          <div>
+            <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">
+              Time window
+            </div>
+            <p className="mb-1.5 text-[10.5px] leading-snug text-ink-faint">
+              Which part of the day to compare trips in. Each trip is checked
+              many times, not once — hollow dot is today's typical trip, solid
+              is after.
+            </p>
+            <ToggleGroup
+              aria-label="Time window"
+              value={payload.scenario.timeWindow}
+              onValueChange={(timeWindow) =>
                 changeScenario({
-                  calendarType,
-                  timeWindow: firstForType.timeWindow,
-                });
-            }}
-            options={calendarTypes.map((c) => ({
-              value: c.calendarType,
-              label: c.calendarTypeLabel,
-            }))}
-          />
-          <ToggleGroup
-            aria-label="Time window"
-            value={payload.scenario.timeWindow}
-            onValueChange={(timeWindow) =>
-              changeScenario({
-                calendarType: payload.scenario.calendarType,
-                timeWindow,
-              })
-            }
-            options={timeWindows.map((c) => ({
-              value: c.timeWindow,
-              label: c.timeWindowLabel,
-              disabled: !c.complete,
-            }))}
-          />
+                  calendarType: payload.scenario.calendarType,
+                  timeWindow,
+                })
+              }
+              options={timeWindows.map((c) => ({
+                value: c.timeWindow,
+                label: c.timeWindowLabel,
+                disabled: !c.complete,
+              }))}
+            />
+          </div>
         </div>
-        <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
-          Each trip is checked many times, not once — hollow dot is today's
-          typical trip, solid is after.
-        </p>
       </div>
 
       <div className="flex flex-col divide-y divide-kotare-grey/60">
@@ -549,7 +569,11 @@ export function Results() {
                   {hasChart ? (
                     <DumbbellChart
                       todayMinutes={baseline.mid as number}
-                      afterMinutes={modified.mid as number}
+                      afterMinutes={
+                        delta === 0
+                          ? (baseline.mid as number)
+                          : (modified.mid as number)
+                      }
                       axisMaxMinutes={axisMaxMinutes}
                       tone={TONE_TO_DUMBBELL[tone]}
                       staggerIndex={index}
