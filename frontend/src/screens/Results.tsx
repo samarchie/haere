@@ -96,11 +96,15 @@ function formatSide(
 export function formatArrow(
   baseline: PercentileMinutes,
   modified: PercentileMinutes,
+  delta: number | null,
 ): string {
   if (baseline.mid === null && modified.mid === null) {
     return "No transit route reaches this destination, before or after.";
   }
-  return `${formatSide(baseline, "today")} → ${formatSide(modified, "after")}.`;
+  // Noise-thresholded delta is 0: show "after" as unchanged from "today" so
+  // this sentence doesn't contradict the "No change" badge above it.
+  const effectiveModified = delta === 0 ? baseline : modified;
+  return `${formatSide(baseline, "today")} → ${formatSide(effectiveModified, "after")}.`;
 }
 
 export function formatDelta(
@@ -564,7 +568,7 @@ export function Results() {
                     <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
                   </div>
                   <p className="mb-2 text-[11.5px] leading-snug text-ink-soft">
-                    {formatArrow(baseline, modified)}
+                    {formatArrow(baseline, modified, delta)}
                   </p>
                   {hasChart ? (
                     <DumbbellChart

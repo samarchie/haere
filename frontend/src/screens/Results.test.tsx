@@ -91,6 +91,7 @@ describe("formatArrow", () => {
       formatArrow(
         { low: null, mid: null, high: null },
         { low: null, mid: null, high: null },
+        null,
       ),
     ).toBe("No transit route reaches this destination, before or after.");
   });
@@ -100,6 +101,7 @@ describe("formatArrow", () => {
       formatArrow(
         { low: 18, mid: 22, high: 25 },
         { low: 34, mid: 41, high: 46 },
+        19,
       ),
     ).toBe("22 min today (usually 18–25) → 41 min after (usually 34–46).");
   });
@@ -109,8 +111,19 @@ describe("formatArrow", () => {
       formatArrow(
         { low: null, mid: 22, high: null },
         { low: null, mid: 41, high: null },
+        19,
       ),
     ).toBe("22 min today → 41 min after.");
+  });
+
+  it("shows 'after' as unchanged when delta is noise-thresholded to 0", () => {
+    expect(
+      formatArrow(
+        { low: null, mid: 10, high: null },
+        { low: null, mid: 11, high: null },
+        0,
+      ),
+    ).toBe("10 min today → 10 min after.");
   });
 });
 

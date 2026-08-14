@@ -23,8 +23,11 @@ const TONE_CONNECTOR_CLASS: Record<DumbbellTone, string> = {
   none: "bg-kotare-grey/70",
 };
 
-function dotPosition(minutes: number, axisMaxMinutes: number): string {
-  const pct = Math.min(100, Math.max(0, (minutes / axisMaxMinutes) * 100));
+function clampPct(minutes: number, axisMaxMinutes: number): number {
+  return Math.min(100, Math.max(0, (minutes / axisMaxMinutes) * 100));
+}
+
+function dotPosition(pct: number): string {
   return `calc(${pct}% - 5px)`;
 }
 
@@ -42,13 +45,16 @@ export function DumbbellChart({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  const todayLeft = dotPosition(todayMinutes, axisMaxMinutes);
-  const afterLeft = dotPosition(afterMinutes, axisMaxMinutes);
-  const connectorLeft = todayMinutes <= afterMinutes ? todayLeft : afterLeft;
-  const connectorWidth = `${Math.abs(
-    Math.min(100, Math.max(0, (afterMinutes / axisMaxMinutes) * 100)) -
-      Math.min(100, Math.max(0, (todayMinutes / axisMaxMinutes) * 100)),
-  )}%`;
+  const todayPct = clampPct(todayMinutes, axisMaxMinutes);
+  const afterPct = clampPct(afterMinutes, axisMaxMinutes);
+  // Track the after-dot's animated position (not its final one) so the
+  // connector bar grows in sync with the dot instead of jumping ahead of it.
+  const effectiveAfterPct = animateIn ? afterPct : todayPct;
+
+  const todayLeft = dotPosition(todayPct);
+  const afterLeft = dotPosition(afterPct);
+  const connectorLeft = `${Math.min(todayPct, effectiveAfterPct)}%`;
+  const connectorWidth = `${Math.abs(effectiveAfterPct - todayPct)}%`;
 
   return (
     <div>
@@ -56,10 +62,14 @@ export function DumbbellChart({
         <div className="absolute top-1/2 -translate-y-1/2 h-2 w-full rounded-full bg-kotare-grey/40" />
         <div
           className={cn(
-            "absolute top-1/2 -translate-y-1/2 h-[2px]",
+            "absolute top-1/2 -translate-y-1/2 h-[2px] transition-[left,width] duration-[900ms] ease-[cubic-bezier(0.65,0,0.35,1)] motion-reduce:transition-none",
             TONE_CONNECTOR_CLASS[tone],
           )}
-          style={{ left: connectorLeft, width: connectorWidth }}
+          style={{
+            left: connectorLeft,
+            width: connectorWidth,
+            transitionDelay: `${300 + staggerIndex * 200}ms`,
+          }}
         />
         <span
           data-testid="dumbbell-today-dot"
