@@ -31,6 +31,7 @@ import {
   readValueAt,
   toVerdictValue,
 } from "../data/travelTimes";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, replaceScreen, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import { appendHistoryEntry } from "../state/resultsHistory";
@@ -281,6 +282,13 @@ interface LoadedData {
 }
 
 export function Results() {
+  useDocumentHead({
+    title: "Your results",
+    description:
+      "See haere's modelled estimate of how your trips change under this proposal.",
+    path: "/results",
+    noindex: true,
+  });
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
   const [state, setState] = useState<
@@ -562,9 +570,9 @@ export function Results() {
         {manifest.analysis.title}
       </p>
 
-      <h3 className="mb-4 text-[22px] sm:text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink">
+      <h2 className="mb-4 text-[22px] sm:text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink">
         {formatHeadline(changedCount, verdictRows.length)}
-      </h3>
+      </h2>
 
       <div className="mb-4 border-b border-kotare-grey/50 pb-4">
         <div className="flex flex-col items-start gap-3">

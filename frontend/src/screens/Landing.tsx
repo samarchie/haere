@@ -8,6 +8,7 @@ import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
 import { type GeocodeResult, forwardGeocode } from "../data/geocode";
 import { matchingCityIds } from "../data/hexLookup";
 import { fetchManifest } from "../data/manifest";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import {
@@ -55,6 +56,12 @@ export function resumeScreen(
 }
 
 export function Landing() {
+  useDocumentHead({
+    title: "haere",
+    description:
+      "Check your own address to see exactly how your trips change under a proposed public transport network.",
+    path: "/",
+  });
   const { wizard, setWizard, resetWizard } = useWizardState();
   const [analyses, setAnalyses] = useState<AnalysisSummary[] | null>(null);
   const liveAnalysisIds = useMemo(

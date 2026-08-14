@@ -1,9 +1,16 @@
 import { ChevronLeft, MapPinOff } from "lucide-react";
 import { NetworkBackdrop } from "../components/NetworkBackdrop";
 import { Button } from "../components/ui/button";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate } from "../router";
 
 export function NotFound() {
+  useDocumentHead({
+    title: "Page not found",
+    description: "This page doesn't exist, or it's moved.",
+    path: "/404",
+    noindex: true,
+  });
   return (
     <div className="relative mx-auto flex w-full max-w-[920px] items-center justify-center">
       <NetworkBackdrop />

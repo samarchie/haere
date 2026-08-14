@@ -1,0 +1,9 @@
+# haere
+
+> haere is an independent tool for checking how a proposed public transport network change affects your own trips. It isn't run by any transport authority, and using it doesn't submit anything to a consultation. Results are haere's own modelled estimate from public timetable data, not an official guarantee.
+
+You enter your home address and destinations, pick a proposed network change, and haere shows how your travel times change under that proposal compared to today.
+
+## Pages
+
+- [haere](https://haere.samarchie.com/): start here — pick a proposal and check your own addresses against it.

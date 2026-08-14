@@ -19,6 +19,7 @@ import {
   resolveHexRowIndex,
 } from "../data/hexLookup";
 import { type Manifest, fetchManifest } from "../data/manifest";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import { requireCityAndAnalysis } from "../state/wizardState";
@@ -124,6 +125,13 @@ export async function resolveOriginRouting(
 }
 
 export function Location() {
+  useDocumentHead({
+    title: "Add your addresses",
+    description:
+      "Add the addresses you travel between to see how this proposal changes your trips.",
+    path: "/location",
+    noindex: true,
+  });
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
   const ids = requireCityAndAnalysis(wizard);

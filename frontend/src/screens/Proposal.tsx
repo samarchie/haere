@@ -25,6 +25,7 @@ import {
   isConsultationOpen,
 } from "../data/manifest";
 import { renderMarkdownLite, stripMarkdownLite } from "../lib/markdownLite";
+import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";
 import type { WizardState } from "../state/wizardState";
@@ -171,6 +172,13 @@ export function switchAnalysis(
 }
 
 export function Proposal() {
+  useDocumentHead({
+    title: "Choose a proposal",
+    description:
+      "Pick which proposed transport network change to check against your own trips.",
+    path: "/proposal",
+    noindex: true,
+  });
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
   const [result, setResult] = useState<ProposalCardsResult | null>(null);
