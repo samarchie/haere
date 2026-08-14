@@ -360,7 +360,64 @@ describe("Results", () => {
     );
 
     await waitFor(() => screen.getByText("Consultation open"));
+    expect(
+      screen.getByText("Have your say on this proposal before it's decided."),
+    ).toBeInTheDocument();
     const cta = screen.getByRole("link", { name: /have your say/i });
     expect(cta).toHaveAttribute("href", "https://example.com/consultation");
+  });
+
+  it("shows closed-consultation copy and a neutral CTA when consultation has closed", async () => {
+    vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      analysis: {
+        id: "remove-135",
+        title: "Test proposal",
+        description: "",
+        consultation: {
+          closesAt: "2000-01-01T00:00:00Z",
+          url: "https://example.com/consultation",
+        },
+      },
+      hexagonResolution: 8,
+      hexCount: 1,
+      percentiles: [50],
+      encoding: {
+        dtype: "uint8",
+        bytesPerValue: 1,
+        byteOrder: "little",
+        unreachable: 255,
+      },
+      scenarios: [
+        {
+          calendarType: "weekday",
+          timeWindow: "am_peak",
+          start: "07:00",
+          end: "09:00",
+          variants: {
+            baseline: { "50": "am-baseline.bin" },
+            modified: { "50": "am-modified.bin" },
+          },
+        },
+      ],
+    });
+
+    render(
+      <WizardStateProvider>
+        <Results />
+      </WizardStateProvider>,
+    );
+
+    await waitFor(() => screen.getByText("Consultation closed"));
+    expect(
+      screen.getByText("Consultation on this proposal has closed."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Have your say on this proposal before it's decided."),
+    ).not.toBeInTheDocument();
+    const cta = screen.getByRole("link", { name: /see the proposal/i });
+    expect(cta).toHaveAttribute("href", "https://example.com/consultation");
+    expect(
+      screen.queryByRole("link", { name: /^have your say/i }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -576,30 +576,38 @@ export function Results() {
         })()}
       </div>
 
-      {manifest.analysis.consultation?.url && (
-        <div className="mt-4 rounded-lg bg-kotare-navy p-4 shadow-md shadow-kotare-navy/25">
-          <div className="mb-1 flex items-center gap-2">
-            <Megaphone className="h-4 w-4 text-white" />
-            <p className="text-[13px] font-extrabold text-white">
-              {isConsultationOpen(manifest.analysis.consultation)
-                ? "Consultation open"
-                : "Consultation closed"}
-            </p>
-          </div>
-          <p className="mb-3 text-[11.5px] text-white/85">
-            Have your say on this proposal before it's decided.
-          </p>
-          <a
-            href={manifest.analysis.consultation.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-white text-[12.5px] font-extrabold text-kotare-navy"
-          >
-            Have your say
-            <ArrowUpRight className="h-4 w-4" />
-          </a>
-        </div>
-      )}
+      {manifest.analysis.consultation?.url &&
+        (() => {
+          const consultationOpen = isConsultationOpen(
+            manifest.analysis.consultation,
+          );
+          return (
+            <div className="mt-4 rounded-lg bg-kotare-navy p-4 shadow-md shadow-kotare-navy/25">
+              <div className="mb-1 flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-white" />
+                <p className="text-[13px] font-extrabold text-white">
+                  {consultationOpen
+                    ? "Consultation open"
+                    : "Consultation closed"}
+                </p>
+              </div>
+              <p className="mb-3 text-[11.5px] text-white/85">
+                {consultationOpen
+                  ? "Have your say on this proposal before it's decided."
+                  : "Consultation on this proposal has closed."}
+              </p>
+              <a
+                href={manifest.analysis.consultation.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-white text-[12.5px] font-extrabold text-kotare-navy"
+              >
+                {consultationOpen ? "Have your say" : "See the proposal"}
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </div>
+          );
+        })()}
 
       <div className="mt-4 flex gap-2">
         <Button variant="outline" onClick={backToLocation}>
