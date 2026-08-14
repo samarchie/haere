@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { WizardShell } from "../components/WizardShell";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { fetchAnalyses, filterByCity } from "../data/analysisCatalogue";
 import type { GeocodeResult } from "../data/geocode";
 import {
@@ -30,6 +31,7 @@ export interface FieldRow {
   status: FieldStatus;
   point: GeocodeResult | null;
   searchIssue: SearchIssue;
+  labelInput: string;
 }
 
 let nextRowId = 0;
@@ -41,6 +43,7 @@ export function emptyFieldRow(): FieldRow {
     status: "idle",
     point: null,
     searchIssue: "none",
+    labelInput: "",
   };
 }
 
@@ -130,6 +133,7 @@ export function Location() {
             label: wizard.origin.address,
           },
           searchIssue: "none",
+          labelInput: "",
         }
       : emptyFieldRow();
     const destinationRows: FieldRow[] = wizard.destinations.map((d) => ({
@@ -138,6 +142,10 @@ export function Location() {
       status: "resolved" as const,
       point: { lat: d.lat, lng: d.lng, label: d.address },
       searchIssue: "none",
+      // A saved label equal to the address was never a real nickname — it
+      // was just the address-fallback from a previous save — so the input
+      // reopens empty rather than showing the address back to the user.
+      labelInput: d.label === d.address ? "" : d.label,
     }));
     if (
       search.get("addDestination") === "1" &&
@@ -174,13 +182,12 @@ export function Location() {
   useEffect(() => {
     const timer = setTimeout(() => {
       const resolvedDestinations = destinations
-        .map((d, i) => ({ ...d, label: `Destination ${i + 1}` }))
         .filter(
-          (d): d is FieldRow & { point: GeocodeResult; label: string } =>
+          (d): d is FieldRow & { point: GeocodeResult } =>
             d.status !== "outside-area" && d.point !== null,
         )
         .map((d) => ({
-          label: d.label,
+          label: d.labelInput.trim() || d.point.label,
           address: d.point.label,
           lat: d.point.lat,
           lng: d.point.lng,
@@ -293,6 +300,10 @@ export function Location() {
     }));
   }
 
+  function handleLabelChange(rowId: number, value: string) {
+    updateRow(rowId, (row) => ({ ...row, labelInput: value }));
+  }
+
   function handleEdit(rowId: number) {
     updateRow(rowId, (row) => ({ ...row, status: "idle" }));
   }
@@ -362,6 +373,23 @@ export function Location() {
   function renderEditingRow(row: FieldRow, label: string, isOrigin: boolean) {
     return (
       <div key={row.id} className="mb-4">
+        {!isOrigin && (
+          <div className="mb-2">
+            <label
+              htmlFor={`field-${row.id}-label`}
+              className="mb-1 block text-[10px] font-medium text-ink-soft"
+            >
+              Label (optional)
+            </label>
+            <Input
+              id={`field-${row.id}-label`}
+              className="h-9 text-[12.5px]"
+              placeholder="e.g. Work"
+              value={row.labelInput}
+              onChange={(e) => handleLabelChange(row.id, e.target.value)}
+            />
+          </div>
+        )}
         <AddressAutocomplete
           id={`field-${row.id}`}
           label={label}

@@ -1,4 +1,10 @@
-import { ArrowUpRight, Megaphone, Repeat, Share } from "lucide-react";
+import {
+  ArrowUpRight,
+  ChevronDown,
+  Megaphone,
+  Repeat,
+  Share,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
 import { WizardShell } from "../components/WizardShell";
@@ -125,6 +131,20 @@ export function formatDelta(
   return { text: `${sign}${delta} min · ${tone}`, tone };
 }
 
+export function formatHeadline(changedCount: number, total: number): string {
+  if (total === 1) {
+    return changedCount === 1
+      ? "Your trip changes under this proposal."
+      : "Your trip doesn't change under this proposal.";
+  }
+  if (changedCount === 0)
+    return "None of your trips change under this proposal.";
+  if (changedCount === total)
+    return "All of your trips change under this proposal.";
+  const verb = changedCount === 1 ? "changes" : "change";
+  return `${changedCount} of your ${total} trips ${verb} under this proposal.`;
+}
+
 const TONE_TO_BADGE: Record<"better" | "worse" | "none", BadgeTone> = {
   better: "teal",
   worse: "brown",
@@ -237,7 +257,7 @@ function buildVerdictRows(
   });
 }
 
-function shareResults(): void {
+function shareResults(onCopied: () => void): void {
   const shareData = { title: "haere", url: location.href };
   const nav = navigator as Navigator & {
     share?: (data: typeof shareData) => Promise<void>;
@@ -245,7 +265,7 @@ function shareResults(): void {
   if (nav.share) {
     nav.share(shareData).catch(() => {});
   } else {
-    navigator.clipboard.writeText(location.href).catch(() => {});
+    navigator.clipboard.writeText(location.href).then(onCopied, () => {});
   }
 }
 
@@ -274,6 +294,19 @@ export function Results() {
     timeWindow: string;
   } | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [expandedDestinations, setExpandedDestinations] = useState<Set<string>>(
+    new Set(),
+  );
+
+  function toggleExpanded(label: string) {
+    setExpandedDestinations((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   const encoded = search.get("r");
   const {
@@ -469,29 +502,19 @@ export function Results() {
 
   return (
     <WizardShell step={3} title="Your results">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="truncate text-[11.5px] font-semibold text-ink-soft">
-          <span className="text-ink-faint">
-            {state.data.analysis?.cityName ?? payload.cityId} ·{" "}
-          </span>
-          {manifest.analysis.title}
-        </div>
-        <button
-          type="button"
-          disabled
-          className="inline-flex flex-shrink-0 items-center gap-1 text-[10.5px] font-bold text-kotare-blue disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Repeat className="h-3 w-3" />
-          Switch proposal
-        </button>
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+        Selected proposal
       </div>
 
-      <h3 className="mb-3 text-[13.5px] font-bold text-ink">
-        {changedCount} of {verdictRows.length} of your trips change under this
-        proposal.
+      <p className="mb-1 truncate text-[15px] sm:text-[17px] font-bold tracking-[-0.01em] text-ink">
+        {manifest.analysis.title}
+      </p>
+
+      <h3 className="mb-4 text-[22px] sm:text-[26px] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink">
+        {formatHeadline(changedCount, verdictRows.length)}
       </h3>
 
-      <div className="mb-3 border-b border-kotare-grey/50 pb-3">
+      <div className="mb-4 border-b border-kotare-grey/50 pb-4">
         <div className="flex flex-col items-start gap-3">
           <div>
             <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">
@@ -547,6 +570,10 @@ export function Results() {
         </div>
       </div>
 
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">
+        Your trips
+      </div>
+
       <div className="flex flex-col divide-y divide-kotare-grey/60">
         {(() => {
           const axisMaxMinutes = computeAxisMaxMinutes(
@@ -555,43 +582,68 @@ export function Results() {
               modified,
             ]),
           );
-          return verdictRows.map(
-            ({ destination, baseline, modified, delta }, index) => {
-              const { text, tone } = formatDelta(delta, baseline, modified);
-              const hasChart = baseline.mid !== null && modified.mid !== null;
-              return (
-                <div key={destination.label} className="py-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <strong className="text-[13.5px] font-bold text-ink">
-                      {destination.label}
-                    </strong>
-                    <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
-                  </div>
-                  <p className="mb-2 text-[11.5px] leading-snug text-ink-soft">
-                    {formatArrow(baseline, modified, delta)}
-                  </p>
-                  {hasChart ? (
-                    <DumbbellChart
-                      todayMinutes={baseline.mid as number}
-                      afterMinutes={
-                        delta === 0
-                          ? (baseline.mid as number)
-                          : (modified.mid as number)
-                      }
-                      axisMaxMinutes={axisMaxMinutes}
-                      tone={TONE_TO_DUMBBELL[tone]}
-                      staggerIndex={index}
-                    />
-                  ) : (
-                    <div className="flex h-4 items-center justify-center rounded-full border border-dashed border-ink-faint/60">
-                      <span className="whitespace-nowrap bg-surface-card px-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
-                        no route found
-                      </span>
+          return (
+            <>
+              {verdictRows.map(
+                ({ destination, baseline, modified, delta }, index) => {
+                  const { text, tone } = formatDelta(delta, baseline, modified);
+                  const hasChart =
+                    baseline.mid !== null && modified.mid !== null;
+                  const expanded = expandedDestinations.has(destination.label);
+                  const detailId = `destination-detail-${index}`;
+                  return (
+                    <div key={destination.label} className="py-3">
+                      <button
+                        type="button"
+                        aria-expanded={expanded}
+                        aria-controls={detailId}
+                        onClick={() => toggleExpanded(destination.label)}
+                        className="mb-2 flex w-full items-center justify-between gap-2 text-left"
+                      >
+                        <strong className="text-[13.5px] font-bold text-ink">
+                          {destination.label}
+                        </strong>
+                        <div className="flex flex-shrink-0 items-center gap-1.5">
+                          <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 text-ink-faint transition-transform duration-150 ${
+                              expanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+                      {hasChart ? (
+                        <DumbbellChart
+                          todayMinutes={baseline.mid as number}
+                          afterMinutes={
+                            delta === 0
+                              ? (baseline.mid as number)
+                              : (modified.mid as number)
+                          }
+                          axisMaxMinutes={axisMaxMinutes}
+                          tone={TONE_TO_DUMBBELL[tone]}
+                          staggerIndex={index}
+                        />
+                      ) : (
+                        <div className="flex h-4 items-center justify-center rounded-full border border-dashed border-ink-faint/60">
+                          <span className="whitespace-nowrap bg-surface-card px-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
+                            no route found
+                          </span>
+                        </div>
+                      )}
+                      {expanded && (
+                        <p
+                          id={detailId}
+                          className="mt-2 text-[11.5px] leading-snug text-ink-soft"
+                        >
+                          {formatArrow(baseline, modified, delta)}
+                        </p>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            },
+                  );
+                },
+              )}
+            </>
           );
         })()}
       </div>
@@ -601,20 +653,37 @@ export function Results() {
           const consultationOpen = isConsultationOpen(
             manifest.analysis.consultation,
           );
+          if (!consultationOpen) {
+            return (
+              <div className="mt-4 rounded-lg border border-kotare-grey/70 bg-surface-card p-4">
+                <p className="mb-1 text-[13px] font-extrabold text-ink-soft">
+                  Consultation closed
+                </p>
+                <p className="mb-2 text-[11.5px] text-ink-faint">
+                  Consultation on this proposal has closed.
+                </p>
+                <a
+                  href={manifest.analysis.consultation.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="sd-focus inline-flex items-center gap-1 text-[11.5px] font-bold text-kotare-blue"
+                >
+                  See the proposal
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            );
+          }
           return (
             <div className="mt-4 rounded-lg bg-kotare-navy p-4 shadow-md shadow-kotare-navy/25">
               <div className="mb-1 flex items-center gap-2">
                 <Megaphone className="h-4 w-4 text-white" />
                 <p className="text-[13px] font-extrabold text-white">
-                  {consultationOpen
-                    ? "Consultation open"
-                    : "Consultation closed"}
+                  Consultation open
                 </p>
               </div>
               <p className="mb-3 text-[11.5px] text-white/85">
-                {consultationOpen
-                  ? "Have your say on this proposal before it's decided."
-                  : "Consultation on this proposal has closed."}
+                Have your say on this proposal before it's decided.
               </p>
               <a
                 href={manifest.analysis.consultation.url}
@@ -622,20 +691,41 @@ export function Results() {
                 rel="noreferrer noopener"
                 className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-white text-[12.5px] font-extrabold text-kotare-navy"
               >
-                {consultationOpen ? "Have your say" : "See the proposal"}
+                Have your say
                 <ArrowUpRight className="h-4 w-4" />
               </a>
             </div>
           );
         })()}
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="outline" onClick={backToLocation}>
           ← Back
         </Button>
-        <Button variant="outline" onClick={shareResults}>
+        <Button
+          variant="outline"
+          onClick={() =>
+            shareResults(() => {
+              setLinkCopied(true);
+              setTimeout(() => setLinkCopied(false), 2000);
+            })
+          }
+        >
           <Share className="h-3.5 w-3.5" />
-          Share
+          {linkCopied ? "Link copied!" : "Share"}
+        </Button>
+        <Button
+          variant="outline"
+          className="ml-auto"
+          onClick={() =>
+            navigate(
+              "proposal",
+              `?switch=1&city=${encodeURIComponent(payload.cityId)}`,
+            )
+          }
+        >
+          <Repeat className="h-3.5 w-3.5" />
+          Switch proposal
         </Button>
       </div>
     </WizardShell>

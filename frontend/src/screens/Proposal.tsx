@@ -1,4 +1,4 @@
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, ChevronLeft, Repeat, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
@@ -150,6 +150,20 @@ export function selectAnalysis(
   return { ...emptyWizardState(), cityId, analysisId, origin: state.origin };
 }
 
+// Switching proposals from Results changes nothing about the visitor's own
+// trip — same origin, same destinations — so only the proposal itself and
+// its (now stale) scenario reset; unlike selectAnalysis, nothing is thrown away.
+export function switchAnalysis(
+  state: WizardState,
+  cityId: string,
+  analysisId: string,
+): WizardState {
+  if (state.cityId === cityId && state.analysisId === analysisId) {
+    return state;
+  }
+  return { ...state, cityId, analysisId, scenario: null };
+}
+
 export function Proposal() {
   const { wizard, setWizard } = useWizardState();
   const search = useSearchParams();
@@ -196,8 +210,16 @@ export function Proposal() {
   }
 
   const { cards, failedCount } = result;
+  const isSwitching = search.get("switch") === "1";
   const rawCity = search.get("city");
-  const cityId = rawCity === null ? wizard.cityId : rawCity || null;
+  // Switching proposals keeps the visitor's saved origin, which was only
+  // ever resolved against their current city's hex grid — so the city
+  // filter is locked to it rather than left open to the URL/"all cities".
+  const cityId = isSwitching
+    ? (wizard.cityId ?? rawCity ?? null)
+    : rawCity === null
+      ? wizard.cityId
+      : rawCity || null;
   const reason = search.get("reason");
   const shown = filterByCity(cards, cityId);
   const cities = cityOptions(cards);
@@ -205,7 +227,22 @@ export function Proposal() {
   const banner = bannerDismissed ? null : bannerFor(reason, cityName);
 
   return (
-    <WizardShell step={1} title="Choose a proposal">
+    <WizardShell
+      step={isSwitching ? null : 1}
+      title="Choose a proposal"
+      headerAction={
+        isSwitching && (
+          <button
+            type="button"
+            className="sd-focus inline-flex flex-shrink-0 items-center gap-1 text-[11.5px] font-medium text-ink-soft hover:text-ink"
+            onClick={() => navigate("results")}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Back to results
+          </button>
+        )
+      }
+    >
       {failedCount > 0 && (
         <Alert className="mb-4">
           {failedCount === 1
@@ -213,7 +250,16 @@ export function Proposal() {
             : `${failedCount} interventions couldn't be loaded and aren't shown below.`}
         </Alert>
       )}
-      {banner && (
+      {isSwitching && (
+        <div className="mb-4 flex items-start gap-2 rounded-md border border-kotare-blue/30 bg-kotare-blue/[0.05] p-3">
+          <Repeat className="mt-0.5 h-4 w-4 flex-shrink-0 text-kotare-blue" />
+          <div className="text-[11.5px] leading-snug text-ink-soft">
+            Your address, destinations and travel times are saved — pick another
+            proposal to see how it compares. Nothing to re-enter.
+          </div>
+        </div>
+      )}
+      {!isSwitching && banner && (
         <div className="mb-4 flex items-start gap-2 rounded-md border border-kotare-grey bg-kotare-grey/10 p-3">
           <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-ink-soft" />
           <div className="flex-1">
@@ -247,60 +293,101 @@ export function Proposal() {
           )
         }
         options={[
-          { value: ALL_CITIES, label: "All cities" },
-          ...cities.map((c) => ({ value: c.id, label: c.name })),
+          { value: ALL_CITIES, label: "All cities", disabled: isSwitching },
+          ...cities.map((c) => ({
+            value: c.id,
+            label: c.name,
+            disabled: isSwitching && c.id !== cityId,
+          })),
         ]}
       />
+      {isSwitching && (
+        <p className="mt-1.5 text-[11px] text-ink-faint">
+          Locked to {cityName} — your saved address is only checked against this
+          city's proposals.
+        </p>
+      )}
 
       <div
         ref={cardsContainerRef}
         className="mt-5 flex flex-col gap-3"
         style={{ minHeight: cardsMinHeight || undefined }}
       >
-        {shown.map((a) => (
-          <Card key={a.analysisId}>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
-                {a.cityName}
-              </span>
-              {a.consultation &&
-                (isConsultationOpen(a.consultation) ? (
-                  <Badge tone="blue">
-                    Consultation closes{" "}
-                    {formatConsultationClose(a.consultation.closesAt)}
-                  </Badge>
-                ) : (
-                  <Badge tone="blue">Consultation closed</Badge>
-                ))}
-            </div>
-            <h4 className="mb-1.5 text-[15px] font-bold text-ink">{a.title}</h4>
-            <ProposalDescription
-              description={a.description}
-              imageBase={`${DATA_BASE_URL}/${a.cityId}/${a.analysisId}`}
-            />
-            <div className="flex gap-2">
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  setWizard(selectAnalysis(wizard, a.cityId, a.analysisId));
-                  navigate("location");
-                }}
-              >
-                Select this proposal
-              </Button>
-              {a.consultation?.url && (
-                <a
-                  href={a.consultation.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="sd-focus flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border-2 border-kotare-blue text-[12.5px] font-bold text-kotare-blue hover:bg-kotare-blue/[0.06]"
-                >
-                  Learn more
-                </a>
+        {shown.map((a) => {
+          const isCurrent =
+            isSwitching &&
+            wizard.cityId === a.cityId &&
+            wizard.analysisId === a.analysisId;
+          return (
+            <Card
+              key={a.analysisId}
+              className={
+                isCurrent
+                  ? "border-2 border-kotare-navy bg-kotare-navy/[0.03]"
+                  : undefined
+              }
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <span className="font-mono text-[10px] uppercase tracking-wide text-ink-soft">
+                  {a.cityName}
+                </span>
+                {isCurrent && <Badge tone="grey">Current</Badge>}
+                {a.consultation &&
+                  (isConsultationOpen(a.consultation) ? (
+                    <Badge tone="blue">
+                      Consultation closes{" "}
+                      {formatConsultationClose(a.consultation.closesAt)}
+                    </Badge>
+                  ) : (
+                    <Badge tone="blue">Consultation closed</Badge>
+                  ))}
+              </div>
+              <h4 className="mb-1.5 text-[15px] font-bold text-ink">
+                {a.title}
+              </h4>
+              <ProposalDescription
+                description={a.description}
+                imageBase={`${DATA_BASE_URL}/${a.cityId}/${a.analysisId}`}
+              />
+              {isCurrent ? (
+                <p className="text-[11.5px] text-ink-soft">
+                  You're viewing results for this proposal now.
+                </p>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      if (isSwitching) {
+                        setWizard(
+                          switchAnalysis(wizard, a.cityId, a.analysisId),
+                        );
+                        navigate("results");
+                      } else {
+                        setWizard(
+                          selectAnalysis(wizard, a.cityId, a.analysisId),
+                        );
+                        navigate("location");
+                      }
+                    }}
+                  >
+                    Select this proposal
+                  </Button>
+                  {a.consultation?.url && (
+                    <a
+                      href={a.consultation.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="sd-focus flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border-2 border-kotare-blue text-[12.5px] font-bold text-kotare-blue hover:bg-kotare-blue/[0.06]"
+                    >
+                      Learn more
+                    </a>
+                  )}
+                </div>
               )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
       <p className="mt-4 text-[12px] text-ink-soft">

@@ -57,8 +57,9 @@ export function DumbbellChart({
   const connectorWidth = `${Math.abs(effectiveAfterPct - todayPct)}%`;
 
   return (
-    <div>
-      <div className="relative h-4">
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-[10px] text-ink-faint">0</span>
+      <div className="relative h-4 flex-1">
         <div className="absolute top-1/2 -translate-y-1/2 h-2 w-full rounded-full bg-kotare-grey/40" />
         <div
           className={cn(
@@ -88,14 +89,9 @@ export function DumbbellChart({
           }}
         />
       </div>
-      <div className="relative h-3 mt-0.5">
-        <span className="font-mono text-[10px] text-ink-faint absolute left-0">
-          0
-        </span>
-        <span className="font-mono text-[10px] text-ink-faint absolute right-0">
-          {axisMaxMinutes} min
-        </span>
-      </div>
+      <span className="font-mono text-[10px] text-ink-faint">
+        {axisMaxMinutes} min
+      </span>
     </div>
   );
 }
