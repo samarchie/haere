@@ -1,6 +1,7 @@
 import { useScreen } from "./router";
 import { Landing } from "./screens/Landing";
 import { Location } from "./screens/Location";
+import { NotFound } from "./screens/NotFound";
 import { Proposal } from "./screens/Proposal";
 import { Results } from "./screens/Results";
 import { WizardStateProvider } from "./state/WizardStateContext";
@@ -16,6 +17,8 @@ function Screens() {
       return <Location />;
     case "results":
       return <Results />;
+    case "not-found":
+      return <NotFound />;
   }
 }
 

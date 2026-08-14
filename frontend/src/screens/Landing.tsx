@@ -338,7 +338,7 @@ export function Landing() {
                   />
                 </div>
                 <Button onClick={handleCheck} disabled={checking}>
-                  Check
+                  Check <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
               {checkError && (

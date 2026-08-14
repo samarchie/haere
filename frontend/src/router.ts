@@ -1,7 +1,12 @@
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 
-export type Screen = "landing" | "proposal" | "location" | "results";
+export type Screen =
+  | "landing"
+  | "proposal"
+  | "location"
+  | "results"
+  | "not-found";
 
 const PATH_TO_SCREEN: Record<string, Screen> = {
   "/": "landing",
@@ -15,10 +20,11 @@ const SCREEN_TO_PATH: Record<Screen, string> = {
   proposal: "/proposal",
   location: "/location",
   results: "/results",
+  "not-found": "/404",
 };
 
 export function currentScreen(): Screen {
-  return PATH_TO_SCREEN[window.location.pathname] ?? "landing";
+  return PATH_TO_SCREEN[window.location.pathname] ?? "not-found";
 }
 
 function goTo(path: string): void {
