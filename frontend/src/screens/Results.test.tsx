@@ -241,9 +241,7 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() =>
-      screen.getByText("10 min today → 15 min after.", { exact: false }),
-    );
+    await waitFor(() => screen.getByText("Work"));
     // baseline/modified mid values are 10 and 15 here, so the shared axis
     // rounds the larger one (15) up to the nearest 10 → 20, not a hardcoded 50.
     expect(screen.getByText("20 min")).toBeInTheDocument();
@@ -261,13 +259,10 @@ describe("Results", () => {
 
     fireEvent.click(screen.getByText("PM peak"));
 
-    await waitFor(() =>
-      screen.getByText("20 min today → 20 min after.", { exact: false }),
-    );
+    await waitFor(() => screen.getByText("No change"));
     // Both sides are 20 here too, so the axis stays at 20 — proving it's
     // recomputed per render, not left over from the previous scenario.
     expect(screen.getByText("20 min")).toBeInTheDocument();
-    expect(screen.getByText("No change")).toBeInTheDocument();
   });
 
   it("restores wizard state on Back when arriving via a shared results link with no local wizard state", async () => {
@@ -295,9 +290,7 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() =>
-      screen.getByText("10 min today → 15 min after.", { exact: false }),
-    );
+    await waitFor(() => screen.getByText("Work"));
 
     fireEvent.click(screen.getByText("← Back"));
 
@@ -317,9 +310,7 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() =>
-      screen.getByText("10 min today → 15 min after.", { exact: false }),
-    );
+    await waitFor(() => screen.getByText("Work"));
 
     await waitFor(() => expect(appendSpy).toHaveBeenCalledOnce());
     expect(appendSpy).toHaveBeenCalledWith(

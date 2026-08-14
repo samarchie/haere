@@ -1,4 +1,10 @@
-import { ArrowUpRight, Megaphone, Repeat, Share } from "lucide-react";
+import {
+  ArrowUpRight,
+  ChevronDown,
+  Megaphone,
+  Repeat,
+  Share,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
 import { WizardShell } from "../components/WizardShell";
@@ -274,6 +280,18 @@ export function Results() {
     timeWindow: string;
   } | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [expandedDestinations, setExpandedDestinations] = useState<Set<string>>(
+    new Set(),
+  );
+
+  function toggleExpanded(label: string) {
+    setExpandedDestinations((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   const encoded = search.get("r");
   const {
@@ -555,43 +573,68 @@ export function Results() {
               modified,
             ]),
           );
-          return verdictRows.map(
-            ({ destination, baseline, modified, delta }, index) => {
-              const { text, tone } = formatDelta(delta, baseline, modified);
-              const hasChart = baseline.mid !== null && modified.mid !== null;
-              return (
-                <div key={destination.label} className="py-3">
-                  <div className="mb-1 flex items-center justify-between">
-                    <strong className="text-[13.5px] font-bold text-ink">
-                      {destination.label}
-                    </strong>
-                    <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
-                  </div>
-                  <p className="mb-2 text-[11.5px] leading-snug text-ink-soft">
-                    {formatArrow(baseline, modified, delta)}
-                  </p>
-                  {hasChart ? (
-                    <DumbbellChart
-                      todayMinutes={baseline.mid as number}
-                      afterMinutes={
-                        delta === 0
-                          ? (baseline.mid as number)
-                          : (modified.mid as number)
-                      }
-                      axisMaxMinutes={axisMaxMinutes}
-                      tone={TONE_TO_DUMBBELL[tone]}
-                      staggerIndex={index}
-                    />
-                  ) : (
-                    <div className="flex h-4 items-center justify-center rounded-full border border-dashed border-ink-faint/60">
-                      <span className="whitespace-nowrap bg-surface-card px-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
-                        no route found
-                      </span>
+          return (
+            <>
+              {verdictRows.map(
+                ({ destination, baseline, modified, delta }, index) => {
+                  const { text, tone } = formatDelta(delta, baseline, modified);
+                  const hasChart =
+                    baseline.mid !== null && modified.mid !== null;
+                  const expanded = expandedDestinations.has(destination.label);
+                  const detailId = `destination-detail-${index}`;
+                  return (
+                    <div key={destination.label} className="py-3">
+                      <button
+                        type="button"
+                        aria-expanded={expanded}
+                        aria-controls={detailId}
+                        onClick={() => toggleExpanded(destination.label)}
+                        className="mb-2 flex w-full items-center justify-between gap-2 text-left"
+                      >
+                        <strong className="text-[13.5px] font-bold text-ink">
+                          {destination.label}
+                        </strong>
+                        <div className="flex flex-shrink-0 items-center gap-1.5">
+                          <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 text-ink-faint transition-transform duration-150 ${
+                              expanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      </button>
+                      {hasChart ? (
+                        <DumbbellChart
+                          todayMinutes={baseline.mid as number}
+                          afterMinutes={
+                            delta === 0
+                              ? (baseline.mid as number)
+                              : (modified.mid as number)
+                          }
+                          axisMaxMinutes={axisMaxMinutes}
+                          tone={TONE_TO_DUMBBELL[tone]}
+                          staggerIndex={index}
+                        />
+                      ) : (
+                        <div className="flex h-4 items-center justify-center rounded-full border border-dashed border-ink-faint/60">
+                          <span className="whitespace-nowrap bg-surface-card px-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
+                            no route found
+                          </span>
+                        </div>
+                      )}
+                      {expanded && (
+                        <p
+                          id={detailId}
+                          className="mt-2 text-[11.5px] leading-snug text-ink-soft"
+                        >
+                          {formatArrow(baseline, modified, delta)}
+                        </p>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            },
+                  );
+                },
+              )}
+            </>
           );
         })()}
       </div>
