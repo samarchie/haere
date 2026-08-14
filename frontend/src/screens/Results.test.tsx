@@ -4,6 +4,7 @@ import * as analysisCatalogue from "../data/analysisCatalogue";
 import * as hexLookup from "../data/hexLookup";
 import * as manifestData from "../data/manifest";
 import * as travelTimes from "../data/travelTimes";
+import * as router from "../router";
 import { useScreen } from "../router";
 import { WizardStateProvider } from "../state/WizardStateContext";
 import * as resultsHistory from "../state/resultsHistory";
@@ -16,6 +17,7 @@ import {
   deltaFor,
   formatArrow,
   formatDelta,
+  formatHeadline,
   readPercentileMinutes,
 } from "./Results";
 
@@ -124,6 +126,39 @@ describe("formatArrow", () => {
         0,
       ),
     ).toBe("10 min today → 10 min after.");
+  });
+});
+
+describe("formatHeadline", () => {
+  it("says none for zero changes across multiple trips", () => {
+    expect(formatHeadline(0, 5)).toBe(
+      "None of your trips change under this proposal.",
+    );
+  });
+
+  it("says all when every trip changes", () => {
+    expect(formatHeadline(5, 5)).toBe(
+      "All of your trips change under this proposal.",
+    );
+  });
+
+  it("uses singular verb agreement for exactly one changed trip", () => {
+    expect(formatHeadline(1, 5)).toBe(
+      "1 of your 5 trips changes under this proposal.",
+    );
+  });
+
+  it("uses plural for several changed trips", () => {
+    expect(formatHeadline(3, 5)).toBe(
+      "3 of your 5 trips change under this proposal.",
+    );
+  });
+
+  it("special-cases a single destination", () => {
+    expect(formatHeadline(0, 1)).toBe(
+      "Your trip doesn't change under this proposal.",
+    );
+    expect(formatHeadline(1, 1)).toBe("Your trip changes under this proposal.");
   });
 });
 
@@ -245,13 +280,10 @@ describe("Results", () => {
     // baseline/modified mid values are 10 and 15 here, so the shared axis
     // rounds the larger one (15) up to the nearest 10 → 20, not a hardcoded 50.
     expect(screen.getByText("20 min")).toBeInTheDocument();
+    expect(screen.getByText("Selected proposal")).toBeInTheDocument();
+    expect(screen.getByText("Test proposal")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        (_, node) => node?.textContent === "christchurch · Test proposal",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("1 of 1 of your trips change under this proposal."),
+      screen.getByText("Your trip changes under this proposal."),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByText("PM peak"));
 
@@ -259,6 +291,23 @@ describe("Results", () => {
     // Both sides are 20 here too, so the axis stays at 20 — proving it's
     // recomputed per render, not left over from the previous scenario.
     expect(screen.getByText("20 min")).toBeInTheDocument();
+  });
+
+  it("navigates to the proposal picker locked to the current city when switching", async () => {
+    const navigateSpy = vi.spyOn(router, "navigate");
+    render(
+      <WizardStateProvider>
+        <Results />
+      </WizardStateProvider>,
+    );
+
+    await waitFor(() => screen.getByText("Work"));
+    fireEvent.click(screen.getByText("Switch proposal"));
+
+    expect(navigateSpy).toHaveBeenCalledWith(
+      "proposal",
+      "?switch=1&city=christchurch",
+    );
   });
 
   it("restores wizard state on Back when arriving via a shared results link with no local wizard state", async () => {
@@ -420,12 +469,18 @@ describe("Results", () => {
     ).not.toBeInTheDocument();
     const cta = screen.getByRole("link", { name: /see the proposal/i });
     expect(cta).toHaveAttribute("href", "https://example.com/consultation");
+    // A closed consultation has no action left to take, so it must not be
+    // styled as a CTA: no navy fill/button-lift shadow, no button-shaped link.
+    expect(cta.className).not.toMatch(/bg-white|h-9|w-full/);
+    const banner = cta.closest("div");
+    expect(banner?.className).not.toMatch(/bg-kotare-navy/);
     expect(
       screen.queryByRole("link", { name: /^have your say/i }),
     ).not.toBeInTheDocument();
   });
 
   it("matches the proposal identity by cityId AND analysisId, not analysisId alone", async () => {
+    const appendSpy = vi.spyOn(resultsHistory, "appendHistoryEntry");
     vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([
       {
         cityId: "auckland",
@@ -456,17 +511,11 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
+    await waitFor(() => screen.getByText("Test proposal"));
     await waitFor(() =>
-      expect(
-        screen.getByText(
-          (_, node) => node?.textContent === "Canterbury · Test proposal",
-        ),
-      ).toBeInTheDocument(),
-    );
-    expect(
-      screen.queryByText(
-        (_, node) => node?.textContent === "Auckland · Test proposal",
+      expect(appendSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ cityName: "Canterbury" }),
       ),
-    ).not.toBeInTheDocument();
+    );
   });
 });

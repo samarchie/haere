@@ -245,5 +245,47 @@ describe("Proposal", () => {
         { label: "Work", address: "y", lat: 2, lng: 2 },
       ]);
     });
+
+    it("locks the city filter to the visitor's own city, ignoring the URL's city param", async () => {
+      // The URL asks for Auckland, but the visitor's saved trip is in
+      // Christchurch — the lock must win over whatever the URL says.
+      window.history.replaceState(null, "", "/proposal?switch=1&city=auckland");
+      vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([
+        {
+          cityId: "christchurch",
+          cityName: "Christchurch",
+          analysisId: "remove-135",
+        },
+        {
+          cityId: "auckland",
+          cityName: "Auckland",
+          analysisId: "network-review",
+        },
+      ]);
+      localStorage.setItem(
+        "haere.wizardState",
+        JSON.stringify({
+          ...emptyWizardState(),
+          cityId: "christchurch",
+          analysisId: "remove-135",
+          origin: { address: "x", lat: 1, lng: 1 },
+        }),
+      );
+
+      render(
+        <WizardStateProvider>
+          <Proposal />
+        </WizardStateProvider>,
+      );
+
+      await waitFor(() => screen.getByText("Remove Route 135"));
+      expect(
+        screen.getByRole("radio", { name: "Christchurch" }),
+      ).toHaveAttribute("data-state", "on");
+      expect(screen.getByRole("radio", { name: "All cities" })).toBeDisabled();
+      expect(screen.getByRole("radio", { name: "Auckland" })).toBeDisabled();
+      expect(screen.queryByText("Network review")).not.toBeInTheDocument();
+      expect(screen.getByText(/Locked to Christchurch/)).toBeInTheDocument();
+    });
   });
 });

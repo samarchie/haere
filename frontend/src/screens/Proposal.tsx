@@ -212,7 +212,14 @@ export function Proposal() {
   const { cards, failedCount } = result;
   const isSwitching = search.get("switch") === "1";
   const rawCity = search.get("city");
-  const cityId = rawCity === null ? wizard.cityId : rawCity || null;
+  // Switching proposals keeps the visitor's saved origin, which was only
+  // ever resolved against their current city's hex grid — so the city
+  // filter is locked to it rather than left open to the URL/"all cities".
+  const cityId = isSwitching
+    ? wizard.cityId
+    : rawCity === null
+      ? wizard.cityId
+      : rawCity || null;
   const reason = search.get("reason");
   const shown = filterByCity(cards, cityId);
   const cities = cityOptions(cards);
@@ -286,10 +293,20 @@ export function Proposal() {
           )
         }
         options={[
-          { value: ALL_CITIES, label: "All cities" },
-          ...cities.map((c) => ({ value: c.id, label: c.name })),
+          { value: ALL_CITIES, label: "All cities", disabled: isSwitching },
+          ...cities.map((c) => ({
+            value: c.id,
+            label: c.name,
+            disabled: isSwitching && c.id !== cityId,
+          })),
         ]}
       />
+      {isSwitching && (
+        <p className="mt-1.5 text-[11px] text-ink-faint">
+          Locked to {cityName} — your saved address is only checked against this
+          city's proposals.
+        </p>
+      )}
 
       <div
         ref={cardsContainerRef}
