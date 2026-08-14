@@ -216,7 +216,7 @@ export function Proposal() {
   // ever resolved against their current city's hex grid — so the city
   // filter is locked to it rather than left open to the URL/"all cities".
   const cityId = isSwitching
-    ? wizard.cityId
+    ? (wizard.cityId ?? rawCity ?? null)
     : rawCity === null
       ? wizard.cityId
       : rawCity || null;
