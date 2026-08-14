@@ -420,4 +420,49 @@ describe("Results", () => {
       screen.queryByRole("link", { name: /^have your say/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("matches the proposal identity by cityId AND analysisId, not analysisId alone", async () => {
+    vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([
+      {
+        cityId: "auckland",
+        cityName: "Auckland",
+        analysisId: "remove-route-135",
+      },
+      {
+        cityId: "canterbury",
+        cityName: "Canterbury",
+        analysisId: "remove-route-135",
+      },
+    ]);
+
+    saveWizardState({
+      ...emptyWizardState(),
+      cityId: "canterbury",
+      analysisId: "remove-route-135",
+      origin: { address: "Origin St", lat: -43.5, lng: 172.6 },
+      destinations: [
+        { label: "Work", address: "Work St", lat: -43.51, lng: 172.61 },
+      ],
+      scenario: { calendarType: "weekday", timeWindow: "am_peak" },
+    });
+
+    render(
+      <WizardStateProvider>
+        <Results />
+      </WizardStateProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          (_, node) => node?.textContent === "Canterbury · Test proposal",
+        ),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByText(
+        (_, node) => node?.textContent === "Auckland · Test proposal",
+      ),
+    ).not.toBeInTheDocument();
+  });
 });
