@@ -320,7 +320,11 @@ export function Results() {
           fetchAnalyses(),
         ]);
         const analysis =
-          analyses.find((a) => a.analysisId === payload.analysisId) ?? null;
+          analyses.find(
+            (a) =>
+              a.cityId === payload.cityId &&
+              a.analysisId === payload.analysisId,
+          ) ?? null;
         const scenario = findScenario(
           manifest,
           payload.scenario.calendarType,
