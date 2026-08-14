@@ -27,7 +27,9 @@ export interface ScenarioVariants {
 
 export interface Scenario {
   calendarType: string;
+  calendarTypeLabel: string;
   timeWindow: string;
+  timeWindowLabel: string;
   start: string;
   end: string;
   variants: ScenarioVariants;
@@ -44,7 +46,9 @@ export interface Manifest {
 
 interface RawScenario {
   calendar_type: string;
+  calendar_type_label: string;
   time_window: string;
+  time_window_label: string;
   start: string;
   end: string;
   variants: ScenarioVariants;
@@ -119,7 +123,9 @@ async function fetchManifestUncached(
     },
     scenarios: raw.scenarios.map((s) => ({
       calendarType: s.calendar_type,
+      calendarTypeLabel: s.calendar_type_label,
       timeWindow: s.time_window,
+      timeWindowLabel: s.time_window_label,
       start: s.start,
       end: s.end,
       variants: s.variants,

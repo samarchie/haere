@@ -21,7 +21,9 @@ const manifest: Manifest = {
   scenarios: [
     {
       calendarType: "weekday",
+      calendarTypeLabel: "Weekday",
       timeWindow: "am_peak",
+      timeWindowLabel: "AM peak",
       start: "07:00",
       end: "09:00",
       variants: {
@@ -35,7 +37,13 @@ const manifest: Manifest = {
 describe("availableCombos", () => {
   it("marks a fully-populated scenario as complete", () => {
     expect(availableCombos(manifest)).toEqual([
-      { calendarType: "weekday", timeWindow: "am_peak", complete: true },
+      {
+        calendarType: "weekday",
+        calendarTypeLabel: "Weekday",
+        timeWindow: "am_peak",
+        timeWindowLabel: "AM peak",
+        complete: true,
+      },
     ]);
   });
 });
@@ -51,7 +59,13 @@ describe("defaultScenario", () => {
   it("returns null when nothing is complete", () => {
     expect(
       defaultScenario([
-        { calendarType: "weekday", timeWindow: "am_peak", complete: false },
+        {
+          calendarType: "weekday",
+          calendarTypeLabel: "Weekday",
+          timeWindow: "am_peak",
+          timeWindowLabel: "AM peak",
+          complete: false,
+        },
       ]),
     ).toBeNull();
   });

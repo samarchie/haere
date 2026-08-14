@@ -2,14 +2,18 @@ import { type Manifest, isScenarioComplete } from "../data/manifest";
 
 export interface ScenarioCombo {
   calendarType: string;
+  calendarTypeLabel: string;
   timeWindow: string;
+  timeWindowLabel: string;
   complete: boolean;
 }
 
 export function availableCombos(manifest: Manifest): ScenarioCombo[] {
   return manifest.scenarios.map((s) => ({
     calendarType: s.calendarType,
+    calendarTypeLabel: s.calendarTypeLabel,
     timeWindow: s.timeWindow,
+    timeWindowLabel: s.timeWindowLabel,
     complete: isScenarioComplete(s, manifest.percentiles),
   }));
 }

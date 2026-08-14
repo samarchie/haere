@@ -34,8 +34,10 @@ const rawManifestFixture = {
   scenarios: [
     {
       calendar_type: "weekday",
+      calendar_type_label: "Weekday",
       departure_date: "2026-08-03",
       time_window: "am_peak",
+      time_window_label: "AM peak",
       start: "07:00",
       end: "09:00",
       variants: {
@@ -51,8 +53,10 @@ const rawManifestFixture = {
     },
     {
       calendar_type: "weekday",
+      calendar_type_label: "Weekday",
       departure_date: "2026-08-03",
       time_window: "midday",
+      time_window_label: "Midday",
       start: "09:00",
       end: "15:00",
       variants: {
@@ -109,7 +113,9 @@ describe("fetchManifest", () => {
 describe("isScenarioComplete", () => {
   const complete: Scenario = {
     calendarType: "weekday",
+    calendarTypeLabel: "Weekday",
     timeWindow: "am_peak",
+    timeWindowLabel: "AM peak",
     start: "07:00",
     end: "09:00",
     variants: { baseline: { "50": "a.bin" }, modified: { "50": "b.bin" } },

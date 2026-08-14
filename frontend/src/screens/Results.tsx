@@ -437,15 +437,14 @@ export function Results() {
 
   const { manifest, payload } = state.data;
   const combos = availableCombos(manifest);
-  const calendarTypes = Array.from(new Set(combos.map((c) => c.calendarType)));
+  const calendarTypes = combos.filter(
+    (c, index) =>
+      combos.findIndex((other) => other.calendarType === c.calendarType) ===
+      index,
+  );
   const timeWindows = combos.filter(
     (c) => c.calendarType === payload.scenario.calendarType,
   );
-  const defaultForManifest = defaultScenario(combos);
-  const isDefaultScenario =
-    defaultForManifest?.calendarType === payload.scenario.calendarType &&
-    defaultForManifest?.timeWindow === payload.scenario.timeWindow;
-
   function backToLocation() {
     setWizard(toWizardState(payload));
     navigate("location");
@@ -483,11 +482,7 @@ export function Results() {
       </h3>
 
       <div className="mb-3 border-b border-kotare-grey/50 pb-3">
-        <span className="font-mono text-[10.5px] text-ink-soft">
-          {payload.scenario.calendarType} · {payload.scenario.timeWindow}
-          {isDefaultScenario ? " (default)" : ""}
-        </span>
-        <div className="mt-2 flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
           <ToggleGroup
             aria-label="Day type"
             value={payload.scenario.calendarType}
@@ -501,7 +496,10 @@ export function Results() {
                   timeWindow: firstForType.timeWindow,
                 });
             }}
-            options={calendarTypes.map((ct) => ({ value: ct, label: ct }))}
+            options={calendarTypes.map((c) => ({
+              value: c.calendarType,
+              label: c.calendarTypeLabel,
+            }))}
           />
           <ToggleGroup
             aria-label="Time window"
@@ -514,17 +512,11 @@ export function Results() {
             }
             options={timeWindows.map((c) => ({
               value: c.timeWindow,
-              label: c.timeWindow,
+              label: c.timeWindowLabel,
               disabled: !c.complete,
             }))}
           />
         </div>
-        {isDefaultScenario && (
-          <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
-            Defaulted to a typical weekday morning commute — change either if
-            that's not you.
-          </p>
-        )}
         <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
           Each trip is checked many times, not once — hollow dot is today's
           typical trip, solid is after.

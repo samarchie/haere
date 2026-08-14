@@ -183,7 +183,9 @@ describe("Results", () => {
       scenarios: [
         {
           calendarType: "weekday",
+          calendarTypeLabel: "Weekday",
           timeWindow: "am_peak",
+          timeWindowLabel: "AM peak",
           start: "07:00",
           end: "09:00",
           variants: {
@@ -193,7 +195,9 @@ describe("Results", () => {
         },
         {
           calendarType: "weekday",
+          calendarTypeLabel: "Weekday",
           timeWindow: "pm_peak",
+          timeWindowLabel: "PM peak",
           start: "16:00",
           end: "18:00",
           variants: {
@@ -231,9 +235,6 @@ describe("Results", () => {
     // rounds the larger one (15) up to the nearest 10 → 20, not a hardcoded 50.
     expect(screen.getByText("20 min")).toBeInTheDocument();
     expect(
-      screen.getByText(/weekday · am_peak \(default\)/),
-    ).toBeInTheDocument();
-    expect(
       screen.getByText(
         (_, node) => node?.textContent === "christchurch · Test proposal",
       ),
@@ -245,7 +246,7 @@ describe("Results", () => {
       screen.getByRole("button", { name: /switch proposal/i }),
     ).toBeDisabled();
 
-    fireEvent.click(screen.getByText("pm_peak"));
+    fireEvent.click(screen.getByText("PM peak"));
 
     await waitFor(() =>
       screen.getByText("20 min today → 20 min after.", { exact: false }),
@@ -254,7 +255,6 @@ describe("Results", () => {
     // recomputed per render, not left over from the previous scenario.
     expect(screen.getByText("20 min")).toBeInTheDocument();
     expect(screen.getByText("No change")).toBeInTheDocument();
-    expect(screen.getByText("weekday · pm_peak")).toBeInTheDocument();
   });
 
   it("restores wizard state on Back when arriving via a shared results link with no local wizard state", async () => {
@@ -342,7 +342,9 @@ describe("Results", () => {
       scenarios: [
         {
           calendarType: "weekday",
+          calendarTypeLabel: "Weekday",
           timeWindow: "am_peak",
+          timeWindowLabel: "AM peak",
           start: "07:00",
           end: "09:00",
           variants: {
@@ -390,7 +392,9 @@ describe("Results", () => {
       scenarios: [
         {
           calendarType: "weekday",
+          calendarTypeLabel: "Weekday",
           timeWindow: "am_peak",
+          timeWindowLabel: "AM peak",
           start: "07:00",
           end: "09:00",
           variants: {
