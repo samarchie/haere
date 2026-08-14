@@ -249,12 +249,12 @@ export function Landing() {
             onClick={() => resumeToHistoryEntry(entry)}
           >
             <div className="text-[12px] font-semibold text-ink">
-              {entry.proposalTitle} — {entry.cityName}
+              {entry.proposalTitle} · {entry.origin.address}
             </div>
             <div className="font-mono text-[10px] text-ink-soft">
               {new Date(entry.savedAt).toLocaleDateString()} ·{" "}
               {entry.changedCount === 0
-                ? "no change"
+                ? `no change in the ${entry.destinationCount} trips`
                 : `${entry.changedCount} of ${entry.destinationCount} trips change`}
             </div>
           </button>

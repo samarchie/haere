@@ -408,7 +408,7 @@ describe("Landing", () => {
     });
 
     fireEvent.click(screen.getByText(/see your other previous results/i));
-    fireEvent.click(screen.getByText(/remove route 135 — christchurch/i));
+    fireEvent.click(screen.getByText(/remove route 135 · 1 main st/i));
 
     expect(window.location.pathname).toBe("/results");
   });
