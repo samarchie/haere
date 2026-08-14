@@ -243,7 +243,7 @@ function buildVerdictRows(
   });
 }
 
-function shareResults(): void {
+function shareResults(onCopied: () => void): void {
   const shareData = { title: "haere", url: location.href };
   const nav = navigator as Navigator & {
     share?: (data: typeof shareData) => Promise<void>;
@@ -251,7 +251,7 @@ function shareResults(): void {
   if (nav.share) {
     nav.share(shareData).catch(() => {});
   } else {
-    navigator.clipboard.writeText(location.href).catch(() => {});
+    navigator.clipboard.writeText(location.href).then(onCopied, () => {});
   }
 }
 
@@ -280,6 +280,7 @@ export function Results() {
     timeWindow: string;
   } | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [expandedDestinations, setExpandedDestinations] = useState<Set<string>>(
     new Set(),
   );
@@ -676,9 +677,17 @@ export function Results() {
         <Button variant="outline" onClick={backToLocation}>
           ← Back
         </Button>
-        <Button variant="outline" onClick={shareResults}>
+        <Button
+          variant="outline"
+          onClick={() =>
+            shareResults(() => {
+              setLinkCopied(true);
+              setTimeout(() => setLinkCopied(false), 2000);
+            })
+          }
+        >
           <Share className="h-3.5 w-3.5" />
-          Share
+          {linkCopied ? "Link copied!" : "Share"}
         </Button>
       </div>
     </WizardShell>
