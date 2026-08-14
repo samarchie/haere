@@ -253,10 +253,6 @@ describe("Results", () => {
     expect(
       screen.getByText("1 of 1 of your trips change under this proposal."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /switch proposal/i }),
-    ).toBeDisabled();
-
     fireEvent.click(screen.getByText("PM peak"));
 
     await waitFor(() => screen.getByText("No change"));

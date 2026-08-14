@@ -10,6 +10,7 @@ import {
   formatConsultationClose,
   pickerSummaryText,
   selectAnalysis,
+  switchAnalysis,
 } from "./Proposal";
 
 describe("pickerSummaryText", () => {
@@ -92,6 +93,34 @@ describe("selectAnalysis", () => {
   });
 });
 
+describe("switchAnalysis", () => {
+  it("keeps origin and destinations, only swapping the proposal and resetting the scenario", () => {
+    const state = {
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+      origin: { address: "x", lat: 1, lng: 1 },
+      destinations: [{ label: "Work", address: "y", lat: 2, lng: 2 }],
+      scenario: { calendarType: "weekday", timeWindow: "am-peak" },
+    };
+    const next = switchAnalysis(state, "christchurch", "network-review");
+    expect(next).toEqual({
+      ...state,
+      analysisId: "network-review",
+      scenario: null,
+    });
+  });
+
+  it("is a no-op when re-selecting the same city and analysis", () => {
+    const state = {
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+    };
+    expect(switchAnalysis(state, "christchurch", "remove-135")).toBe(state);
+  });
+});
+
 describe("Proposal", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -127,5 +156,94 @@ describe("Proposal", () => {
       screen.getByRole("button", { name: /select this proposal/i }),
     );
     expect(window.location.pathname).toBe("/location");
+  });
+
+  describe("switching proposals from Results", () => {
+    beforeEach(() => {
+      window.history.replaceState(null, "", "/proposal?switch=1&city=");
+      vi.spyOn(analysisCatalogue, "fetchAnalyses").mockResolvedValue([
+        {
+          cityId: "christchurch",
+          cityName: "Christchurch",
+          analysisId: "remove-135",
+        },
+        {
+          cityId: "christchurch",
+          cityName: "Christchurch",
+          analysisId: "network-review",
+        },
+      ]);
+      vi.spyOn(manifestData, "fetchManifest").mockImplementation(
+        async (_cityId, analysisId) =>
+          ({
+            analysis: {
+              id: analysisId,
+              title:
+                analysisId === "remove-135"
+                  ? "Remove Route 135"
+                  : "Network review",
+              description: "d",
+              consultation: null,
+            },
+          }) as manifestData.Manifest,
+      );
+    });
+
+    it("marks the currently-viewed proposal as current instead of selectable", async () => {
+      localStorage.setItem(
+        "haere.wizardState",
+        JSON.stringify({
+          ...emptyWizardState(),
+          cityId: "christchurch",
+          analysisId: "remove-135",
+          origin: { address: "x", lat: 1, lng: 1 },
+        }),
+      );
+
+      render(
+        <WizardStateProvider>
+          <Proposal />
+        </WizardStateProvider>,
+      );
+
+      await waitFor(() => screen.getByText("Remove Route 135"));
+      expect(screen.getByText("Current")).toBeInTheDocument();
+      expect(
+        screen.queryAllByRole("button", { name: /select this proposal/i }),
+      ).toHaveLength(1);
+    });
+
+    it("keeps the saved trip and jumps straight to Results when picking a different proposal", async () => {
+      localStorage.setItem(
+        "haere.wizardState",
+        JSON.stringify({
+          ...emptyWizardState(),
+          cityId: "christchurch",
+          analysisId: "remove-135",
+          origin: { address: "x", lat: 1, lng: 1 },
+          destinations: [{ label: "Work", address: "y", lat: 2, lng: 2 }],
+        }),
+      );
+
+      render(
+        <WizardStateProvider>
+          <Proposal />
+        </WizardStateProvider>,
+      );
+
+      await waitFor(() => screen.getByText("Network review"));
+      fireEvent.click(
+        screen.getByRole("button", { name: /select this proposal/i }),
+      );
+
+      expect(window.location.pathname).toBe("/results");
+      const saved = JSON.parse(
+        localStorage.getItem("haere.wizardState") ?? "{}",
+      );
+      expect(saved.analysisId).toBe("network-review");
+      expect(saved.destinations).toEqual([
+        { label: "Work", address: "y", lat: 2, lng: 2 },
+      ]);
+    });
   });
 });

@@ -496,8 +496,8 @@ export function Results() {
         </div>
         <button
           type="button"
-          disabled
-          className="inline-flex flex-shrink-0 items-center gap-1 text-[10.5px] font-bold text-kotare-blue disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => navigate("proposal", "?switch=1&city=")}
+          className="sd-focus inline-flex flex-shrink-0 items-center gap-1 text-[10.5px] font-bold text-kotare-blue"
         >
           <Repeat className="h-3 w-3" />
           Switch proposal
