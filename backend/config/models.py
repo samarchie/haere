@@ -35,7 +35,13 @@ class CalendarType(BaseModel):
     """One GTFS calendar type (e.g. weekday) and the date to route on."""
 
     name: str
+    label: str | None = None
     departure_date: date
+
+    @property
+    def display_label(self) -> str:
+        """Human-readable label, falling back to `name` if none is set."""
+        return self.label or self.name
 
     def departure_at(self, time_window: "TimeWindow") -> datetime:
         """Return the moment this calendar type's date enters `time_window`."""
@@ -46,8 +52,14 @@ class TimeWindow(BaseModel):
     """A representative time-of-day window (e.g. AM peak) to route within."""
 
     name: str
+    label: str | None = None
     start: time
     end: time
+
+    @property
+    def display_label(self) -> str:
+        """Human-readable label, falling back to `name` if none is set."""
+        return self.label or self.name
 
     @model_validator(mode="after")
     def _check_end_after_start(self) -> "TimeWindow":

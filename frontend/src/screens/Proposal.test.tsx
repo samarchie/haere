@@ -64,9 +64,31 @@ describe("selectAnalysis", () => {
     });
   });
 
-  it("is a no-op when re-selecting the same analysis", () => {
-    const state = { ...emptyWizardState(), analysisId: "remove-135" };
+  it("is a no-op when re-selecting the same city and analysis", () => {
+    const state = {
+      ...emptyWizardState(),
+      cityId: "christchurch",
+      analysisId: "remove-135",
+    };
     expect(selectAnalysis(state, "christchurch", "remove-135")).toBe(state);
+  });
+
+  it("does not conflate two cities sharing the same analysisId", () => {
+    // Auckland and Canterbury both have a "remove-route-135" analysis in
+    // this app's real data — analysisId alone isn't a unique key.
+    const state = {
+      ...emptyWizardState(),
+      cityId: "auckland",
+      analysisId: "remove-route-135",
+      origin: { address: "x", lat: 1, lng: 1 },
+    };
+    const next = selectAnalysis(state, "canterbury", "remove-route-135");
+    expect(next).toEqual({
+      ...emptyWizardState(),
+      cityId: "canterbury",
+      analysisId: "remove-route-135",
+      origin: { address: "x", lat: 1, lng: 1 },
+    });
   });
 });
 

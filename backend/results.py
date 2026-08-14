@@ -231,8 +231,10 @@ def record_matrix(
     else:
         scenario = {
             "calendar_type": calendar_type.name,
+            "calendar_type_label": calendar_type.display_label,
             "departure_date": calendar_type.departure_date.isoformat(),
             "time_window": time_window.name,
+            "time_window_label": time_window.display_label,
             "start": time_window.start.isoformat(timespec="minutes"),
             "end": time_window.end.isoformat(timespec="minutes"),
             "variants": {},

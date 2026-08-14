@@ -144,7 +144,7 @@ export function selectAnalysis(
   cityId: string,
   analysisId: string,
 ): WizardState {
-  if (state.analysisId === analysisId) {
+  if (state.cityId === cityId && state.analysisId === analysisId) {
     return state;
   }
   return { ...emptyWizardState(), cityId, analysisId, origin: state.origin };

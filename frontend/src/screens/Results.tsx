@@ -1,4 +1,6 @@
+import { ArrowUpRight, Megaphone, Repeat, Share } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
 import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
@@ -33,9 +35,9 @@ import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
 import type { Destination } from "../state/wizardState";
 
 export interface PercentileMinutes {
-  p25: number | null;
-  p50: number | null;
-  p75: number | null;
+  low: number | null;
+  mid: number | null;
+  high: number | null;
 }
 
 export function readPercentileMinutes(
@@ -43,6 +45,7 @@ export function readPercentileMinutes(
   colIndex: number,
   bytesPerValue: number,
   unreachable: number,
+  percentiles: number[],
 ): PercentileMinutes {
   const read = (p: number): number | null => {
     const row = rows[p];
@@ -52,25 +55,56 @@ export function readPercentileMinutes(
       unreachable,
     ).minutes;
   };
-  return { p25: read(25), p50: read(50), p75: read(75) };
+  const sorted = [...percentiles].sort((a, b) => a - b);
+  const midPercentile = sorted.reduce((closest, p) =>
+    Math.abs(p - 50) < Math.abs(closest - 50) ? p : closest,
+  );
+  const mid = read(midPercentile);
+  if (sorted.length < 2) {
+    return { low: null, mid, high: null };
+  }
+  return { low: read(sorted[0]), mid, high: read(sorted[sorted.length - 1]) };
 }
 
-export function formatRange(minutes: PercentileMinutes): string {
-  if (minutes.p50 === null) return "—";
-  if (minutes.p25 !== null && minutes.p75 !== null) {
-    return `${minutes.p25}–${minutes.p75} min (typically ${minutes.p50})`;
-  }
-  return `${minutes.p50} min`;
-}
+// r5py routing noise can shift a trip by 1-2 min with no real-world cause;
+// treat anything that small as no change rather than a false positive.
+const NOISE_THRESHOLD_MINUTES = 2;
 
 export function deltaFor(
   baseline: PercentileMinutes,
   modified: PercentileMinutes,
 ): number | null {
-  return computeDeltaMinutes(
-    { minutes: baseline.p50 },
-    { minutes: modified.p50 },
+  const delta = computeDeltaMinutes(
+    { minutes: baseline.mid },
+    { minutes: modified.mid },
   );
+  if (delta !== null && Math.abs(delta) <= NOISE_THRESHOLD_MINUTES) return 0;
+  return delta;
+}
+
+function formatSide(
+  minutes: PercentileMinutes,
+  whenLabel: "today" | "after",
+): string {
+  if (minutes.mid === null) return `not reachable ${whenLabel}`;
+  if (minutes.low !== null && minutes.high !== null) {
+    return `${minutes.mid} min ${whenLabel} (usually ${minutes.low}–${minutes.high})`;
+  }
+  return `${minutes.mid} min ${whenLabel}`;
+}
+
+export function formatArrow(
+  baseline: PercentileMinutes,
+  modified: PercentileMinutes,
+  delta: number | null,
+): string {
+  if (baseline.mid === null && modified.mid === null) {
+    return "No transit route reaches this destination, before or after.";
+  }
+  // Noise-thresholded delta is 0: show "after" as unchanged from "today" so
+  // this sentence doesn't contradict the "No change" badge above it.
+  const effectiveModified = delta === 0 ? baseline : modified;
+  return `${formatSide(baseline, "today")} → ${formatSide(effectiveModified, "after")}.`;
 }
 
 export function formatDelta(
@@ -79,9 +113,9 @@ export function formatDelta(
   modified: PercentileMinutes,
 ): { text: string; tone: "better" | "worse" | "none" } {
   if (delta === null) {
-    if (baseline.p50 !== null && modified.p50 === null)
+    if (baseline.mid !== null && modified.mid === null)
       return { text: "No longer reachable", tone: "worse" };
-    if (baseline.p50 === null && modified.p50 !== null)
+    if (baseline.mid === null && modified.mid !== null)
       return { text: "Newly reachable", tone: "better" };
     return { text: "No route today or after", tone: "none" };
   }
@@ -95,6 +129,22 @@ const TONE_TO_BADGE: Record<"better" | "worse" | "none", BadgeTone> = {
   better: "teal",
   worse: "brown",
   none: "grey",
+};
+
+export function computeAxisMaxMinutes(
+  percentileSets: PercentileMinutes[],
+): number {
+  const values = percentileSets
+    .map((p) => p.mid)
+    .filter((m): m is number => m !== null);
+  if (values.length === 0) return 10;
+  return Math.max(10, Math.ceil(Math.max(...values) / 10) * 10);
+}
+
+const TONE_TO_DUMBBELL: Record<"better" | "worse" | "none", DumbbellTone> = {
+  better: "better",
+  worse: "worse",
+  none: "none",
 };
 
 interface VerdictRow {
@@ -157,7 +207,7 @@ function buildVerdictRows(
       manifest.hexagonResolution,
       hexIds,
     );
-    const unreachable: PercentileMinutes = { p25: null, p50: null, p75: null };
+    const unreachable: PercentileMinutes = { low: null, mid: null, high: null };
     const colInRange =
       colIndex !== null && colIndex >= 0 && colIndex < manifest.hexCount;
     const baseline = !colInRange
@@ -167,6 +217,7 @@ function buildVerdictRows(
           colIndex,
           manifest.encoding.bytesPerValue,
           manifest.encoding.unreachable,
+          manifest.percentiles,
         );
     const modified = !colInRange
       ? unreachable
@@ -175,6 +226,7 @@ function buildVerdictRows(
           colIndex,
           manifest.encoding.bytesPerValue,
           manifest.encoding.unreachable,
+          manifest.percentiles,
         );
     return {
       destination,
@@ -278,7 +330,11 @@ export function Results() {
           fetchAnalyses(),
         ]);
         const analysis =
-          analyses.find((a) => a.analysisId === payload.analysisId) ?? null;
+          analyses.find(
+            (a) =>
+              a.cityId === payload.cityId &&
+              a.analysisId === payload.analysisId,
+          ) ?? null;
         const scenario = findScenario(
           manifest,
           payload.scenario.calendarType,
@@ -347,12 +403,13 @@ export function Results() {
     [state],
   );
 
+  const changedCount = verdictRows.filter(
+    (row) => row.delta !== null && row.delta !== 0,
+  ).length;
+
   useEffect(() => {
     if (state.status !== "ready") return;
     const { analysis, manifest, payload } = state.data;
-    const changedCount = verdictRows.filter(
-      (row) => row.delta !== null && row.delta !== 0,
-    ).length;
 
     appendHistoryEntry({
       cityId: payload.cityId,
@@ -365,7 +422,7 @@ export function Results() {
       destinationCount: payload.destinations.length,
       changedCount,
     });
-  }, [state, verdictRows]);
+  }, [state, changedCount]);
 
   if (state.status === "loading") {
     return <p className="text-ink-soft">Loading your results…</p>;
@@ -390,15 +447,14 @@ export function Results() {
 
   const { manifest, payload } = state.data;
   const combos = availableCombos(manifest);
-  const calendarTypes = Array.from(new Set(combos.map((c) => c.calendarType)));
+  const calendarTypes = combos.filter(
+    (c, index) =>
+      combos.findIndex((other) => other.calendarType === c.calendarType) ===
+      index,
+  );
   const timeWindows = combos.filter(
     (c) => c.calendarType === payload.scenario.calendarType,
   );
-  const defaultForManifest = defaultScenario(combos);
-  const isDefaultScenario =
-    defaultForManifest?.calendarType === payload.scenario.calendarType &&
-    defaultForManifest?.timeWindow === payload.scenario.timeWindow;
-
   function backToLocation() {
     setWizard(toWizardState(payload));
     navigate("location");
@@ -413,94 +469,173 @@ export function Results() {
 
   return (
     <WizardShell step={3} title="Your results">
-      <details className="mb-4 rounded-md border border-kotare-grey p-3 text-[12px] text-ink-soft">
-        <summary className="cursor-pointer font-mono">
-          {payload.scenario.calendarType} · {payload.scenario.timeWindow}
-          {isDefaultScenario ? " (default)" : ""}
-        </summary>
-        <div className="mt-3 flex flex-col gap-2">
-          <ToggleGroup
-            aria-label="Day type"
-            value={payload.scenario.calendarType}
-            onValueChange={(calendarType) => {
-              const firstForType = combos.find(
-                (c) => c.calendarType === calendarType && c.complete,
-              );
-              if (firstForType)
-                changeScenario({
-                  calendarType,
-                  timeWindow: firstForType.timeWindow,
-                });
-            }}
-            options={calendarTypes.map((ct) => ({ value: ct, label: ct }))}
-          />
-          <ToggleGroup
-            aria-label="Time window"
-            value={payload.scenario.timeWindow}
-            onValueChange={(timeWindow) =>
-              changeScenario({
-                calendarType: payload.scenario.calendarType,
-                timeWindow,
-              })
-            }
-            options={timeWindows.map((c) => ({
-              value: c.timeWindow,
-              label: c.timeWindow,
-              disabled: !c.complete,
-            }))}
-          />
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="truncate text-[11.5px] font-semibold text-ink-soft">
+          <span className="text-ink-faint">
+            {state.data.analysis?.cityName ?? payload.cityId} ·{" "}
+          </span>
+          {manifest.analysis.title}
         </div>
-      </details>
-
-      <div className="flex flex-col gap-3">
-        {verdictRows.map(({ destination, baseline, modified, delta }) => {
-          const { text, tone } = formatDelta(delta, baseline, modified);
-          return (
-            <div
-              key={destination.label}
-              className="rounded-lg border border-kotare-grey p-4"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <strong className="text-[14px] text-ink">
-                  {destination.label}
-                </strong>
-                <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
-              </div>
-              <p className="text-[12.5px] text-ink-soft">
-                Today: {formatRange(baseline)}
-              </p>
-              <p className="text-[12.5px] text-ink-soft">
-                After: {formatRange(modified)}
-              </p>
-            </div>
-          );
-        })}
+        <button
+          type="button"
+          disabled
+          className="inline-flex flex-shrink-0 items-center gap-1 text-[10.5px] font-bold text-kotare-blue disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Repeat className="h-3 w-3" />
+          Switch proposal
+        </button>
       </div>
 
-      {manifest.analysis.consultation?.url && (
-        <div className="mt-4 rounded-lg bg-kotare-navy p-4 text-white">
-          <p className="mb-2 text-[13px] font-semibold">
-            {isConsultationOpen(manifest.analysis.consultation)
-              ? "Consultation open"
-              : "Consultation closed"}
-          </p>
-          <a
-            href={manifest.analysis.consultation.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="text-[12.5px] underline"
-          >
-            Have your say ↗
-          </a>
+      <h3 className="mb-3 text-[13.5px] font-bold text-ink">
+        {changedCount} of {verdictRows.length} of your trips change under this
+        proposal.
+      </h3>
+
+      <div className="mb-3 border-b border-kotare-grey/50 pb-3">
+        <div className="flex flex-col items-start gap-3">
+          <div>
+            <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">
+              Day type
+            </div>
+            <p className="mb-1.5 text-[10.5px] leading-snug text-ink-faint">
+              Which kind of day to compare trips on.
+            </p>
+            <ToggleGroup
+              aria-label="Day type"
+              value={payload.scenario.calendarType}
+              onValueChange={(calendarType) => {
+                const firstForType = combos.find(
+                  (c) => c.calendarType === calendarType && c.complete,
+                );
+                if (firstForType)
+                  changeScenario({
+                    calendarType,
+                    timeWindow: firstForType.timeWindow,
+                  });
+              }}
+              options={calendarTypes.map((c) => ({
+                value: c.calendarType,
+                label: c.calendarTypeLabel,
+              }))}
+            />
+          </div>
+          <div>
+            <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">
+              Time window
+            </div>
+            <p className="mb-1.5 text-[10.5px] leading-snug text-ink-faint">
+              Which part of the day to compare trips in. Each trip is checked
+              many times, not once — hollow dot is today's typical trip, solid
+              is after.
+            </p>
+            <ToggleGroup
+              aria-label="Time window"
+              value={payload.scenario.timeWindow}
+              onValueChange={(timeWindow) =>
+                changeScenario({
+                  calendarType: payload.scenario.calendarType,
+                  timeWindow,
+                })
+              }
+              options={timeWindows.map((c) => ({
+                value: c.timeWindow,
+                label: c.timeWindowLabel,
+                disabled: !c.complete,
+              }))}
+            />
+          </div>
         </div>
-      )}
+      </div>
+
+      <div className="flex flex-col divide-y divide-kotare-grey/60">
+        {(() => {
+          const axisMaxMinutes = computeAxisMaxMinutes(
+            verdictRows.flatMap(({ baseline, modified }) => [
+              baseline,
+              modified,
+            ]),
+          );
+          return verdictRows.map(
+            ({ destination, baseline, modified, delta }, index) => {
+              const { text, tone } = formatDelta(delta, baseline, modified);
+              const hasChart = baseline.mid !== null && modified.mid !== null;
+              return (
+                <div key={destination.label} className="py-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <strong className="text-[13.5px] font-bold text-ink">
+                      {destination.label}
+                    </strong>
+                    <Badge tone={TONE_TO_BADGE[tone]}>{text}</Badge>
+                  </div>
+                  <p className="mb-2 text-[11.5px] leading-snug text-ink-soft">
+                    {formatArrow(baseline, modified, delta)}
+                  </p>
+                  {hasChart ? (
+                    <DumbbellChart
+                      todayMinutes={baseline.mid as number}
+                      afterMinutes={
+                        delta === 0
+                          ? (baseline.mid as number)
+                          : (modified.mid as number)
+                      }
+                      axisMaxMinutes={axisMaxMinutes}
+                      tone={TONE_TO_DUMBBELL[tone]}
+                      staggerIndex={index}
+                    />
+                  ) : (
+                    <div className="flex h-4 items-center justify-center rounded-full border border-dashed border-ink-faint/60">
+                      <span className="whitespace-nowrap bg-surface-card px-1 font-mono text-[10px] uppercase tracking-wide text-ink-faint">
+                        no route found
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            },
+          );
+        })()}
+      </div>
+
+      {manifest.analysis.consultation?.url &&
+        (() => {
+          const consultationOpen = isConsultationOpen(
+            manifest.analysis.consultation,
+          );
+          return (
+            <div className="mt-4 rounded-lg bg-kotare-navy p-4 shadow-md shadow-kotare-navy/25">
+              <div className="mb-1 flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-white" />
+                <p className="text-[13px] font-extrabold text-white">
+                  {consultationOpen
+                    ? "Consultation open"
+                    : "Consultation closed"}
+                </p>
+              </div>
+              <p className="mb-3 text-[11.5px] text-white/85">
+                {consultationOpen
+                  ? "Have your say on this proposal before it's decided."
+                  : "Consultation on this proposal has closed."}
+              </p>
+              <a
+                href={manifest.analysis.consultation.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-white text-[12.5px] font-extrabold text-kotare-navy"
+              >
+                {consultationOpen ? "Have your say" : "See the proposal"}
+                <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </div>
+          );
+        })()}
 
       <div className="mt-4 flex gap-2">
         <Button variant="outline" onClick={backToLocation}>
           ← Back
         </Button>
-        <Button className="flex-1" onClick={shareResults}>
-          Share these results
+        <Button variant="outline" onClick={shareResults}>
+          <Share className="h-3.5 w-3.5" />
+          Share
         </Button>
       </div>
     </WizardShell>
