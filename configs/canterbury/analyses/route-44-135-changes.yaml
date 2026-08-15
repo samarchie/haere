@@ -1,0 +1,74 @@
+schema_version: 1
+id: route-44-135-changes
+
+metadata:
+  title: "Route 44/135 Metro Review"
+  description: |
+    Environment Canterbury's Metro Review 44/135 proposed removing Route
+    135 (New Brighton to The Palms) and extending Route 44 to cover part
+    of its corridor. Route 135 is one of Metro's lowest-used services,
+    currently serving Burwood Hospital, Taiora QEII, and two high schools;
+    removing it frees up funding to extend Route 44 up Marshland Road and
+    into the Prestons loop, cut the Ravensdale Rise loop in Westmorland,
+    add layover time for reliability, and roughly double weekend
+    frequency with extended evening hours (last bus ~11pm Saturday, ~10pm
+    Sunday). Passengers on Route 135 would need to use Routes 60, 80, 7,
+    or school services 666, 668, and 669 instead. Feedback closed on 24
+    June 2026; a council report is due in August 2026, with a final
+    decision expected late 2026.
+
+    ![Existing network map](images/existing-network-map.jpg) ![Proposed network map](images/proposed-network-map.jpg)
+  sources:
+    - name: "Environment Canterbury GTFS"
+      published: "2026-06-01"
+  consultation:
+    closes_at: "2026-06-24T23:59:00+12:00"
+    url: "https://haveyoursay.ecan.govt.nz/metroreview44-135"
+
+# Assess any area that is less than 20 minutes walking from a bus stop
+travel_time_boundary:
+  modes:
+    - walking
+  value: 15
+  unit: minutes
+
+baseline_gtfs_filepath: "data/gtfs.zip"
+modified_gtfs_filepath: "data/route_44_135_changes.zip"
+
+calendar_types:
+  - name: weekday
+    label: "Weekday"
+    departure_date: "2026-08-03"
+  - name: saturday
+    label: "Saturday"
+    departure_date: "2026-08-08"
+  - name: sunday
+    label: "Sunday"
+    departure_date: "2026-08-09"
+
+time_windows:
+  - name: am_peak
+    label: "Morning peak (7am-9am)"
+    start: "07:00"
+    end: "09:00"
+  - name: morning
+    label: "Morning (9am-12pm)"
+    start: "09:00"
+    end: "12:00"
+  - name: afternoon
+    label: "Afternoon (12pm-3pm)"
+    start: "12:00"
+    end: "15:00"
+  - name: pm_peak
+    label: "Afternoon peak (3pm-6pm)"
+    start: "15:00"
+    end: "18:00"
+  - name: evening
+    label: "Evening (6pm-10pm)"
+    start: "18:00"
+    end: "22:00"
+
+routing_parameters:
+  max_walk_time: 15
+  max_time: 240
+  percentiles: [10, 50, 90]
