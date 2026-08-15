@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  type Manifest,
-  type Scenario,
   fetchManifest,
   findScenario,
   isConsultationOpen,
   isScenarioComplete,
+  type Manifest,
+  type Scenario,
 } from "./manifest";
 
 const rawManifestFixture = {

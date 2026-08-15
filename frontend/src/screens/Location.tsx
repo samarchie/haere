@@ -8,9 +8,9 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
-import { WizardShell } from "../components/WizardShell";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { WizardShell } from "../components/WizardShell";
 import { fetchAnalyses, filterByCity } from "../data/analysisCatalogue";
 import type { GeocodeResult } from "../data/geocode";
 import {
@@ -18,7 +18,7 @@ import {
   pointFallsInAnalysis,
   resolveHexRowIndex,
 } from "../data/hexLookup";
-import { type Manifest, fetchManifest } from "../data/manifest";
+import { fetchManifest, type Manifest } from "../data/manifest";
 import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, useSearchParams } from "../router";
 import { useWizardState } from "../state/WizardStateContext";

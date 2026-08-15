@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  appendHistoryEntry,
   HISTORY_STORAGE_KEY,
   type HistoryEntry,
-  appendHistoryEntry,
   historyEntryToWizardState,
   loadHistory,
   pruneHistory,

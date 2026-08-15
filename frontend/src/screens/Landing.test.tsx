@@ -3,11 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as analysisCatalogue from "../data/analysisCatalogue";
 import * as geocode from "../data/geocode";
 import * as hexLookup from "../data/hexLookup";
-import { navigate } from "../router";
-import { WizardStateProvider } from "../state/WizardStateContext";
 import { saveHistory } from "../state/resultsHistory";
+import { WizardStateProvider } from "../state/WizardStateContext";
 import { emptyWizardState, saveWizardState } from "../state/wizardState";
-import { Landing, hasResumableProgress, resumeScreen } from "./Landing";
+import { hasResumableProgress, Landing, resumeScreen } from "./Landing";
 
 vi.mock("maplibre-gl", () => {
   class FakeMap {

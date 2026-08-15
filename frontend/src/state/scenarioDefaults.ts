@@ -1,4 +1,4 @@
-import { type Manifest, isScenarioComplete } from "../data/manifest";
+import { isScenarioComplete, type Manifest } from "../data/manifest";
 
 export interface ScenarioCombo {
   calendarType: string;

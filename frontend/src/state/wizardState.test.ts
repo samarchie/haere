@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  WIZARD_STORAGE_KEY,
-  type WizardState,
   clearWizardState,
   emptyWizardState,
   isValidDestination,
   loadWizardState,
   requireCityAndAnalysis,
   saveWizardState,
+  WIZARD_STORAGE_KEY,
+  type WizardState,
 } from "./wizardState";
 
 describe("wizardState", () => {

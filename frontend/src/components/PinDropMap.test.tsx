@@ -41,7 +41,6 @@ function mostRecentMap() {
 describe("PinDropMap", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    // biome-ignore lint/performance/noDelete: test cleanup of a property added only for this suite
     delete (navigator as unknown as { geolocation?: unknown }).geolocation;
   });
 

@@ -1,9 +1,9 @@
 import {
   type Destination,
+  isValidOrigin,
   type WizardOrigin,
   type WizardScenario,
   type WizardState,
-  isValidOrigin,
 } from "./wizardState";
 
 export interface HistoryEntry {

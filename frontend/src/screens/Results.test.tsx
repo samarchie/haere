@@ -6,18 +6,18 @@ import * as manifestData from "../data/manifest";
 import * as travelTimes from "../data/travelTimes";
 import * as router from "../router";
 import { useScreen } from "../router";
-import { WizardStateProvider } from "../state/WizardStateContext";
 import * as resultsHistory from "../state/resultsHistory";
 import { encodeResultsParam } from "../state/resultsUrl";
+import { WizardStateProvider } from "../state/WizardStateContext";
 import { emptyWizardState, saveWizardState } from "../state/wizardState";
 import { Location } from "./Location";
 import {
-  Results,
   computeAxisMaxMinutes,
   deltaFor,
   formatArrow,
   formatDelta,
   formatHeadline,
+  Results,
   readPercentileMinutes,
 } from "./Results";
 

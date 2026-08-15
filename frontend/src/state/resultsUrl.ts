@@ -1,9 +1,9 @@
 import {
   type Destination,
-  type WizardState,
   isValidDestination,
   isValidOrigin,
   isValidScenario,
+  type WizardState,
 } from "./wizardState";
 
 export interface ResultsPayload {
