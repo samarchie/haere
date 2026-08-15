@@ -30,16 +30,18 @@ def canterbury_data():
 def test_find_scenarios_lists_the_example_scenario():
     scenarios = find_scenarios(_CONFIGS_ROOT)
 
-    assert [path.stem for path in scenarios] == ["remove-route-135"]
+    assert "route-44-135-changes" in [path.stem for path in scenarios]
 
 
 def test_load_scenario_loads_the_example_canterbury_scenario(canterbury_data):
-    scenario_path = _CONFIGS_ROOT / "canterbury" / "analyses" / "remove-route-135.yaml"
+    scenario_path = (
+        _CONFIGS_ROOT / "canterbury" / "analyses" / "route-44-135-changes.yaml"
+    )
 
     city, analysis = load_scenario(scenario_path)
 
     assert city.id == "canterbury"
     assert city.hexagon_resolution == 9
-    assert analysis.id == "remove-route-135"
+    assert analysis.id == "route-44-135-changes"
     assert len(analysis.calendar_types) == 3
-    assert len(analysis.time_windows) == 4
+    assert len(analysis.time_windows) == 5
