@@ -10,20 +10,20 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
-import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { ToggleGroup } from "../components/ui/toggle-group";
+import { WizardShell } from "../components/WizardShell";
 import { DATA_BASE_URL } from "../config";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
 import { fetchHexIds, resolveHexRowIndex } from "../data/hexLookup";
 import {
-  type Manifest,
-  type Scenario,
   fetchManifest,
   findScenario,
   isConsultationOpen,
+  type Manifest,
+  type Scenario,
 } from "../data/manifest";
 import {
   computeDeltaMinutes,
@@ -33,15 +33,15 @@ import {
 } from "../data/travelTimes";
 import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate, replaceScreen, useSearchParams } from "../router";
-import { useWizardState } from "../state/WizardStateContext";
 import { appendHistoryEntry } from "../state/resultsHistory";
 import {
-  type ResultsPayload,
   decodeResultsParam,
   encodeResultsParam,
+  type ResultsPayload,
   toWizardState,
 } from "../state/resultsUrl";
 import { availableCombos, defaultScenario } from "../state/scenarioDefaults";
+import { useWizardState } from "../state/WizardStateContext";
 import type { Destination } from "../state/wizardState";
 
 export interface PercentileMinutes {

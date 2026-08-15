@@ -1,6 +1,6 @@
 import { MapPin, Search } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { type GeocodeResult, fetchSuggestions } from "../data/geocode";
+import { fetchSuggestions, type GeocodeResult } from "../data/geocode";
 import { PinDropMap } from "./PinDropMap";
 import { Input } from "./ui/input";
 

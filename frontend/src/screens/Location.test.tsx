@@ -1,5 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { act } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnalysisSummary } from "../data/analysisCatalogue";
 import * as analysisCatalogue from "../data/analysisCatalogue";
@@ -14,11 +13,11 @@ import {
   saveWizardState,
 } from "../state/wizardState";
 import {
-  Location,
   canAddDestination,
   canContinue,
   emptyFieldRow,
   fieldStatusText,
+  Location,
   resolveOriginRouting,
 } from "./Location";
 

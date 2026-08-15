@@ -36,7 +36,7 @@ export function Modal({
   };
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: non-interactive backdrop; Escape-to-close handled by document-level listener
+    // biome-ignore lint/a11y/noStaticElementInteractions: non-interactive backdrop; Escape-to-close handled by document-level listener
     <div
       ref={backdropRef}
       data-testid="modal-backdrop"

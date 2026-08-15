@@ -6,19 +6,19 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { WizardShell } from "../components/WizardShell";
 import { Alert } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { ToggleGroup } from "../components/ui/toggle-group";
+import { WizardShell } from "../components/WizardShell";
 import { DATA_BASE_URL } from "../config";
+import type { AnalysisSummary } from "../data/analysisCatalogue";
 import {
   cityOptions,
   fetchAnalyses,
   filterByCity,
 } from "../data/analysisCatalogue";
-import type { AnalysisSummary } from "../data/analysisCatalogue";
 import {
   type Consultation,
   fetchManifest,
@@ -416,6 +416,7 @@ export function Proposal() {
                       href={a.consultation.url}
                       target="_blank"
                       rel="noreferrer noopener"
+                      aria-label="Learn more about this proposal's consultation"
                       className="sd-focus flex-1 inline-flex items-center justify-center gap-1 h-11 rounded-lg border-2 border-kotare-blue text-[12.5px] font-bold text-kotare-blue hover:bg-kotare-blue/[0.06]"
                     >
                       Learn more

@@ -5,21 +5,21 @@ import { NetworkBackdrop } from "../components/NetworkBackdrop";
 import { Button } from "../components/ui/button";
 import { Modal } from "../components/ui/modal";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
-import { type GeocodeResult, forwardGeocode } from "../data/geocode";
+import { forwardGeocode, type GeocodeResult } from "../data/geocode";
 import { matchingCityIds } from "../data/hexLookup";
 import { fetchManifest } from "../data/manifest";
 import { useDocumentHead } from "../lib/useDocumentHead";
 import { navigate } from "../router";
-import { useWizardState } from "../state/WizardStateContext";
 import {
-  type HistoryEntry,
   analysisKey,
+  type HistoryEntry,
   historyEntryToWizardState,
   loadHistory,
   pruneHistory,
   saveHistory,
   tripKey,
 } from "../state/resultsHistory";
+import { useWizardState } from "../state/WizardStateContext";
 import type { WizardState } from "../state/wizardState";
 
 export function hasResumableProgress(

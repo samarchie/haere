@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import { WizardStateProvider, useWizardState } from "./WizardStateContext";
+import { useWizardState, WizardStateProvider } from "./WizardStateContext";
 import { emptyWizardState, loadWizardState } from "./wizardState";
 
 function Probe() {
