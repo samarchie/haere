@@ -13,7 +13,7 @@ def canterbury_data():
     paths = [
         Path("data/gtfs.zip"),
         Path("data/chch.osm.pbf"),
-        Path("data/metro_christchurch_without_route_135.zip"),
+        Path("data/route_44_135_changes.zip"),
     ]
     created = []
     for path in paths:
