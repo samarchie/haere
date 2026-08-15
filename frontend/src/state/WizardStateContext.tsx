@@ -1,17 +1,17 @@
 import {
-  type ReactNode,
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useMemo,
   useState,
 } from "react";
 import {
-  type WizardState,
   clearWizardState,
   emptyWizardState,
   loadWizardState,
   saveWizardState,
+  type WizardState,
 } from "./wizardState";
 
 interface WizardStateContextValue {

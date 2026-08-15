@@ -5,9 +5,9 @@ import * as manifestData from "../data/manifest";
 import { WizardStateProvider } from "../state/WizardStateContext";
 import { emptyWizardState } from "../state/wizardState";
 import {
-  Proposal,
   bannerFor,
   formatConsultationClose,
+  Proposal,
   pickerSummaryText,
   selectAnalysis,
   switchAnalysis,

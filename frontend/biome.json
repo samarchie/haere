@@ -1,13 +1,17 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "files": { "ignore": ["dist/**"] },
-  "organizeImports": { "enabled": true },
-  "linter": { "enabled": true, "rules": { "recommended": true } },
+  "$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
+  "files": { "includes": ["**", "!dist"] },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": { "enabled": true, "rules": { "preset": "recommended" } },
   "formatter": { "enabled": true, "indentStyle": "space" },
   "overrides": [
     {
-      "include": ["src/data/chch-network.json"],
+      "includes": ["src/data/chch-network.json"],
       "formatter": { "enabled": false }
+    },
+    {
+      "includes": ["**/*.css"],
+      "linter": { "rules": { "suspicious": { "noUnknownAtRules": "off" } } }
     }
   ]
 }

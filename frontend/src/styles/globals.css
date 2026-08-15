@@ -17,13 +17,18 @@ body {
 }
 
 .sd-focus {
-  transition: box-shadow 0.1s ease, background-color 0.15s ease, color 0.15s
-    ease, border-color 0.15s ease;
+  transition:
+    box-shadow 0.1s ease,
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .sd-focus:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgb(var(--kotare-blue-rgb) / 0.55);
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px rgb(var(--kotare-blue-rgb) / 0.55);
 }
 
 ::view-transition-old(root),

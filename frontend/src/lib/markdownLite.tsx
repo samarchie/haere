@@ -1,4 +1,4 @@
-import { type ReactNode, isValidElement } from "react";
+import { isValidElement, type ReactNode } from "react";
 
 // A small, safe subset of markdown for analysis descriptions: paragraphs,
 // images, links and bold. Not a full parser — descriptions are our own
