@@ -1,3 +1,5 @@
+import { readJsonFromStorage, writeJsonToStorage } from "../lib/storageCache";
+
 export interface Destination {
   label: string;
   address: string;
@@ -83,20 +85,12 @@ export function emptyWizardState(): WizardState {
 }
 
 export function saveWizardState(state: WizardState): void {
-  localStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(state));
+  writeJsonToStorage(WIZARD_STORAGE_KEY, state);
 }
 
 export function loadWizardState(): WizardState | null {
-  const raw = localStorage.getItem(WIZARD_STORAGE_KEY);
-  if (raw === null) {
-    return null;
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return isWizardState(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+  const parsed = readJsonFromStorage<unknown>(WIZARD_STORAGE_KEY);
+  return isWizardState(parsed) ? parsed : null;
 }
 
 export function clearWizardState(): void {

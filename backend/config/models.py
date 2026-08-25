@@ -101,6 +101,13 @@ class RoutingParameters(BaseModel):
         return self
 
 
+class Center(BaseModel):
+    """A map center point (e.g. where the frontend's pin-drop tool opens)."""
+
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
 class CityConfig(BaseModel):
     """City-level configuration shared across all analyses in that city."""
 
@@ -111,6 +118,7 @@ class CityConfig(BaseModel):
     osm_source: FilePath
     elevation_filepath: FilePath | None = None
     hexagon_resolution: int = 9
+    center: Center | None = None
 
     @model_validator(mode="after")
     def _check_timezone(self) -> "CityConfig":

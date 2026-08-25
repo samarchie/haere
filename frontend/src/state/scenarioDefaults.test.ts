@@ -3,6 +3,7 @@ import type { Manifest } from "../data/manifest";
 import { availableCombos, defaultScenario } from "./scenarioDefaults";
 
 const manifest: Manifest = {
+  city: { id: "canterbury", name: "Canterbury", center: null },
   analysis: {
     id: "remove-135",
     title: "Test proposal",

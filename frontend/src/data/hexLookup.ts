@@ -1,5 +1,6 @@
 import { latLngToCell } from "h3-js";
 import { DATA_BASE_URL } from "../config";
+import { memoizeAsync } from "../lib/memoizeAsync";
 import { fetchJson } from "./fetchJson";
 import { fetchManifest } from "./manifest";
 
@@ -37,23 +38,11 @@ export function resolveHexRowIndex(
 
 // Hex lists are static per deploy, mirroring the cache in manifest.ts's
 // fetchManifest — see that comment for why this matters for matchingCityIds.
-const hexIdsCache = new Map<string, Promise<string[]>>();
-
-export async function fetchHexIds(
-  cityId: string,
-  analysisId: string,
-): Promise<string[]> {
-  const key = `${cityId}/${analysisId}`;
-  let cached = hexIdsCache.get(key);
-  if (!cached) {
-    cached = fetchJson<string[]>(
-      `${DATA_BASE_URL}/${cityId}/${analysisId}/hexes.json`,
-    );
-    cached.catch(() => hexIdsCache.delete(key));
-    hexIdsCache.set(key, cached);
-  }
-  return cached;
-}
+export const fetchHexIds = memoizeAsync(
+  (cityId: string, analysisId: string) =>
+    fetchJson<string[]>(`${DATA_BASE_URL}/${cityId}/${analysisId}/hexes.json`),
+  (cityId, analysisId) => `${cityId}/${analysisId}`,
+);
 
 export async function pointFallsInAnalysis(
   lat: number,

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import networkData from "../data/chch-network.json";
 
 interface NetworkPoint {
@@ -66,7 +67,7 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-export function NetworkBackdrop() {
+export const NetworkBackdrop = memo(function NetworkBackdrop() {
   const reduceMotion = prefersReducedMotion();
 
   return (
@@ -108,4 +109,4 @@ export function NetworkBackdrop() {
       })}
     </svg>
   );
-}
+});

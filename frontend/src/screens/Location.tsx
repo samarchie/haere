@@ -34,7 +34,7 @@ export type FieldStatus = "idle" | "resolved" | "outside-area";
 export type SearchIssue = "none" | "no-match" | "unavailable";
 
 export interface FieldRow {
-  id: number;
+  id: string;
   address: string;
   status: FieldStatus;
   point: GeocodeResult | null;
@@ -42,11 +42,9 @@ export interface FieldRow {
   labelInput: string;
 }
 
-let nextRowId = 0;
-
 export function emptyFieldRow(): FieldRow {
   return {
-    id: nextRowId++,
+    id: crypto.randomUUID(),
     address: "",
     status: "idle",
     point: null,
@@ -139,7 +137,7 @@ export function Location() {
   const [rows, setRows] = useState<FieldRow[]>(() => {
     const originRow: FieldRow = wizard.origin
       ? {
-          id: nextRowId++,
+          id: crypto.randomUUID(),
           address: wizard.origin.address,
           status: "resolved",
           point: {
@@ -152,7 +150,7 @@ export function Location() {
         }
       : emptyFieldRow();
     const destinationRows: FieldRow[] = wizard.destinations.map((d) => ({
-      id: nextRowId++,
+      id: crypto.randomUUID(),
       address: d.address,
       status: "resolved" as const,
       point: { lat: d.lat, lng: d.lng, label: d.address },
@@ -185,13 +183,34 @@ export function Location() {
   // Guards against a stale handleResolve response (from an address picked
   // earlier, still resolving) overwriting a row that's since been resolved
   // again with a different address.
-  const resolveSeqRef = useRef(new Map<number, number>());
+  const resolveSeqRef = useRef(new Map<string, number>());
+  const [mapCenter, setMapCenter] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!ids) {
       navigate("proposal");
     }
   }, [ids]);
+
+  // Prefetches just the city's map center so the pin-drop tool opens on the
+  // right city instead of the hardcoded fallback, before the visitor has
+  // resolved any address themselves.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: narrowed to cityId/analysisId on purpose — ids itself is a fresh object every render, so depending on it would refetch on every render.
+  useEffect(() => {
+    if (!ids) return;
+    let cancelled = false;
+    fetchManifest(ids.cityId, ids.analysisId)
+      .then((manifest) => {
+        if (!cancelled) setMapCenter(manifest.city.center);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [ids?.cityId, ids?.analysisId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: wizard/setWizard excluded so this effect's own setWizard call doesn't retrigger itself via wizard's changed identity — rows changing is the only thing that should schedule a new persist.
   useEffect(() => {
@@ -248,14 +267,14 @@ export function Location() {
     return areaDataRef.current;
   }
 
-  function updateRow(id: number, updater: (row: FieldRow) => FieldRow) {
+  function updateRow(id: string, updater: (row: FieldRow) => FieldRow) {
     setRows((current) =>
       current.map((row) => (row.id === id ? updater(row) : row)),
     );
   }
 
   async function handleResolve(
-    rowId: number,
+    rowId: string,
     result: GeocodeResult,
     isOrigin: boolean,
   ) {
@@ -301,13 +320,14 @@ export function Location() {
         ...row,
         status: rowIndex === null ? "outside-area" : "resolved",
       }));
-    } catch {
+    } catch (err) {
       if (isStale()) return;
+      console.error("Failed to resolve address", err);
       updateRow(rowId, (row) => ({ ...row, searchIssue: "unavailable" }));
     }
   }
 
-  function handleAddressChange(rowId: number, value: string) {
+  function handleAddressChange(rowId: string, value: string) {
     updateRow(rowId, (row) => ({
       ...row,
       address: value,
@@ -315,11 +335,11 @@ export function Location() {
     }));
   }
 
-  function handleLabelChange(rowId: number, value: string) {
+  function handleLabelChange(rowId: string, value: string) {
     updateRow(rowId, (row) => ({ ...row, labelInput: value }));
   }
 
-  function handleEdit(rowId: number) {
+  function handleEdit(rowId: string) {
     updateRow(rowId, (row) => ({ ...row, status: "idle" }));
   }
 
@@ -328,7 +348,7 @@ export function Location() {
     setRemovedStack((current) => [...current, { row, index }]);
   }
 
-  function handleUndo(rowId: number) {
+  function handleUndo(rowId: string) {
     const entry = removedStack.find(({ row }) => row.id === rowId);
     if (!entry) return;
     setRows((current) => {
@@ -410,6 +430,7 @@ export function Location() {
           label={label}
           value={row.address}
           point={row.point}
+          fallbackCenter={mapCenter}
           onChange={(value) => handleAddressChange(row.id, value)}
           onResolve={(result) => handleResolve(row.id, result, isOrigin)}
           onSearchSettled={(outcome) =>

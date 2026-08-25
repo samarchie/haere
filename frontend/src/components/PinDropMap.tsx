@@ -7,8 +7,9 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Modal } from "./ui/modal";
 
-// ponytail: single hardcoded fallback city (Christchurch CBD) — only city
-// shipped today; revisit if a second city's analyses ship.
+// Last resort when neither an existing point nor the caller's known city
+// center (`fallbackCenter`, sourced from the analysis manifest) is
+// available — e.g. Landing's address field, before any city is chosen.
 const FALLBACK_CENTER: [number, number] = [172.6362, -43.5321];
 
 // ponytail: satellite has no vector style, so it's a plain raster style
@@ -38,6 +39,7 @@ interface PinDropMapProps {
   onClose: () => void;
   onResolve: (result: GeocodeResult) => void;
   initialPoint: GeocodeResult | null;
+  fallbackCenter?: { lat: number; lng: number } | null;
 }
 
 export function PinDropMap({
@@ -45,6 +47,7 @@ export function PinDropMap({
   onClose,
   onResolve,
   initialPoint,
+  fallbackCenter,
 }: PinDropMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -65,12 +68,14 @@ export function PinDropMap({
     }
   }, [open, initialPoint]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: initialPoint only seeds the map's starting center; re-running this effect on every keystroke elsewhere would tear the map down.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: initialPoint/fallbackCenter only seed the map's starting center; re-running this effect on every keystroke elsewhere would tear the map down.
   useEffect(() => {
     if (!open || !containerRef.current) return;
     const center: [number, number] = initialPoint
       ? [initialPoint.lng, initialPoint.lat]
-      : FALLBACK_CENTER;
+      : fallbackCenter
+        ? [fallbackCenter.lng, fallbackCenter.lat]
+        : FALLBACK_CENTER;
     const map = new MapLibreMap({
       container: containerRef.current,
       style: BASEMAPS[basemap],

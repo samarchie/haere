@@ -8,8 +8,8 @@ import {
   Repeat,
   Share,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { DumbbellChart, type DumbbellTone } from "../components/DumbbellChart";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DumbbellChart } from "../components/DumbbellChart";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -66,8 +66,9 @@ export function readPercentileMinutes(
     ).minutes;
   };
   const sorted = [...percentiles].sort((a, b) => a - b);
-  const midPercentile = sorted.reduce((closest, p) =>
-    Math.abs(p - 50) < Math.abs(closest - 50) ? p : closest,
+  const midPercentile = sorted.reduce(
+    (closest, p) => (Math.abs(p - 50) < Math.abs(closest - 50) ? p : closest),
+    sorted[0] ?? 50,
   );
   const mid = read(midPercentile);
   if (sorted.length < 2) {
@@ -164,12 +165,6 @@ export function computeAxisMaxMinutes(
   if (values.length === 0) return 10;
   return Math.max(10, Math.ceil(Math.max(...values) / 10) * 10);
 }
-
-const TONE_TO_DUMBBELL: Record<"better" | "worse" | "none", DumbbellTone> = {
-  better: "better",
-  worse: "worse",
-  none: "none",
-};
 
 interface VerdictRow {
   destination: Destination;
@@ -411,7 +406,8 @@ export function Results() {
             data: { analysis, manifest, hexIds, payload, rows },
           });
         }
-      } catch {
+      } catch (err) {
+        console.error("Failed to load results", err);
         if (!cancelled) setState({ status: "error" });
       }
     }
@@ -451,9 +447,17 @@ export function Results() {
     (row) => row.delta !== null && row.delta !== 0,
   ).length;
 
+  const lastHistoryKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (state.status !== "ready") return;
     const { analysis, manifest, payload } = state.data;
+
+    // Only record a history entry once per trip (city+analysis+origin), not
+    // on every scenario toggle — otherwise each Day type/Time window click
+    // re-saves and re-sorts the same entry to the top of history.
+    const key = `${payload.cityId}::${payload.analysisId}::${payload.origin.address}`;
+    if (lastHistoryKeyRef.current === key) return;
+    lastHistoryKeyRef.current = key;
 
     appendHistoryEntry({
       cityId: payload.cityId,
@@ -682,7 +686,7 @@ export function Results() {
                               : (modified.mid as number)
                           }
                           axisMaxMinutes={axisMaxMinutes}
-                          tone={TONE_TO_DUMBBELL[tone]}
+                          tone={tone}
                           staggerIndex={index}
                         />
                       ) : (

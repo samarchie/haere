@@ -213,6 +213,7 @@ describe("Results", () => {
     });
 
     vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      city: { id: "canterbury", name: "Canterbury", center: null },
       analysis: {
         id: "remove-135",
         title: "Test proposal",
@@ -370,6 +371,7 @@ describe("Results", () => {
 
   it("shows a bold consultation banner with a call-to-action button when consultation is open", async () => {
     vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      city: { id: "canterbury", name: "Canterbury", center: null },
       analysis: {
         id: "remove-135",
         title: "Test proposal",
@@ -420,6 +422,7 @@ describe("Results", () => {
 
   it("shows closed-consultation copy and a neutral CTA when consultation has closed", async () => {
     vi.spyOn(manifestData, "fetchManifest").mockResolvedValue({
+      city: { id: "canterbury", name: "Canterbury", center: null },
       analysis: {
         id: "remove-135",
         title: "Test proposal",

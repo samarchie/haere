@@ -4,3 +4,6 @@ name: Canterbury
 timezone: Pacific/Auckland
 osm_source: data/chch.osm.pbf
 hexagon_resolution: 9
+center:
+  lat: -43.5321
+  lng: 172.6362

@@ -1,3 +1,6 @@
+import { readJsonFromStorage, writeJsonToStorage } from "../lib/storageCache";
+import { fetchJson } from "./fetchJson";
+
 export interface GeocodeResult {
   lat: number;
   lng: number;
@@ -24,22 +27,6 @@ interface PhotonResponse {
 
 // localStorage cache, no TTL/eviction. Addresses don't move and the
 // key space is small for a personal-use tool; add eviction if it ever matters.
-function readCache<T>(key: string): T | null {
-  try {
-    const hit = localStorage.getItem(key);
-    return hit === null ? null : (JSON.parse(hit) as T);
-  } catch {
-    return null; // localStorage unavailable (private mode, SSR) or corrupt entry.
-  }
-}
-
-function writeCache(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // storage full or unavailable - caching is best-effort.
-  }
-}
 
 function labelFor(feature: PhotonFeature, fallbackQuery: string): string {
   const { name, housenumber, street, city } = feature.properties;
@@ -55,24 +42,19 @@ function labelFor(feature: PhotonFeature, fallbackQuery: string): string {
 
 export async function forwardGeocode(query: string): Promise<GeocodeOutcome> {
   const key = `geocode:fwd:${query}`;
-  const hit = readCache<GeocodeOutcome>(key);
+  const hit = readJsonFromStorage<GeocodeOutcome>(key);
   if (hit) return hit;
 
   const outcome = await forwardGeocodeUncached(query);
-  if (outcome.ok) writeCache(key, outcome);
+  if (outcome.ok) writeJsonToStorage(key, outcome);
   return outcome;
 }
 
 async function forwardGeocodeUncached(query: string): Promise<GeocodeOutcome> {
   try {
-    const response = await fetch(
+    const data = await fetchJson<PhotonResponse>(
       `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1`,
     );
-    if (!response.ok) {
-      return { ok: false, reason: "unavailable" };
-    }
-
-    const data = (await response.json()) as PhotonResponse;
     const [feature] = data.features;
     if (!feature) {
       return { ok: false, reason: "no-match" };
@@ -89,25 +71,20 @@ export async function fetchSuggestions(
   query: string,
 ): Promise<GeocodeResult[]> {
   const key = `geocode:suggest:${query}`;
-  const hit = readCache<GeocodeResult[]>(key);
+  const hit = readJsonFromStorage<GeocodeResult[]>(key);
   if (hit) return hit;
 
   // Unlike forwardGeocode, a fetch failure here isn't swallowed to an empty
   // array — callers need to tell "no suggestions" apart from "lookup broke"
   // (see AddressAutocomplete's onSearchSettled).
-  const response = await fetch(
+  const data = await fetchJson<PhotonResponse>(
     `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
   );
-  if (!response.ok) {
-    throw new Error(`Photon suggest failed: ${response.status}`);
-  }
-
-  const data = (await response.json()) as PhotonResponse;
   const results = data.features.map((feature) => {
     const [lng, lat] = feature.geometry.coordinates;
     return { lat, lng, label: labelFor(feature, query) };
   });
-  if (results.length > 0) writeCache(key, results);
+  if (results.length > 0) writeJsonToStorage(key, results);
   return results;
 }
 
@@ -117,21 +94,16 @@ export async function reverseGeocode(
 ): Promise<string | null> {
   // Round to ~1m precision so repeat clicks near the same spot hit cache.
   const key = `geocode:reverse:${lat.toFixed(5)},${lng.toFixed(5)}`;
-  const hit = readCache<string>(key);
+  const hit = readJsonFromStorage<string>(key);
   if (hit) return hit;
 
   try {
-    const response = await fetch(
+    const data = await fetchJson<PhotonResponse>(
       `https://photon.komoot.io/reverse/?lat=${lat}&lon=${lng}`,
     );
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = (await response.json()) as PhotonResponse;
     const [feature] = data.features;
     const label = feature ? labelFor(feature, `${lat}, ${lng}`) : null;
-    if (label) writeCache(key, label);
+    if (label) writeJsonToStorage(key, label);
     return label;
   } catch {
     return null;

@@ -1,4 +1,5 @@
 import { DATA_BASE_URL } from "../config";
+import { memoizeAsync } from "../lib/memoizeAsync";
 import { fetchJson } from "./fetchJson";
 
 export interface EncodingInfo {
@@ -20,6 +21,12 @@ export interface AnalysisInfo {
   consultation: Consultation | null;
 }
 
+export interface CityInfo {
+  id: string;
+  name: string;
+  center: { lat: number; lng: number } | null;
+}
+
 export interface ScenarioVariants {
   baseline?: Record<string, string>;
   modified?: Record<string, string>;
@@ -36,6 +43,7 @@ export interface Scenario {
 }
 
 export interface Manifest {
+  city: CityInfo;
   analysis: AnalysisInfo;
   hexagonResolution: number;
   hexCount: number;
@@ -55,6 +63,11 @@ interface RawScenario {
 }
 
 interface RawManifest {
+  city: {
+    id: string;
+    name: string;
+    center: { lat: number; lng: number } | null;
+  };
   analysis: {
     id: string;
     title: string;
@@ -76,21 +89,10 @@ interface RawManifest {
 // Manifests are static per deploy, so callers that check the same
 // city/analysis repeatedly (e.g. matchingCityIds across every proposal) share
 // one in-flight/resolved fetch instead of re-downloading it each time.
-const manifestCache = new Map<string, Promise<Manifest>>();
-
-export async function fetchManifest(
-  cityId: string,
-  analysisId: string,
-): Promise<Manifest> {
-  const key = `${cityId}/${analysisId}`;
-  let cached = manifestCache.get(key);
-  if (!cached) {
-    cached = fetchManifestUncached(cityId, analysisId);
-    cached.catch(() => manifestCache.delete(key));
-    manifestCache.set(key, cached);
-  }
-  return cached;
-}
+export const fetchManifest = memoizeAsync(
+  fetchManifestUncached,
+  (cityId, analysisId) => `${cityId}/${analysisId}`,
+);
 
 async function fetchManifestUncached(
   cityId: string,
@@ -101,6 +103,11 @@ async function fetchManifestUncached(
   );
 
   return {
+    city: {
+      id: raw.city.id,
+      name: raw.city.name,
+      center: raw.city.center,
+    },
     analysis: {
       id: raw.analysis.id,
       title: raw.analysis.title,

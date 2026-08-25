@@ -10,7 +10,12 @@ import {
 
 const rawManifestFixture = {
   schema_version: 1,
-  city: { id: "canterbury", name: "Canterbury", timezone: "Pacific/Auckland" },
+  city: {
+    id: "canterbury",
+    name: "Canterbury",
+    timezone: "Pacific/Auckland",
+    center: { lat: -43.5321, lng: 172.6362 },
+  },
   analysis: {
     id: "remove-route-135",
     title: "Remove Route 135",
@@ -87,6 +92,11 @@ describe("fetchManifest", () => {
       "/data/canterbury/remove-route-135/manifest.json",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+    expect(manifest.city).toEqual({
+      id: "canterbury",
+      name: "Canterbury",
+      center: { lat: -43.5321, lng: 172.6362 },
+    });
     expect(manifest.analysis).toEqual({
       id: "remove-route-135",
       title: "Remove Route 135",

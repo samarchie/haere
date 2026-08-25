@@ -122,6 +122,30 @@ describe("PinDropMap", () => {
     });
   });
 
+  it("opens on the caller's fallbackCenter when there's no initial point", async () => {
+    vi.spyOn(geocode, "reverseGeocode").mockResolvedValue(null);
+    const onResolve = vi.fn();
+
+    render(
+      <PinDropMap
+        open
+        onClose={() => {}}
+        onResolve={onResolve}
+        initialPoint={null}
+        fallbackCenter={{ lat: -36.8485, lng: 174.7633 }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Use this location" }));
+
+    await waitFor(() => expect(onResolve).toHaveBeenCalled());
+    expect(onResolve).toHaveBeenCalledWith({
+      lat: -36.8485,
+      lng: 174.7633,
+      label: "-36.84850, 174.76330",
+    });
+  });
+
   it("re-centers the map when Locate me returns a position", async () => {
     const getCurrentPosition = vi.fn((success) =>
       success({ coords: { latitude: -43.6, longitude: 172.7 } }),
