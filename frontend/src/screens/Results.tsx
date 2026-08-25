@@ -131,8 +131,8 @@ export function formatDelta(
   }
   if (delta === 0) return { text: "No change", tone: "none" };
   const tone = delta > 0 ? "worse" : "better";
-  const sign = delta > 0 ? "+" : "";
-  return { text: `${sign}${delta} min · ${tone}`, tone };
+  const delta_abs = delta > 0 ? delta : -1 * delta;
+  return { text: `${delta_abs} min ${tone}`, tone };
 }
 
 export function formatHeadline(changedCount: number, total: number): string {
@@ -607,9 +607,9 @@ export function Results() {
               Time window
             </div>
             <p className="mb-1.5 text-[10.5px] leading-snug text-ink-faint">
-              Which part of the day to compare trips in. Each trip is checked
-              many times, not once — hollow dot is today's typical trip, solid
-              is after.
+              Which part of the day to compare trips in. We simulate catching a
+              ride every minute in the time window and report the average trip
+              time.
             </p>
             <ToggleGroup
               aria-label="Time window"
@@ -674,6 +674,7 @@ export function Results() {
                       </button>
                       {hasChart ? (
                         <DumbbellChart
+                          key={`${payload.scenario.calendarType}-${payload.scenario.timeWindow}`}
                           todayMinutes={baseline.mid as number}
                           afterMinutes={
                             delta === 0
@@ -717,10 +718,10 @@ export function Results() {
             return (
               <div className="mt-4 rounded-lg border border-kotare-grey/70 bg-surface-card p-4">
                 <p className="mb-1 text-[13px] font-extrabold text-ink-soft">
-                  Consultation closed
+                  Public consultation closed
                 </p>
                 <p className="mb-2 text-[11.5px] text-ink-faint">
-                  Consultation on this proposal has closed.
+                  Public consultation on this proposal has closed.
                 </p>
                 <a
                   href={manifest.analysis.consultation.url}
@@ -739,7 +740,7 @@ export function Results() {
               <div className="mb-1 flex items-center gap-2">
                 <Megaphone className="h-4 w-4 text-white" />
                 <p className="text-[13px] font-extrabold text-white">
-                  Consultation open
+                  Public consultation is open
                 </p>
               </div>
               <p className="mb-3 text-[11.5px] text-white/85">

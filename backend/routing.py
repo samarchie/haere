@@ -35,7 +35,7 @@ def modes(names: Iterable[str]) -> list[r5py.TransportMode]:
     return [TRANSPORT_MODES[name] for name in names]
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=2)
 def transport_network(
     osm_filepath: Path,
     gtfs_filepath: Path,

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchSuggestions, forwardGeocode, reverseGeocode } from "./geocode";
 
+afterEach(() => {
+  localStorage.clear();
+});
+
 describe("forwardGeocode", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
