@@ -1,0 +1,6 @@
+name = "haere"
+pages_build_output_dir = "frontend/dist"
+compatibility_date = "2026-08-25"
+
+[vars]
+VITE_DATA_BASE_URL = "https://data.haere.samarchie.dev"
