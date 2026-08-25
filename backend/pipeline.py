@@ -301,6 +301,7 @@ def _route_and_write(
             dtype,
             task.paths[percentile],
         )
+    del travel_times
 
 
 def _record(

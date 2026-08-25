@@ -22,6 +22,25 @@ interface PhotonResponse {
   features: PhotonFeature[];
 }
 
+// localStorage cache, no TTL/eviction. Addresses don't move and the
+// key space is small for a personal-use tool; add eviction if it ever matters.
+function readCache<T>(key: string): T | null {
+  try {
+    const hit = localStorage.getItem(key);
+    return hit === null ? null : (JSON.parse(hit) as T);
+  } catch {
+    return null; // localStorage unavailable (private mode, SSR) or corrupt entry.
+  }
+}
+
+function writeCache(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // storage full or unavailable - caching is best-effort.
+  }
+}
+
 function labelFor(feature: PhotonFeature, fallbackQuery: string): string {
   const { name, housenumber, street, city } = feature.properties;
   // Photon puts the number in `name` for address results (street stays
@@ -35,6 +54,16 @@ function labelFor(feature: PhotonFeature, fallbackQuery: string): string {
 }
 
 export async function forwardGeocode(query: string): Promise<GeocodeOutcome> {
+  const key = `geocode:fwd:${query}`;
+  const hit = readCache<GeocodeOutcome>(key);
+  if (hit) return hit;
+
+  const outcome = await forwardGeocodeUncached(query);
+  if (outcome.ok) writeCache(key, outcome);
+  return outcome;
+}
+
+async function forwardGeocodeUncached(query: string): Promise<GeocodeOutcome> {
   try {
     const response = await fetch(
       `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1`,
@@ -59,6 +88,10 @@ export async function forwardGeocode(query: string): Promise<GeocodeOutcome> {
 export async function fetchSuggestions(
   query: string,
 ): Promise<GeocodeResult[]> {
+  const key = `geocode:suggest:${query}`;
+  const hit = readCache<GeocodeResult[]>(key);
+  if (hit) return hit;
+
   // Unlike forwardGeocode, a fetch failure here isn't swallowed to an empty
   // array — callers need to tell "no suggestions" apart from "lookup broke"
   // (see AddressAutocomplete's onSearchSettled).
@@ -70,16 +103,23 @@ export async function fetchSuggestions(
   }
 
   const data = (await response.json()) as PhotonResponse;
-  return data.features.map((feature) => {
+  const results = data.features.map((feature) => {
     const [lng, lat] = feature.geometry.coordinates;
     return { lat, lng, label: labelFor(feature, query) };
   });
+  if (results.length > 0) writeCache(key, results);
+  return results;
 }
 
 export async function reverseGeocode(
   lat: number,
   lng: number,
 ): Promise<string | null> {
+  // Round to ~1m precision so repeat clicks near the same spot hit cache.
+  const key = `geocode:reverse:${lat.toFixed(5)},${lng.toFixed(5)}`;
+  const hit = readCache<string>(key);
+  if (hit) return hit;
+
   try {
     const response = await fetch(
       `https://photon.komoot.io/reverse/?lat=${lat}&lon=${lng}`,
@@ -90,7 +130,9 @@ export async function reverseGeocode(
 
     const data = (await response.json()) as PhotonResponse;
     const [feature] = data.features;
-    return feature ? labelFor(feature, `${lat}, ${lng}`) : null;
+    const label = feature ? labelFor(feature, `${lat}, ${lng}`) : null;
+    if (label) writeCache(key, label);
+    return label;
   } catch {
     return null;
   }
