@@ -54,6 +54,7 @@ describe("forwardGeocode", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://photon.komoot.io/api/?q=15%20Cashel%20Street&limit=1",
+      expect.objectContaining({ signal: expect.anything() }),
     );
   });
 
@@ -150,6 +151,7 @@ describe("fetchSuggestions", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://photon.komoot.io/api/?q=15%20Cashel%20Street&limit=5",
+      expect.objectContaining({ signal: expect.anything() }),
     );
   });
 
@@ -212,6 +214,7 @@ describe("reverseGeocode", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://photon.komoot.io/reverse/?lat=-43.53&lon=172.62",
+      expect.objectContaining({ signal: expect.anything() }),
     );
   });
 

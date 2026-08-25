@@ -1,6 +1,9 @@
+import { readJsonFromStorage, writeJsonToStorage } from "../lib/storageCache";
 import {
   type Destination,
+  isValidDestination,
   isValidOrigin,
+  isValidScenario,
   type WizardOrigin,
   type WizardScenario,
   type WizardState,
@@ -36,7 +39,9 @@ function isHistoryEntry(value: unknown): value is HistoryEntry {
     typeof v.destinationCount === "number" &&
     typeof v.changedCount === "number" &&
     Array.isArray(v.destinations) &&
-    isValidOrigin(v.origin)
+    v.destinations.every(isValidDestination) &&
+    isValidOrigin(v.origin) &&
+    isValidScenario(v.scenario)
   );
 }
 
@@ -53,18 +58,12 @@ export function tripKey(
 }
 
 export function loadHistory(): HistoryEntry[] {
-  const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
-  if (raw === null) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isHistoryEntry) : [];
-  } catch {
-    return [];
-  }
+  const parsed = readJsonFromStorage<unknown[]>(HISTORY_STORAGE_KEY);
+  return Array.isArray(parsed) ? parsed.filter(isHistoryEntry) : [];
 }
 
 export function saveHistory(entries: HistoryEntry[]): void {
-  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries));
+  writeJsonToStorage(HISTORY_STORAGE_KEY, entries);
 }
 
 function dedupeKey(e: {

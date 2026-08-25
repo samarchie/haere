@@ -178,6 +178,7 @@ def new_manifest(
             "id": city.id,
             "name": city.name,
             "timezone": city.timezone,
+            "center": city.center.model_dump(mode="json") if city.center else None,
         },
         "analysis": {
             "id": analysis.id,

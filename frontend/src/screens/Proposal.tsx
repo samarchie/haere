@@ -192,10 +192,19 @@ export function Proposal() {
   // when the user clicks Retry.
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is a re-run trigger, not a read dependency.
   useEffect(() => {
+    let cancelled = false;
     setLoadError(false);
     loadProposalCards()
-      .then(setResult)
-      .catch(() => setLoadError(true));
+      .then((result) => {
+        if (!cancelled) setResult(result);
+      })
+      .catch((err) => {
+        console.error("Failed to load proposals", err);
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [retryCount]);
 
   // The "all cities" list is the tallest the card stack ever gets, so once

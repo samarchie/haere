@@ -3,7 +3,6 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useMemo,
   useState,
 } from "react";
 import {
@@ -37,10 +36,7 @@ export function WizardStateProvider({ children }: { children: ReactNode }) {
     setWizardRaw(emptyWizardState());
   }, []);
 
-  const value = useMemo(
-    () => ({ wizard, setWizard, resetWizard }),
-    [wizard, setWizard, resetWizard],
-  );
+  const value = { wizard, setWizard, resetWizard };
 
   return (
     <WizardStateContext.Provider value={value}>

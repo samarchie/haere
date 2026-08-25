@@ -33,6 +33,7 @@ vi.mock("maplibre-gl", () => {
 });
 
 const baseManifest: Manifest = {
+  city: { id: "canterbury", name: "Canterbury", center: null },
   analysis: {
     id: "remove-135",
     title: "Test proposal",

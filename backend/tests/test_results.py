@@ -11,6 +11,7 @@ from backend import results
 from backend.config.models import (
     AnalysisConfig,
     CalendarType,
+    Center,
     CityConfig,
     RoutingParameters,
     ScenarioMetadata,
@@ -242,6 +243,7 @@ def city(tmp_path):
         timezone="Pacific/Auckland",
         osm_source=osm,
         hexagon_resolution=9,
+        center=Center(lat=-43.5321, lng=172.6362),
     )
 
 
@@ -312,8 +314,26 @@ def test_manifest_carries_the_frontend_facing_metadata(city, analysis):
     manifest = results.new_manifest(city, analysis, HEX_IDS, np.dtype(np.uint8))
 
     assert manifest["city"]["name"] == "Canterbury"
+    assert manifest["city"]["center"] == {"lat": -43.5321, "lng": 172.6362}
     assert manifest["analysis"]["title"] == "Remove Route 135"
     assert manifest["percentiles"] == [50]
+
+
+def test_manifest_center_is_none_when_city_has_none(analysis, tmp_path):
+    osm = tmp_path / "city.osm.pbf"
+    osm.write_bytes(b"placeholder")
+    city_without_center = CityConfig(
+        id="canterbury",
+        name="Canterbury",
+        timezone="Pacific/Auckland",
+        osm_source=osm,
+    )
+
+    manifest = results.new_manifest(
+        city_without_center, analysis, HEX_IDS, np.dtype(np.uint8)
+    )
+
+    assert manifest["city"]["center"] is None
 
 
 def test_recording_a_matrix_adds_one_scenario(city, analysis):

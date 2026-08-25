@@ -15,6 +15,7 @@ interface AddressAutocompleteProps {
   onResolve: (result: GeocodeResult) => void;
   onSearchSettled: (outcome: SearchSettledOutcome) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+  fallbackCenter?: { lat: number; lng: number } | null;
 }
 
 export function AddressAutocomplete({
@@ -26,6 +27,7 @@ export function AddressAutocomplete({
   onResolve,
   onSearchSettled,
   onKeyDown,
+  fallbackCenter,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -33,10 +35,12 @@ export function AddressAutocomplete({
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const mountedRef = useRef(true);
   const listboxId = `${id}-suggestions`;
 
   useEffect(() => {
     return () => {
+      mountedRef.current = false;
       if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
     };
   }, []);
@@ -61,13 +65,14 @@ export function AddressAutocomplete({
       const current = ++seq.current;
       fetchSuggestions(query)
         .then((results) => {
-          if (current !== seq.current) return;
+          if (!mountedRef.current || current !== seq.current) return;
           setSuggestions(results);
           setOpen(results.length > 0);
           onSearchSettled(results.length > 0 ? "found" : "empty");
         })
-        .catch(() => {
-          if (current !== seq.current) return;
+        .catch((err) => {
+          if (!mountedRef.current || current !== seq.current) return;
+          console.error("Failed to fetch address suggestions", err);
           setSuggestions([]);
           setOpen(false);
           onSearchSettled("unavailable");
@@ -152,6 +157,7 @@ export function AddressAutocomplete({
           onResolve(result);
         }}
         initialPoint={point}
+        fallbackCenter={fallbackCenter}
       />
     </div>
   );
