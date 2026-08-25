@@ -83,7 +83,7 @@ describe("formatDelta", () => {
         { low: null, mid: 20, high: null },
         { low: null, mid: 15, high: null },
       ),
-    ).toEqual({ text: "-5 min · better", tone: "better" });
+    ).toEqual({ text: "5 min better", tone: "better" });
   });
 });
 
@@ -410,7 +410,7 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() => screen.getByText("Consultation open"));
+    await waitFor(() => screen.getByText("Public consultation is open"));
     expect(
       screen.getByText("Have your say on this proposal before it's decided."),
     ).toBeInTheDocument();
@@ -460,9 +460,9 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() => screen.getByText("Consultation closed"));
+    await waitFor(() => screen.getByText("Public consultation closed"));
     expect(
-      screen.getByText("Consultation on this proposal has closed."),
+      screen.getByText("Public consultation on this proposal has closed."),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("Have your say on this proposal before it's decided."),
