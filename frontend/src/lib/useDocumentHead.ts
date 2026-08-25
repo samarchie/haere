@@ -10,7 +10,7 @@ interface DocumentHead {
 }
 
 const SITE_NAME = "haere";
-const SITE_URL = "https://haere.samarchie.com";
+const SITE_URL = "https://haere.samarchie.dev";
 
 function setMeta(attr: "name" | "property", key: string, content: string) {
   let el = document.head.querySelector(`meta[${attr}="${key}"]`);

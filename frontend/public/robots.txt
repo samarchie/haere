@@ -26,4 +26,4 @@ Disallow: /
 User-agent: PerplexityBot
 Disallow: /
 
-Sitemap: https://haere.samarchie.com/sitemap.xml
+Sitemap: https://haere.samarchie.dev/sitemap.xml

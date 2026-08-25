@@ -6,4 +6,4 @@ You enter your home address and destinations, pick a proposed network change, an
 
 ## Pages
 
-- [haere](https://haere.samarchie.com/): start here — pick a proposal and check your own addresses against it.
+- [haere](https://haere.samarchie.dev/): start here — pick a proposal and check your own addresses against it.
