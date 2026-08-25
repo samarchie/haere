@@ -43,7 +43,7 @@ export function useDocumentHead({
   noindex = false,
 }: DocumentHead) {
   useEffect(() => {
-    const fullTitle = title === SITE_NAME ? title : `${title} — ${SITE_NAME}`;
+    const fullTitle = title === SITE_NAME ? title : `${title} • ${SITE_NAME}`;
     const url = `${SITE_URL}${path}`;
     document.title = fullTitle;
     setMeta("name", "description", description);
