@@ -511,7 +511,8 @@ export function Location() {
             Destinations
           </div>
           <p className="mb-2 text-[12.5px] leading-snug text-ink-soft">
-            Add every place you regularly travel to — work, school, the gym.
+            Add every place you regularly go, such as work, school, the
+            supermarket, and the gym.
           </p>
 
           {destinations.map((d, i) =>

@@ -9,7 +9,6 @@ import {
   Share,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AboutPrivacyLinks } from "../components/AboutPrivacyLinks";
 import { DumbbellChart } from "../components/DumbbellChart";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
@@ -100,7 +99,7 @@ function formatSide(
 ): string {
   if (minutes.mid === null) return `not reachable ${whenLabel}`;
   if (minutes.low !== null && minutes.high !== null) {
-    return `${minutes.mid} min ${whenLabel} (usually ${minutes.low}–${minutes.high})`;
+    return `${minutes.mid} min ${whenLabel} (usually between ${minutes.low} mins and ${minutes.high} mins)`;
   }
   return `${minutes.mid} min ${whenLabel}`;
 }
@@ -723,10 +722,7 @@ export function Results() {
             return (
               <div className="mt-4 rounded-lg border border-kotare-grey/70 bg-surface-card p-4">
                 <p className="mb-1 text-[13px] font-extrabold text-ink-soft">
-                  Public consultation closed
-                </p>
-                <p className="mb-2 text-[11.5px] text-ink-faint">
-                  Public consultation on this proposal has closed.
+                  Public consultation has closed on this proposal
                 </p>
                 <a
                   href={manifest.analysis.consultation.url}
@@ -794,10 +790,6 @@ export function Results() {
           <Repeat className="h-3.5 w-3.5" />
           Switch proposal
         </Button>
-      </div>
-
-      <div className="mt-3 flex items-center justify-center gap-5 border-t border-kotare-grey/50 pt-3">
-        <AboutPrivacyLinks />
       </div>
     </WizardShell>
   );

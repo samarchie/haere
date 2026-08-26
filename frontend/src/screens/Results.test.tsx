@@ -105,7 +105,9 @@ describe("formatArrow", () => {
         { low: 34, mid: 41, high: 46 },
         19,
       ),
-    ).toBe("22 min today (usually 18–25) → 41 min after (usually 34–46).");
+    ).toBe(
+      "22 min today (usually between 18 mins and 25 mins) → 41 min after (usually between 34 mins and 46 mins).",
+    );
   });
 
   it("falls back to a bare number when low/high are missing (e.g. a proposal with only one percentile)", () => {
@@ -463,10 +465,12 @@ describe("Results", () => {
       </WizardStateProvider>,
     );
 
-    await waitFor(() => screen.getByText("Public consultation closed"));
-    expect(
-      screen.getByText("Public consultation on this proposal has closed."),
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      screen.getByText("Public consultation has closed on this proposal"),
+    );
+    // expect(
+    //   screen.getByText("Public consultation on this proposal has closed."),
+    // ).toBeInTheDocument();
     expect(
       screen.queryByText("Have your say on this proposal before it's decided."),
     ).not.toBeInTheDocument();

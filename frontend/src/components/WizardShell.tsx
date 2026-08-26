@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn";
+import { AboutPrivacyLinks } from "./AboutPrivacyLinks";
 
 interface WizardShellProps {
   // A returning visitor mid-"Switch proposal" has already finished the
@@ -20,33 +21,38 @@ export function WizardShell({
   children,
 }: WizardShellProps) {
   return (
-    <div className="mx-auto w-full max-w-[460px] rounded-xl border border-kotare-grey bg-surface-card p-5 shadow-sm sm:max-w-[640px] lg:max-w-[840px]">
-      {step !== null && (
-        <>
-          <div data-testid="wizard-progress" className="flex gap-1.5 mb-3">
-            {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-              <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length static list, never reordered.
-                key={i}
-                className={cn(
-                  "h-1 flex-1 rounded-full transition-colors duration-300",
-                  i < step ? "bg-kotare-navy" : "bg-kotare-grey",
-                )}
-              />
-            ))}
-          </div>
-          <span className="font-mono text-[10px] text-kotare-blue font-semibold">
-            Step {step} of {TOTAL_STEPS}
-          </span>
-        </>
-      )}
-      <div className="mt-0.5 mb-4 flex items-center justify-between gap-2">
-        <h1 className="text-[16px] font-bold tracking-tight text-ink">
-          {title}
-        </h1>
-        {headerAction}
+    <div className="mx-auto w-full max-w-[460px] rounded-xl border border-kotare-grey bg-surface-card shadow-sm sm:max-w-[640px] lg:max-w-[840px]">
+      <div className="p-5">
+        {step !== null && (
+          <>
+            <div data-testid="wizard-progress" className="flex gap-1.5 mb-3">
+              {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+                <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length static list, never reordered.
+                  key={i}
+                  className={cn(
+                    "h-1 flex-1 rounded-full transition-colors duration-300",
+                    i < step ? "bg-kotare-navy" : "bg-kotare-grey",
+                  )}
+                />
+              ))}
+            </div>
+            <span className="font-mono text-[10px] text-kotare-blue font-semibold">
+              Step {step} of {TOTAL_STEPS}
+            </span>
+          </>
+        )}
+        <div className="mt-0.5 mb-4 flex items-center justify-between gap-2">
+          <h1 className="text-[16px] font-bold tracking-tight text-ink">
+            {title}
+          </h1>
+          {headerAction}
+        </div>
+        {children}
       </div>
-      {children}
+      <div className="flex items-center justify-center gap-5 rounded-b-xl border-t border-kotare-grey/50 bg-kotare-grey/10 px-6 py-3">
+        <AboutPrivacyLinks />
+      </div>
     </div>
   );
 }
