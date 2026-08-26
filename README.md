@@ -1,24 +1,38 @@
-**haere** (from te reo Māori: *travel, go, depart*) is a public web app for modelling proposed transit network changes and comparing accessibility outcomes against the current network.
+**haere** (from te reo Māori: *travel, go, depart*) models proposed transit network changes and shows how they affect accessibility, in plain terms, for a given address.
+
+It's a personal portfolio project: a working end-to-end pipeline plus a public-facing web app, built to demonstrate transit modelling and full-stack delivery, not a production tool for councils.
 
 
 ## Why
 
 Environment Canterbury is [currently proposing changes](https://haveyoursay.ecan.govt.nz/metroreview44-135) to Routes 44 and 135, including removing Route 135 entirely. They're asking the public how it affects them.
 
-The problem is that most people can't answer that question in any meaningful way. They know their bus stop might disappear. They don't know whether the alternatives actually get them to work on time, or whether their suburb goes from well-served to poorly served. The council has the data and the modelling tools but the public doesn't.
+Most people can't answer that question in any real way. They know their bus stop might disappear. They don't know if the alternatives get them to work on time, or whether their suburb goes from well-served to poorly served. Councils have the data and the modelling tools. The public doesn't.
 
-`haere` is an attempt to close that gap. Enter your address, define where you need to get to, propose a change to the network, and see how your accessibility changes in plain terms.
+`haere` closes that gap. Enter an address, pick where you need to get to, propose a network change, and see how your accessibility shifts.
 
-It's also a wider problem. NZ councils make decisions about routes, stop locations, and frequency without much public-facing quantitative tooling. Changes get justified by "limited funding" and aggregate ridership numbers. What's missing is a tool that answers the question from the other direction: *what does this change actually mean for the people who live here?*
+It's a wider problem too. NZ councils decide on routes, stops, and frequency without much public-facing quantitative tooling. Changes get justified with "limited funding" and aggregate ridership numbers. What's missing is a tool that answers the question from the other direction: what does this change mean for the people who live here?
 
 
-## Dev setup
+## How it works
+
+Two halves, split cleanly:
+
+- **Backend**: a Python CLI that runs offline. It takes a city's OSM extract and GTFS feeds (baseline and modified), computes travel-time matrices with a real routing engine, and writes the results to disk.
+- **Frontend**: a static React site with no server and no live API. It reads the backend's precomputed output and lets someone explore it interactively, city and address.
+
+All the routing computation happens ahead of time via the CLI. The deployed site only reads results.
+
+
+## Backend
+
+Python, driven by per-city YAML config (see `configs/canterbury/`). Routing runs on [r5py](https://r5py.readthedocs.io/) (R5 on a JVM via jpype), which needs a real JDK.
 
 ### Prerequisites
 
 **[uv](https://docs.astral.sh/uv/getting-started/installation/)** for package management and Python installation.
 
-**A JDK, version 21 or newer.** The routing engine is [r5py](https://r5py.readthedocs.io/), which runs R5 on a JVM via jpype. Anything older than 21 will not start.
+**A JDK, version 21 or newer.**
 
 ```bash
 sudo apt update
@@ -35,9 +49,7 @@ uv tool install --force --editable .    # put the `haere` CLI on your PATH
 
 ### Data
 
-`osm_source` in a city's `city.yaml` must point at a local `.pbf` file that
-already exists — remote URLs are not supported yet. Download the extract for
-your region and put it where the config points, for example:
+`osm_source` in a city's `city.yaml` must point at a local `.pbf` file that already exists; remote URLs aren't supported yet. Download the extract for your region and put it where the config points, for example:
 
 ```bash
 mkdir -p data
@@ -45,8 +57,7 @@ curl -L -o data/chch.osm.pbf \
   https://download.geofabrik.de/australia-oceania/new-zealand-latest.osm.pbf
 ```
 
-GTFS feeds referenced by `baseline_gtfs_filepath` and `modified_gtfs_filepath`
-must likewise already be on disk.
+GTFS feeds referenced by `baseline_gtfs_filepath` and `modified_gtfs_filepath` must also already be on disk.
 
 ### Usage
 
@@ -61,17 +72,33 @@ RUN_JVM_TESTS=1 uv run pytest backend/tests/test_jvm.py --no-cov
                                       # slow tests against a real routing engine
 ```
 
-Results are written to `output/<city>/<analysis>/` as dense binary travel time
-matrices plus a `manifest.json` describing how to decode them. See
-`docs/superpowers/specs/2026-07-26-travel-time-results-design.md` for the
-format. Runs resume: a matrix already on disk at the right size is skipped.
+Results land in `output/<city>/<analysis>/` as dense binary travel-time matrices plus a `manifest.json` describing how to decode them. Runs resume: a matrix already on disk at the right size gets skipped.
 
-The JVM tier starts a real R5 routing engine against r5py's bundled Helsinki
-sample data. It is skipped by default (`RUN_JVM_TESTS` unset); filtering it
-with pytest's `-m` flag on a real command line is unsafe in this repo, since
-r5py's own argument parser also claims `-m` (for `--max-memory`) and reads the
-process's actual command line at import time — so the tier is gated by an
-environment variable and selected by path instead.
+The JVM tier starts a real R5 routing engine against r5py's bundled Helsinki sample data. It's skipped by default (`RUN_JVM_TESTS` unset). Filtering it with pytest's `-m` flag on a real command line isn't safe in this repo, since r5py's own argument parser also claims `-m` (for `--max-memory`) and reads the process's actual command line at import time. So the tier is gated by an environment variable and selected by path instead.
+
+
+## Frontend
+
+React + TypeScript, built with Vite, deployed as a static site on Cloudflare Pages (Workers assets). No backend API in production: it fetches precomputed travel-time data straight from object storage.
+
+### Prerequisites
+
+Node 22+.
+
+### Install and run
+
+```bash
+cd frontend
+npm install
+npm run dev         # local dev server
+npm run build        # production build + prerender
+npm run test         # vitest
+npm run typecheck    # tsc --noEmit
+npm run lint          # biome check
+```
+
+By default the app reads data from `/data` locally. In production, `VITE_DATA_BASE_URL` is set as a Cloudflare Pages build environment variable to point at the hosted result data, so no `.env` file is needed for local dev.
+
 
 ## License
 
