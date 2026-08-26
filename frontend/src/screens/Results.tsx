@@ -9,6 +9,7 @@ import {
   Share,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AboutPrivacyLinks } from "../components/AboutPrivacyLinks";
 import { DumbbellChart } from "../components/DumbbellChart";
 import { Alert } from "../components/ui/alert";
 import { Badge, type BadgeTone } from "../components/ui/badge";
@@ -611,9 +612,9 @@ export function Results() {
               Time window
             </div>
             <p className="mb-1.5 text-[10.5px] leading-snug text-ink-faint">
-              Which part of the day to compare trips in. We simulate catching a
-              ride every minute in the time window and report the average trip
-              time.
+              Which part of the day to compare trips in. We sample many
+              departures across the time window and report the middle (median)
+              trip time.
             </p>
             <ToggleGroup
               aria-label="Time window"
@@ -793,6 +794,10 @@ export function Results() {
           <Repeat className="h-3.5 w-3.5" />
           Switch proposal
         </Button>
+      </div>
+
+      <div className="mt-3 flex items-center justify-center gap-5 border-t border-kotare-grey/50 pt-3">
+        <AboutPrivacyLinks />
       </div>
     </WizardShell>
   );

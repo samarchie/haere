@@ -18,7 +18,7 @@ vi.mock("maplibre-gl", () => {
       return { lat: -43.5, lng: 172.6 };
     }
   }
-  return { MapLibreMap: FakeMap };
+  return { MapLibreMap: FakeMap, setWorkerUrl: vi.fn() };
 });
 
 describe("hasResumableProgress", () => {

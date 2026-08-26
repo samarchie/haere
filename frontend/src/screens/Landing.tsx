@@ -1,9 +1,9 @@
 import { ChevronRight, History, MapPin } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AboutPrivacyLinks } from "../components/AboutPrivacyLinks";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { NetworkBackdrop } from "../components/NetworkBackdrop";
 import { Button } from "../components/ui/button";
-import { Modal } from "../components/ui/modal";
 import { type AnalysisSummary, fetchAnalyses } from "../data/analysisCatalogue";
 import { forwardGeocode, type GeocodeResult } from "../data/geocode";
 import { matchingCityIds } from "../data/hexLookup";
@@ -74,8 +74,6 @@ export function Landing() {
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [historyOpen, setHistoryOpen] = useState(false);
   const historyRef = useRef<HTMLDivElement | null>(null);
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const [address, setAddress] = useState("");
   const [point, setPoint] = useState<GeocodeResult | null>(null);
@@ -408,49 +406,9 @@ export function Landing() {
         </div>
 
         <div className="flex items-center justify-center gap-5 rounded-b-2xl border-t border-kotare-grey/50 bg-kotare-grey/10 px-6 py-3 sm:px-9">
-          <button
-            type="button"
-            className="sd-focus text-[11px] text-ink-soft hover:text-ink"
-            onClick={() => setAboutOpen(true)}
-          >
-            About this analysis
-          </button>
-          <button
-            type="button"
-            className="sd-focus text-[11px] text-ink-soft hover:text-ink"
-            onClick={() => setPrivacyOpen(true)}
-          >
-            Privacy
-          </button>
+          <AboutPrivacyLinks />
         </div>
       </div>
-
-      <Modal
-        open={aboutOpen}
-        onClose={() => setAboutOpen(false)}
-        title="About this analysis"
-      >
-        <p className="text-[13px] leading-relaxed text-ink-soft">
-          haere is an independent tool for checking how a proposed transport
-          network change affects your own trips — it isn't run by your local
-          transport authority, and using it doesn't submit anything to a
-          consultation. Results are haere's own modelled estimate from public
-          timetable data, not an official guarantee. No account is needed, and
-          nothing you enter is sold or shared.
-        </p>
-      </Modal>
-      <Modal
-        open={privacyOpen}
-        onClose={() => setPrivacyOpen(false)}
-        title="Privacy"
-      >
-        <p className="text-[13px] leading-relaxed text-ink-soft">
-          Your address, destinations, and saved results stay in this browser's
-          local storage — they're never sent to a server except for the one-off
-          address lookup and results computation needed to answer your question.
-          There's no account, no analytics, and no tracking.
-        </p>
-      </Modal>
     </div>
   );
 }

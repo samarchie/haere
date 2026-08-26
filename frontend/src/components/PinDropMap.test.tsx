@@ -31,7 +31,7 @@ vi.mock("maplibre-gl", () => {
       return this.center;
     }
   }
-  return { MapLibreMap: FakeMap };
+  return { MapLibreMap: FakeMap, setWorkerUrl: vi.fn() };
 });
 
 function mostRecentMap() {
