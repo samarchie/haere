@@ -1,4 +1,11 @@
-import { ChevronRight, History, MapPin } from "lucide-react";
+import {
+  Building2,
+  ChevronRight,
+  Hexagon,
+  History,
+  MapPin,
+  Route,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
 import { NetworkBackdrop } from "../components/NetworkBackdrop";
@@ -429,15 +436,80 @@ export function Landing() {
         open={aboutOpen}
         onClose={() => setAboutOpen(false)}
         title="About this analysis"
+        maxWidthClassName="max-w-[480px]"
       >
-        <p className="text-[13px] leading-relaxed text-ink-soft">
-          haere is an independent tool for checking how a proposed transport
-          network change affects your own trips — it isn't run by your local
-          transport authority, and using it doesn't submit anything to a
-          consultation. Results are haere's own modelled estimate from public
-          timetable data, not an official guarantee. No account is needed, and
-          nothing you enter is sold or shared.
-        </p>
+        <div className="space-y-4 text-[13px] leading-relaxed text-ink-soft">
+          <section className="flex gap-3">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                What haere does
+              </h3>
+              <p>
+                Type in your address and the places you go, and haere shows how
+                a proposed change to bus and train routes would affect those
+                specific trips.
+              </p>
+            </div>
+          </section>
+
+          <section className="flex gap-3">
+            <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                Not an official tool
+              </h3>
+              <p>
+                haere isn&apos;t run by your council or transport authority.
+                Using it doesn&apos;t send feedback to anyone. If you want to
+                have your say on the proposal, that has to be done separately
+                through the official consultation.
+              </p>
+            </div>
+          </section>
+
+          <section className="flex gap-3">
+            <Route className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                How the numbers are worked out
+              </h3>
+              <p>
+                haere works out travel times from public timetables, for both
+                the current network and the proposed one. It&apos;s a model, not
+                a guarantee: timetables change, and real trips can run into
+                things a model can&apos;t see, like roadworks or a late bus.
+                Treat the result as a solid estimate, not the final word.
+              </p>
+            </div>
+          </section>
+
+          <section className="flex gap-3">
+            <Hexagon className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                Why results come in hexagons
+              </h3>
+              <p>
+                haere pre-calculates travel times for small hexagon-shaped zones
+                across the map, not for every address. Your address gets matched
+                to the hexagon it falls in, so a neighbour a few doors down will
+                usually see the same numbers you do.
+              </p>
+            </div>
+          </section>
+
+          <p>No account is needed, and nothing you enter is sold or shared.</p>
+
+          <p className="border-t border-kotare-grey/50 pt-3 text-[12px]">
+            Technical note: routing runs on r5py, an open source transport
+            router. For each trip, it checks 60 different departure times across
+            your chosen time window and reports the middle value (the median),
+            not a plain average. A trip only counts as changed if that shifts by
+            more than two minutes. Smaller shifts are treated as modelling noise
+            rather than a real difference.
+          </p>
+        </div>
       </Modal>
       <Modal
         open={privacyOpen}
