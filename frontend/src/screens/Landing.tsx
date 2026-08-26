@@ -1,10 +1,15 @@
 import {
+  AlertTriangle,
   Building2,
   ChevronRight,
+  EyeOff,
+  Globe,
   Hexagon,
   History,
+  Lock,
   MapPin,
   Route,
+  Server,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete";
@@ -515,13 +520,86 @@ export function Landing() {
         open={privacyOpen}
         onClose={() => setPrivacyOpen(false)}
         title="Privacy"
+        maxWidthClassName="max-w-[480px]"
       >
-        <p className="text-[13px] leading-relaxed text-ink-soft">
-          Your address, destinations, and saved results stay in this browser's
-          local storage — they're never sent to a server except for the one-off
-          address lookup and results computation needed to answer your question.
-          There's no account, no analytics, and no tracking.
-        </p>
+        <div className="space-y-4 text-[13px] leading-relaxed text-ink-soft">
+          <section className="flex gap-3">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                What stays on your device
+              </h3>
+              <p>
+                Your address, the destinations you add, and any saved results
+                stay in this browser&apos;s local storage. haere&apos;s own
+                server never sees them.
+              </p>
+            </div>
+          </section>
+
+          <section className="flex gap-3">
+            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                The one thing that leaves your browser
+              </h3>
+              <p>
+                When you type or search for an address, that text is sent to
+                Photon, a third-party address lookup service run by Komoot, so
+                it can be turned into map coordinates. That&apos;s the only
+                point where what you type travels further than your own browser.
+              </p>
+            </div>
+          </section>
+
+          <section className="flex gap-3">
+            <Server className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                How results reach you
+              </h3>
+              <p>
+                Once haere has your coordinates, your browser works out which
+                map hexagon they fall in and asks haere&apos;s server for that
+                hexagon&apos;s slice of a pre-built results file. Your address
+                is never part of that request, only a location code.
+              </p>
+            </div>
+          </section>
+
+          <section className="flex gap-3">
+            <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                No accounts, no tracking
+              </h3>
+              <p>
+                There&apos;s no sign-up, no analytics, and no cookies. haere has
+                no way to recognise you across visits and keeps no record of who
+                ran which check. It never asks for a credit card, password, or
+                any other sensitive information, and nothing you enter is sold
+                or shared.
+              </p>
+            </div>
+          </section>
+
+          <section className="flex gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-kotare-blue" />
+            <div>
+              <h3 className="mb-1 text-[13px] font-bold text-ink">
+                No guarantees
+              </h3>
+              <p>
+                haere is a personal project, not an official service, and
+                it&apos;s provided as-is. There&apos;s no warranty that a result
+                is accurate, complete, or current, and no guarantee it stays
+                online. Don&apos;t treat it as the final word for anything that
+                actually matters. Check the official timetable or your local
+                transport authority instead.
+              </p>
+            </div>
+          </section>
+        </div>
       </Modal>
     </div>
   );
