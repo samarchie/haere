@@ -1,19 +1,21 @@
 import { Loader2, LocateFixed, MapPin } from "lucide-react";
 import { MapLibreMap, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-// maplibre-gl locates its worker via its own bundled import.meta.url, which
-// Vite can't resolve at build time — the requested path 404s in production
-// and Cloudflare's SPA fallback serves index.html for it instead (wrong MIME
-// type, worker refuses to load). Importing it as a `?url` asset makes Vite
-// emit it as a real file and gives maplibre-gl the correct hashed path.
-import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useRef, useState } from "react";
 import { type GeocodeResult, reverseGeocode } from "../data/geocode";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Modal } from "./ui/modal";
 
-setWorkerUrl(maplibreWorkerUrl);
+// maplibre-gl locates its worker via its own bundled import.meta.url, which
+// Vite can't resolve at build time — the requested path 404s in production
+// and Cloudflare's SPA fallback serves index.html for it instead. The worker
+// file also statically imports a sibling "./maplibre-gl-shared.mjs" chunk by
+// that exact unhashed name, so Vite's asset hashing would break the pairing
+// too. Both files are checked into public/vendor/maplibre (copied verbatim
+// from node_modules/maplibre-gl/dist) and served as plain static files
+// instead — re-copy them after bumping the maplibre-gl version.
+setWorkerUrl("/vendor/maplibre/maplibre-gl-worker.mjs");
 
 // Last resort when neither an existing point nor the caller's known city
 // center (`fallbackCenter`, sourced from the analysis manifest) is
