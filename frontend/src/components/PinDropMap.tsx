@@ -162,7 +162,12 @@ export function PinDropMap({
       maxWidthClassName="max-w-[420px] sm:max-w-[640px] lg:max-w-[840px]"
     >
       <div className="relative h-[220px] overflow-hidden rounded-lg sm:h-[400px] lg:h-[520px]">
-        <div ref={containerRef} className="absolute inset-0" />
+        {/* !absolute forces this to win over maplibre-gl.css's own
+        ".maplibregl-map { position: relative }" rule (added to this element
+        by MapLibre itself, same specificity, later in the bundle) — without
+        it, position silently reverts to relative, inset-0 becomes a no-op,
+        and the container collapses to 0 height. */}
+        <div ref={containerRef} className="!absolute inset-0" />
         <button
           type="button"
           className="sd-focus absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md border border-kotare-grey bg-surface-card px-2 py-1 text-[10.5px] font-medium text-ink shadow-sm disabled:opacity-70"
