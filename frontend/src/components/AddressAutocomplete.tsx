@@ -1,8 +1,18 @@
 import { MapPin, Search } from "lucide-react";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { fetchSuggestions, type GeocodeResult } from "../data/geocode";
-import { PinDropMap } from "./PinDropMap";
 import { Input } from "./ui/input";
+
+const PinDropMap = lazy(() =>
+  import("./PinDropMap").then((m) => ({ default: m.PinDropMap })),
+);
 
 export type SearchSettledOutcome = "found" | "empty" | "unavailable";
 
@@ -32,6 +42,7 @@ export function AddressAutocomplete({
   const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
   const [open, setOpen] = useState(false);
   const [pinDropOpen, setPinDropOpen] = useState(false);
+  const [pinDropEverOpened, setPinDropEverOpened] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -126,7 +137,10 @@ export function AddressAutocomplete({
           type="button"
           aria-label="Drop pin on map"
           className="sd-focus absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-kotare-navy text-white"
-          onClick={() => setPinDropOpen(true)}
+          onClick={() => {
+            setPinDropOpen(true);
+            setPinDropEverOpened(true);
+          }}
         >
           <MapPin className="h-3 w-3" />
         </button>
@@ -148,17 +162,21 @@ export function AddressAutocomplete({
           ))}
         </div>
       )}
-      <PinDropMap
-        open={pinDropOpen}
-        onClose={() => setPinDropOpen(false)}
-        onResolve={(result) => {
-          cancelPendingSearch();
-          setPinDropOpen(false);
-          onResolve(result);
-        }}
-        initialPoint={point}
-        fallbackCenter={fallbackCenter}
-      />
+      {pinDropEverOpened && (
+        <Suspense fallback={null}>
+          <PinDropMap
+            open={pinDropOpen}
+            onClose={() => setPinDropOpen(false)}
+            onResolve={(result) => {
+              cancelPendingSearch();
+              setPinDropOpen(false);
+              onResolve(result);
+            }}
+            initialPoint={point}
+            fallbackCenter={fallbackCenter}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

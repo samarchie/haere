@@ -35,17 +35,60 @@
     />
 
     <link rel="stylesheet" href="/src/styles/globals.css" />
+    <style>
+      #noscript-fallback {
+        display: none;
+      }
+      #app-loading {
+        display: flex;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+      }
+      #app-loading .card {
+        width: 100%;
+        max-width: 440px;
+        height: 340px;
+        border-radius: 1rem;
+        background: #fff;
+        border: 1px solid #e4e4e7;
+        box-shadow: 0 20px 40px -20px rgb(40 125 171 / 0.15);
+        animation: app-loading-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes app-loading-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+    </style>
+    <noscript>
+      <style>
+        #noscript-fallback {
+          display: block;
+        }
+        #app-loading {
+          display: none;
+        }
+      </style>
+    </noscript>
   </head>
   <body>
-    <div id="app"></div>
-    <noscript>
+    <div id="app">
+      <div id="app-loading" aria-hidden="true"><div class="card"></div></div>
+    </div>
+    <div id="noscript-fallback">
       <h1>haere</h1>
       <p>
         haere is an independent tool for checking how a proposed public
         transport network change affects your own trips. Enable JavaScript
         to use it.
       </p>
-    </noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

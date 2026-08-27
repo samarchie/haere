@@ -15,6 +15,7 @@ vi.mock("maplibre-gl", () => {
     on = vi.fn();
     once = vi.fn();
     remove = vi.fn();
+    setStyle = vi.fn();
     getCenter() {
       return { lat: -43.5, lng: 172.6 };
     }

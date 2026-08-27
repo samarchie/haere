@@ -425,6 +425,9 @@ describe("Landing", () => {
     fireEvent.click(screen.getByText(/about this analysis/i));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
+    await act(async () => {
+      await vi.runOnlyPendingTimersAsync();
+    });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
