@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
   "files": { "includes": ["**", "!dist", "!public/vendor"] },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": { "enabled": true, "rules": { "preset": "recommended" } },
@@ -11,7 +11,8 @@
     },
     {
       "includes": ["**/*.css"],
-      "linter": { "rules": { "suspicious": { "noUnknownAtRules": "off" } } }
+      "linter": { "rules": { "suspicious": { "noUnknownAtRules": "off" } } },
+      "css": { "parser": { "tailwindDirectives": true } }
     }
   ]
 }
