@@ -72,7 +72,7 @@ export function Modal({
         open
         aria-modal="true"
         aria-label={title}
-        className={`w-full ${maxWidthClassName} rounded-xl bg-surface-card p-6 shadow-xl border-0 transition-[opacity,transform] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none motion-reduce:!translate-y-0 motion-reduce:!scale-100 ${
+        className={`static w-full ${maxWidthClassName} rounded-xl bg-surface-card p-6 shadow-xl border-0 transition-[opacity,transform] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none motion-reduce:!translate-y-0 motion-reduce:!scale-100 ${
           entered
             ? "translate-y-0 scale-100 opacity-100 duration-200"
             : "translate-y-2 scale-[0.97] opacity-0 duration-150"
